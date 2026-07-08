@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-This repo is currently a **planning/spec workspace** — no application code exists yet (no `src/`, no `package.json`, no `pyproject.toml`). Everything here is context files, specs, and ADRs that define what to build next. When you start implementation, follow the scaffold shapes and phase sequence below.
+Phase 1 (Python Project Foundation) and Phase 2 (Sample Data and Contract Fixtures) are complete: `pyproject.toml`/`uv`, `src/excel_io.py`, `src/contracts.py` (13 output-contract `TypedDict` families), `src/sample_data.py`, committed `sample_data/*.xlsx`, and `tests/` (32 passing). No business-rule logic exists yet — `order_validation.py`, `inventory_allocation.py`, `payment_aging.py`, and `report_export.py` are still unwritten. Next up is Phase 3 (Order Validation Core); Phase 7 (UI planning, docs-only) may also start in parallel now that Phase 2's contract fixtures exist. Check `context/progress-tracker.md` for the authoritative current phase status before starting work.
 
 **Sales Admin Automation Toolkit** is a portfolio project simulating Excel-based sales administration workflows: order validation, inventory allocation, payment aging, and report export. It is explicitly **not** a full ERP/CRM/WMS/accounting system, and uses fictional data only — never real customer, order, invoice, or product data.
 
@@ -42,28 +42,31 @@ Phase 1 is more than empty scaffolding — it includes the cross-cutting infrast
 
 Phase 1 explicitly excludes all business rules (validation/allocation/aging), sample workbook *generation* (stubs only), report export logic, and any FastAPI/UI work — those come in Phases 2–6.
 
-### Planned Python scaffold (not yet created)
+### Python scaffold — built vs. still planned
 
 ```
 src/
-  __init__.py
-  excel_io.py            # Excel loading, required-column validation, normalization helpers
-  contracts.py           # TypedDict output contracts (Phase 1)
-  order_validation.py    # Order validation rules and output
-  inventory_allocation.py # Allocation ordering, stock depletion, backorder/supplier follow-up
-  payment_aging.py       # Outstanding amount, aging buckets, follow-up priority, draft reminders
-  report_export.py       # Excel workbook generation from already-computed outputs
-  sample_data.py         # Fictional sample workbook generation
+  __init__.py             # done (Phase 1)
+  excel_io.py             # done (Phase 1) — Excel loading, required-column validation, normalization helpers
+  contracts.py            # done (Phase 1) — TypedDict output contracts
+  sample_data.py          # done (Phase 2) — fictional sample workbook generation
+  order_validation.py     # planned (Phase 3) — order validation rules and output
+  inventory_allocation.py # planned (Phase 4) — allocation ordering, stock depletion, backorder/supplier follow-up
+  payment_aging.py        # planned (Phase 5) — outstanding amount, aging buckets, follow-up priority, draft reminders
+  report_export.py        # planned (Phase 6) — Excel workbook generation from already-computed outputs
 tests/
-  test_order_validation.py
-  test_inventory_allocation.py
-  test_payment_aging.py
-  test_report_export.py
+  test_excel_io.py         # done (Phase 1)
+  test_contracts.py        # done (Phase 1, extended Phase 2)
+  test_sample_data.py      # done (Phase 2)
+  test_order_validation.py    # planned (Phase 3)
+  test_inventory_allocation.py # planned (Phase 4)
+  test_payment_aging.py       # planned (Phase 5)
+  test_report_export.py       # planned (Phase 6)
 sample_data/
-  sample_orders.xlsx
-  sample_product_master.xlsx
-  sample_inventory.xlsx
-  sample_invoices.xlsx
+  sample_orders.xlsx          # done (Phase 2)
+  sample_product_master.xlsx  # done (Phase 2)
+  sample_inventory.xlsx       # done (Phase 2)
+  sample_invoices.xlsx        # done (Phase 2)
 ```
 
 Module boundaries are strict — `excel_io.py` never contains workflow-specific rules, `report_export.py` never contains business calculations, and none of `src/` contains UI or FastAPI route logic. Stack: pandas for tabular transforms, openpyxl for `.xlsx` I/O, pytest for tests.

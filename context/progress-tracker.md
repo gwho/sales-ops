@@ -5,9 +5,9 @@ Update this file after every completed feature.
 ## Current Status
 
 **Project:** Sales Admin Automation Toolkit  
-**Phase:** Phase 1 - Python Project Foundation (complete)  
-**Last completed:** Phase 1 scaffolding — `pyproject.toml`/`uv`, `src/excel_io.py`, `src/contracts.py` (13 output families incl. `PaymentDataIssueRow` per ADR 0005), tests passing (`uv run pytest` — 7 passed)  
-**Next:** Phase 2 — Sample Data and Contract Fixtures
+**Phase:** Phase 2 - Sample Data and Contract Fixtures (complete)  
+**Last completed:** Phase 2 — `src/sample_data.py` (4 generator functions + `write_sample_workbooks`), committed `sample_data/*.xlsx` (orders, product master, inventory, invoices, each with the specified realistic imperfections), `tests/contract_fixtures.py` (13 fixture constants for all output families), tests passing (`uv run pytest` — 32 passed)  
+**Next:** Phase 3 — Order Validation Core (Phase 7 UI planning may also start now, in parallel, since it's planning-only)
 
 ## Important Note
 
@@ -44,14 +44,14 @@ Tooling conventions locked via `/grill-with-docs` session, see `docs/adr/0004-ph
 
 ### Phase 2 - Sample Data and Contract Fixtures
 
-- [ ] Generate `sample_orders.xlsx` (mostly valid, 1 duplicate order ID, 1 missing field/invalid SKU)
-- [ ] Generate `sample_product_master.xlsx` (mostly active SKUs, 1 inactive SKU)
-- [ ] Generate `sample_inventory.xlsx` (limited stock for 1-2 SKUs, 1 SKU near reorder point)
-- [ ] Generate `sample_invoices.xlsx` (mix of current/paid/partial/overdue, 1 high-priority overdue, at most 1 data-issue row)
-- [ ] Populate validation contract fixtures with realistic sample values
-- [ ] Populate allocation contract fixtures with realistic sample values
-- [ ] Populate payment aging contract fixtures with realistic sample values
-- [ ] Populate report manifest fixture with realistic sample values
+- [x] Generate `sample_orders.xlsx` (mostly valid, 1 duplicate order ID, 1 invalid SKU)
+- [x] Generate `sample_product_master.xlsx` (mostly active SKUs, 1 inactive SKU)
+- [x] Generate `sample_inventory.xlsx` (limited stock for MED-LENS-001 across 2 warehouses, 1 SKU below reorder point)
+- [x] Generate `sample_invoices.xlsx` (mix of current/paid/partial/overdue, 1 high-priority overdue, 1 missing-due-date data-issue row)
+- [x] Populate validation contract fixtures with realistic sample values
+- [x] Populate allocation contract fixtures with realistic sample values
+- [x] Populate payment aging contract fixtures with realistic sample values
+- [x] Populate report manifest fixture with realistic sample values
 
 ### Phase 3 - Order Validation Core
 
@@ -159,3 +159,5 @@ Tooling conventions locked via `/grill-with-docs` session, see `docs/adr/0004-ph
 - Phase 1 tooling locked: Python 3.12, `pyproject.toml` + `uv` (no `requirements.txt`), pytest config in `pyproject.toml`, no placeholder files for later-phase modules (`docs/adr/0004-phase-1-python-tooling.md`).
 - Added `PaymentDataIssueRow` as a 13th output-contract family: the payment-aging Data Issues sheet (PA-006/PA-007) had no matching contract in the original 12-family list (`docs/adr/0005-payment-data-issue-row-contract.md`).
 - Phase 1 complete: `pyproject.toml`/`uv` project config, `src/excel_io.py`, `src/contracts.py` (13 output families), `tests/test_excel_io.py`, `tests/test_contracts.py` all in place; `uv run pytest` passes (7 tests).
+- Phase 2 tooling decisions (via `/architect`): `sample_invoices.xlsx` due dates are generated as offsets from a `reference_date: date | None = None` parameter (resolved to `date.today()` inside the function, not a literal default) so the aging demo stays believable whenever regenerated; orders/inventory use plain fixed dates since their rules don't depend on "today". Contract fixtures live in `tests/contract_fixtures.py` (not inline in tests, not a new `src/` module) so Phase 7 UI planning can read them directly.
+- Phase 2 complete: `src/sample_data.py`, `sample_data/*.xlsx` (4 files), `tests/contract_fixtures.py`, `tests/test_sample_data.py`, extended `tests/test_contracts.py`; `uv run pytest` passes (32 tests).
