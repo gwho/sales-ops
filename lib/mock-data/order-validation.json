@@ -1,0 +1,35 @@
+{
+  "summary": {
+    "total_orders": 12,
+    "valid_orders": 9,
+    "invalid_orders": 3,
+    "duplicate_orders": 2,
+    "invalid_skus": 1,
+    "missing_field_count": 0
+  },
+  "valid_orders": [
+    {
+      "order_id": "SO-2026-006",
+      "order_date": "2026-07-03",
+      "customer_name": "Golden Harbor Logistics",
+      "customer_region": "Hong Kong",
+      "sku": "OFF-CHAIR-006",
+      "product_name": "Ergonomic Office Chair",
+      "quantity": 15,
+      "requested_delivery_date": "2026-07-18",
+      "priority": "Normal",
+      "payment_terms": "30 days",
+      "sales_owner": "Wendy"
+    }
+  ],
+  "errors": [
+    {
+      "row_number": 11,
+      "order_id": "SO-2026-009",
+      "sku": "MED-LENS-999",
+      "error_code": "OV-003",
+      "error_message": "SKU does not exist in product master",
+      "severity": "Error"
+    }
+  ]
+}

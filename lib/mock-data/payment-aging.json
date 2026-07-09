@@ -1,0 +1,48 @@
+{
+  "summary": {
+    "total_invoices": 10,
+    "total_outstanding_amount": 165000.0,
+    "overdue_amount": 111000.0,
+    "high_priority_count": 1,
+    "aging_bucket_counts": {
+      "Current": 2,
+      "1-30 Days": 3,
+      "31-60 Days": 2,
+      "61-90 Days": 1,
+      "90+ Days": 0
+    }
+  },
+  "aging_rows": [
+    {
+      "invoice_id": "INV-2026-001",
+      "customer_name": "Bright Medical Trading Ltd",
+      "invoice_date": "2026-03-31",
+      "due_date": "2026-04-30",
+      "invoice_amount": 58000.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 58000.0,
+      "days_overdue": 70,
+      "aging_bucket": "61-90 Days",
+      "follow_up_priority": "High",
+      "suggested_action": "Call or email customer urgently"
+    }
+  ],
+  "data_issues": [
+    {
+      "invoice_id": "INV-2026-009",
+      "customer_name": "Formosa Industrial Group",
+      "error_code": "PA-006",
+      "error_message": "Due date is missing",
+      "severity": "Error"
+    }
+  ],
+  "draft_messages": [
+    {
+      "invoice_id": "INV-2026-001",
+      "customer_name": "Bright Medical Trading Ltd",
+      "outstanding_amount": 58000.0,
+      "days_overdue": 70,
+      "message_text": "Dear Bright Medical Trading Ltd,\n\nHope you are well. We would like to follow up on invoice INV-2026-001, with an outstanding amount of HKD 58,000.00, which is currently 70 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    }
+  ]
+}
