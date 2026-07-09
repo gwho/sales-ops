@@ -5,9 +5,9 @@ Update this file after every completed feature.
 ## Current Status
 
 **Project:** Sales Admin Automation Toolkit  
-**Phase:** Phase 2 - Sample Data and Contract Fixtures (complete)  
-**Last completed:** Phase 2 — `src/sample_data.py` (4 generator functions + `write_sample_workbooks`), committed `sample_data/*.xlsx` (orders, product master, inventory, invoices, each with the specified realistic imperfections), `tests/contract_fixtures.py` (13 fixture constants for all output families), tests passing (`uv run pytest` — 32 passed)  
-**Next:** Phase 3 — Order Validation Core (Phase 7 UI planning may also start now, in parallel, since it's planning-only)
+**Phase:** Phase 3 - Order Validation Core (complete)  
+**Last completed:** Phase 3 — `src/order_validation.py` (`load_orders`, `load_product_master`, `validate_orders`, local `OrderValidationResult` envelope) implementing every OV-001–OV-007 rule, `tests/test_order_validation.py` covering all spec §12 cases plus resolved edge cases, tests passing (`uv run pytest` — 63 passed)  
+**Next:** Phase 4 — Inventory Allocation Core (Phase 7 UI planning may also continue in parallel, since it's planning-only)
 
 ## Important Note
 
@@ -55,15 +55,15 @@ Tooling conventions locked via `/grill-with-docs` session, see `docs/adr/0004-ph
 
 ### Phase 3 - Order Validation Core
 
-- [ ] Required column checks
-- [ ] Required field validation
-- [ ] Duplicate order ID detection
-- [ ] Valid active SKU checks
-- [ ] Positive whole-number quantity checks
-- [ ] Delivery date validation
-- [ ] Priority controlled values
-- [ ] Payment terms check
-- [ ] pytest coverage
+- [x] Required column checks
+- [x] Required field validation
+- [x] Duplicate order ID detection
+- [x] Valid active SKU checks
+- [x] Positive whole-number quantity checks
+- [x] Delivery date validation
+- [x] Priority controlled values
+- [x] Payment terms check
+- [x] pytest coverage
 
 ### Phase 4 - Inventory Allocation Core
 
@@ -161,3 +161,5 @@ Tooling conventions locked via `/grill-with-docs` session, see `docs/adr/0004-ph
 - Phase 1 complete: `pyproject.toml`/`uv` project config, `src/excel_io.py`, `src/contracts.py` (13 output families), `tests/test_excel_io.py`, `tests/test_contracts.py` all in place; `uv run pytest` passes (7 tests).
 - Phase 2 tooling decisions (via `/architect`): `sample_invoices.xlsx` due dates are generated as offsets from a `reference_date: date | None = None` parameter (resolved to `date.today()` inside the function, not a literal default) so the aging demo stays believable whenever regenerated; orders/inventory use plain fixed dates since their rules don't depend on "today". Contract fixtures live in `tests/contract_fixtures.py` (not inline in tests, not a new `src/` module) so Phase 7 UI planning can read them directly.
 - Phase 2 complete: `src/sample_data.py`, `sample_data/*.xlsx` (4 files), `tests/contract_fixtures.py`, `tests/test_sample_data.py`, extended `tests/test_contracts.py`; `uv run pytest` passes (32 tests).
+- Phase 3 decisions (via `/architect`): `validate_orders()` returns a single `OrderValidationResult` dict envelope (`summary`/`valid_orders`/`errors`), defined locally in `order_validation.py`, not added to `contracts.py`. Multiple validation errors allowed per row; OV-001 emits one error per missing field. Resolved an internal spec contradiction (OV-001 vs OV-007 both covering blank `payment_terms`) in favor of OV-007-Warning-only, so Warning-only rows stay valid. Blank fields skip their downstream value-quality rule (OV-002/003/004/005/006) to avoid double-flagging. OV-003 split into `UNKNOWN_SKU`/`INACTIVE_SKU`/`INVALID_ACTIVE_FLAG`; OV-005 split into `INVALID_ORDER_DATE`/`INVALID_DELIVERY_DATE`/`DELIVERY_BEFORE_ORDER`. Malformed quantity/dates convert to business-readable errors rather than raising. `product_name` fills from product master only when the order row's own value is blank.
+- Phase 3 complete: `src/order_validation.py`, `tests/test_order_validation.py`; `uv run pytest` passes (63 tests).
