@@ -5,9 +5,9 @@ Update this file after every completed feature.
 ## Current Status
 
 **Project:** Sales Admin Automation Toolkit  
-**Phase:** Phase 8 - Next.js Frontend Foundation (complete)  
-**Last completed:** Phase 8 — Next.js App Router scaffold at repo root (Next 16, React 19, TypeScript strict), Tailwind CSS 3.4 wired to the `ui-tokens.md` project tokens, shadcn plumbing only (`cn()` + `components.json` + deps), `types/index.ts` from `ui-contract-plan.md`, build-time-only mock JSON in `lib/mock-data/` generated from `tests/contract_fixtures.py`, and 5 stub routes + root redirect. `npm run build`/`lint`/`typecheck` clean; all 5 routes serve 200 with semantic tokens rendering; `uv run pytest` still 152 (Python untouched by the scaffold).
-**Next:** Phase 9 (Reusable UI Components + Static Pages). This is where shadcn primitives get added per-component and reconciled to `ui-tokens.md` (deferred from Phase 8), the 12 registry components are built and `/imprint`ed, and the 5 routes are filled in against the mock JSON. The Phase 8 hard gate is satisfied: line-by-line audit confirms all 26 spec §11/§12 test cases map to named tests, Phase 6 report-structure tests pass (24/24), full suite 152.
+**Phase:** Phase 9 - Reusable UI Components and Static Pages (complete)  
+**Last completed:** Phase 9 — all 12 registry components built (`AppShell`, `SidebarNav`, `TopHeader`, `MetricCard`, `WorkflowStepper`, `UploadPanel`, `StatusBadge`, `DataTable`, `ReportCard`, `EmptyState`, `LoadingState`, `BusinessErrorMessage`) plus 4 hand-written primitives (`Button`, `Card`, `Badge`, `Table`), all `/imprint`ed into `context/ui-registry.md`. All 5 routes filled in against `lib/mock-data/*.json` (static showcase — no live API, no fake state machines). `npm run build`/`lint`/`typecheck` clean; `uv run pytest` still 152 (Python untouched); route smoke checks confirm real contract data renders; token/raw-color scan and Figma-vocabulary-leak scan both clean.
+**Next:** Phase 10 (FastAPI Integration). Wires the 4 upload panels and report-download buttons to real endpoints, replaces `lib/mock-data.ts` static imports with live API calls, and gives `LoadingState`/`BusinessErrorMessage`/`ReportCard`'s non-Ready states and `WorkflowStepper` real client-driven transitions for the first time (all built as visual variants in Phase 9 but never live-wired).
 
 ## Important Note
 
@@ -119,23 +119,23 @@ Tooling conventions locked via `/grill-with-docs` session, see `docs/adr/0004-ph
 
 ### Phase 9 - Reusable UI Components and Static Pages
 
-- [ ] AppShell
-- [ ] SidebarNav
-- [ ] TopHeader
-- [ ] MetricCard
-- [ ] WorkflowStepper
-- [ ] UploadPanel
-- [ ] StatusBadge
-- [ ] DataTable
-- [ ] ReportCard
-- [ ] EmptyState
-- [ ] LoadingState
-- [ ] BusinessErrorMessage
-- [ ] Dashboard
-- [ ] Order Validation
-- [ ] Inventory Allocation
-- [ ] Payment Aging
-- [ ] Reports
+- [x] AppShell
+- [x] SidebarNav
+- [x] TopHeader
+- [x] MetricCard
+- [x] WorkflowStepper
+- [x] UploadPanel
+- [x] StatusBadge
+- [x] DataTable
+- [x] ReportCard
+- [x] EmptyState
+- [x] LoadingState
+- [x] BusinessErrorMessage
+- [x] Dashboard
+- [x] Order Validation
+- [x] Inventory Allocation
+- [x] Payment Aging
+- [x] Reports
 
 ### Phase 10 - FastAPI Integration
 
@@ -172,3 +172,6 @@ Tooling conventions locked via `/grill-with-docs` session, see `docs/adr/0004-ph
 - Phase 7 complete: `context/ui-contract-plan.md` (new), `context/ui-rules.md` (Status Badges section rewritten), `context/progress-tracker.md` updated; no `src/`/`tests/` changes, `uv run pytest` still passes (151 tests, unchanged).
 - Phase 8 decisions (via `/architect` + `AskUserQuestion`, Figma MCP now connected): scaffolded into a scratchpad temp dir and transplanted only Next.js files to the repo root, because `create-next-app` generates its own `AGENTS.md`/`CLAUDE.md`/`README.md`/`.gitignore` that would clobber the real ones — `git status` confirmed no Python/context/docs file was touched. Tailwind pinned to 3.4.19 (create-next-app defaults to v4); set up via the v3 path (`tailwind.config.ts` + `@tailwind` directives + autoprefixer), not v4's CSS-first config. Snake_case preserved verbatim in `types/index.ts` and mock JSON — no camelCase adapter (carried from Phase 7). Payment Aging badges stay direct-fields-only (`aging_bucket`, `follow_up_priority`); no Paid/Overdue shorthand. **shadcn is plumbing-only this phase** (`cn()`, `components.json`, deps) — primitive components deferred to Phase 9. Reason: `ui-tokens.md`'s token names are authoritative and collide with shadcn's default set (notably `--accent` = brand blue here vs shadcn's gray hover); adding primitives now would force injecting shadcn's parallel tokens, which the CRITICAL "never add tokens without approval" rule (`skills/tailwind-best-practices`) forbids. Phase 9 adds each primitive only when a real component needs it, reconciles its classes to `ui-tokens.md`, and `/imprint`s the pattern. Mock JSON is generated build-time-only by `scripts/generate_mock_data.py` from `tests/contract_fixtures.py`; the Next.js app never imports `tests/` at runtime — it reads committed `lib/mock-data/*.json`.
 - Phase 8 complete: `app/` (root layout + 5 stub routes + root redirect), `tailwind.config.ts`, `postcss.config.mjs`, `app/globals.css` (tokens), `lib/utils.ts`, `components.json`, `types/index.ts`, `scripts/generate_mock_data.py`, `lib/mock-data/*.json`, `package.json`/lockfile, merged `.gitignore`. `npm run build`/`lint`/`typecheck` clean; all 5 routes serve 200 with semantic-token CSS compiled; `uv run pytest` still 152 (Python untouched). `context/ui-registry.md` intentionally left empty — no reusable components built this phase.
+- Phase 9 decisions (via `/architect` + `AskUserQuestion`): static showcase, not a simulated live app — pages render `lib/mock-data.ts`'s typed mock data immediately, `UploadPanel` is a real file-picker that never gates content, `ReportCard` renders `Ready` straight from the mock `ReportManifest`, and the other 3 report-lifecycle states plus `WorkflowStepper`'s steps exist only as prop-driven visual variants, never live-wired via timers. `DataTable` is plain client-side single-column sort with no new dependency (no TanStack Table this phase — mock fixtures are 1-2 rows). All primitives (`Button`/`Card`/`Badge`/`Table`) are hand-written under `components/ui/`, never generated via `npx shadcn add`, because `components.json`'s `baseColor: "slate"` would inject shadcn's own colliding tokens into `globals.css`. No Recharts — the Payment Aging aging-bucket breakdown is a token-styled bar list. `StatusBadge`'s status→tone mapping was fixed before build (see `context/ui-registry.md`'s StatusBadge entry), not decided ad hoc. Added `lib/mock-data.ts` and `lib/formatters.ts` per `architecture.md`'s already-documented Future Frontend Shape.
+- Phase 9 build-time discovery (not anticipated in planning): React Server Components cannot pass functions as props to Client Components. `DataTable`'s `columns` config carries `render`/`sortValue` functions, so every page that builds a `DataTable` column config must itself be a Client Component, not just `DataTable` — `order-validation`, `inventory-allocation`, and `payment-aging` pages are `"use client"` for this reason (discovered via a real `next build` prerender failure, not a review pass). `dashboard` and `reports` don't use `DataTable` and stay Server Components as originally planned.
+- Phase 9 complete: 12 registry components + 4 hand-written primitives (`components/ui/`, `components/layout/`, `components/feedback/`, `components/workflow/`, `components/tables/`), `lib/mock-data.ts`, `lib/formatters.ts`, all 5 routes filled in against mock JSON. `npm run build`/`lint`/`typecheck` clean; `uv run pytest` still 152 (Python untouched); route smoke checks confirm real contract data (not placeholder text) renders on all 5 routes; token/raw-color scan and `globals.css` diff (no shadcn-default variables introduced) both clean; Figma Reference Reconciliation corrections (real priority vocab, real allocation status values, real $50k threshold, real supplier-follow-up field set, verbatim draft-message text, fixed 5-route nav) verified present, not the Figma prototypes' invented versions.
