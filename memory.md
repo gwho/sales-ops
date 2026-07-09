@@ -1,43 +1,41 @@
-# Memory — Repo Init + Phase 1 Tooling Grilling + Phase 1 Implementation
+# Memory — Phase 2: Sample Data and Contract Fixtures
 
 Last updated: 2026-07-09
 
 ## What was built
 
-- `CLAUDE.md` at repo root (via `/init`).
-- `docs/adr/0004-phase-1-python-tooling.md` — Phase 1 tooling decisions (Python version, dependency manager, pytest config location, file scope, README workflow), produced via a `/grill-with-docs` session.
-- `docs/adr/0005-payment-data-issue-row-contract.md` — adds a 13th output-contract family, `PaymentDataIssueRow`, that the original required-families list was missing (spec `03_demo_payment_aging.md` PA-006/PA-007 require it; discovered while writing `contracts.py`).
-- **Phase 1 implementation is done**: `.python-version` (3.12), `pyproject.toml` + `uv.lock` (deps: `pandas`, `openpyxl`; dev: `pytest`), `.gitignore`, `README.md`, `src/__init__.py`, `src/excel_io.py` (`load_excel`, `validate_required_columns`, `MissingColumnsError` with business-readable messages), `src/contracts.py` (all 13 `TypedDict` output families), `tests/test_excel_io.py`, `tests/test_contracts.py`, empty `sample_data/`. `uv run pytest` passes (7 tests).
-- Registered the `remember` skill globally at `~/.claude/skills/remember/SKILL.md`.
+- `src/sample_data.py` — 4 generator functions (`generate_product_master`, `generate_orders`, `generate_inventory`, `generate_invoices`) plus `write_sample_workbooks()`. `generate_invoices`/`write_sample_workbooks` take `reference_date: date | None = None`, resolved to `date.today()` inside the function body.
+- `sample_data/*.xlsx` (committed, generated once and checked in): `sample_orders.xlsx` (12 lines, 1 duplicate `order_id` = `SO-2026-005`, 1 unknown SKU `MED-LENS-999` on `SO-2026-009`), `sample_product_master.xlsx` (8 SKUs, 1 inactive = `ELEC-CABLE-008`), `sample_inventory.xlsx` (2 warehouses; `MED-LENS-001` scarce — HK 20 units, SG 5 units with `reorder_point=6` so SG already sits below reorder point as a static fact; total `MED-LENS-001` demand 35 vs supply 25, by design, to force partial allocation once Phase 4 exists), `sample_invoices.xlsx` (10 invoices; `INV-2026-001` is the designated high-priority overdue example — `reference_date - 70 days` due date, $58,000 outstanding; `INV-2026-009` has a missing due date as the one data-issue row).
+- `tests/contract_fixtures.py` — 13 hand-authored fixture constants, one per `src/contracts.py` output family (12 single dicts + `REPORT_MANIFEST_FIXTURES` as a list of 3, one per required Phase 6 report).
+- `tests/test_sample_data.py` (new) and `tests/test_contracts.py` (extended) — column/imperfection-count/round-trip tests. `uv run pytest` passes: 32 tests total (7 from Phase 1, 25 new).
+- `docs/plan/phase-2-sample-data/` — `plan.md`, `explanation.md`, `ai-discussion-topics.md`.
+- `context/progress-tracker.md` updated: Phase 2 checked off, current phase now Phase 3.
+- Fixed stale "Project state" section and the "Planned Python scaffold (not yet created)" table in root `CLAUDE.md` — both said no app code existed / Phase 1 was next, which was out of date after Phase 1 and now Phase 2 completed.
 
 ## Decisions made
 
-1. **ADR 0003 rationale corrected**: Python-first sequencing is about sequencing risk, not shape-invention risk (specs already define shapes in detail).
-2. **Phase 1 scope**: `excel_io.py` + `contracts.py` are foundational infra, not just empty scaffolding.
-3. **Sample data vs. test fixtures**: `sample_data/*.xlsx` = believable demo fixtures (mostly clean, 2-3 imperfections); pytest DataFrame fixtures = exhaustive edge-case coverage. Distinct from a "Contract Fixture" (a realistic example value proving a contract shape, built in Phase 2).
-4. **Field Scope Boundary**: a contract only gets fields its originating spec explicitly defines — no cross-module symmetry additions.
-5. **Two UI gates**: Phase 7 (planning) can start after Phase 2; Phase 8 (real Next.js code) is hard-gated on Phase 3-6 tests passing.
-6. **Scope Gate**: only V1/unlabeled spec rules; Optional/V1.5/V2 and the CRM Cleaner module need a new ADR.
-7. **Phase 1 tooling** (ADR 0004): Python 3.12 pinned via `.python-version`; `pyproject.toml` + `uv` (no `requirements.txt`, no pip/poetry), `uv.lock` committed (this is an app/demo, not a library, so a committed lockfile aids reviewer reproducibility); pytest config lives in `pyproject.toml` under `[tool.pytest.ini_options]`; function-based tests, `test_*.py`, `test_<behavior>`, no `pytest-cov` yet; Phase 1 file scope is exactly `src/__init__.py` + `excel_io.py` + `contracts.py` + their two test files — no placeholder stubs for later-phase modules; README documents only the `uv` workflow.
-8. **PaymentDataIssueRow added** (ADR 0005): mirrors `ValidationErrorRow`'s shape (`invoice_id`, `customer_name`, `error_code`, `error_message`, `severity`) but stays a separate TypedDict rather than a shared generic error-row type, per the Field Scope Boundary — order validation and payment aging are different specs.
-9. **BackorderRow** is defined as an empty subclass of `AllocationResultRow` (same shape — Backorders sheet is Allocation Results filtered to `status=Backordered`; no separate column table exists in the spec).
-10. **SupplierFollowUpRow** and **ReportManifest** fields were inferred (no explicit column table in specs) from directly-adjacent spec facts: `SupplierFollowUpRow` from inventory.xlsx's `supplier_name`/`lead_time_days`/`reorder_point` plus computed `remaining_qty`; `ReportManifest` from the already-documented `GET /api/reports/{report_id}` endpoint (`report_id`, `report_type`, `file_name`, `generated_at`, `sheet_names`) — architecture-level plumbing, not a business-rule invention, so no ADR needed.
+1. **Date anchoring**: only `sample_invoices.xlsx` uses `reference_date`-relative dates (payment aging depends on "today"); `sample_orders.xlsx`/`sample_inventory.xlsx` use fixed 2026-07 dates since order/allocation rules never compare against "today".
+2. **`reference_date: date | None = None`, not `= date.today()`** — a literal default is evaluated once at import time and freezes; the `None`-sentinel resolves it per call.
+3. **Contract fixtures live in `tests/contract_fixtures.py`**, not inline in tests and not a new `src/` module — `context/architecture.md`'s module-boundary table doesn't name a fixtures module, and Phase 7 (UI planning) needs to read these values directly.
+4. **`REPORT_MANIFEST_FIXTURES` is the one list-of-3 exception** to "one fixture per family" — a single manifest wouldn't show the family's real reuse pattern (one per required Phase 6 report: order_validation, inventory_allocation, payment_aging).
+5. Fixtures are explicitly documented as hand-authored, not computed by `sample_data.py` or any business-rule module (those don't exist until Phases 3-5) — a fixture proves a shape can hold a believable value, not that a rule is correctly implemented.
+6. The "SKU near reorder point" imperfection is authored as a static fact in the raw inventory data (`available_qty < reorder_point` as written for `MED-LENS-001` SG Warehouse), not simulated via allocation math — keeps Phase 2 tests from reimplementing Phase 4/5 logic early.
+7. Both `/architect` decisions (date anchoring, fixture location) were made via `AskUserQuestion` during a plan-mode `/architect` session before any code was written; the resulting plan was saved to `~/.claude/plans/phase-2-sample-magical-mango.md` and approved with 5 user-requested edits (the `None`-sentinel fix, avoid reimplementing Phase 5 aging logic in tests, add optional source columns for realism, add explicit "not business output" boundary note to fixtures, fix stale `CLAUDE.md`).
 
 ## Problems solved
 
-- Phase 2 was worded as "define output contracts" after `contracts.py` moved to Phase 1 — reframed as "Sample Data and Contract Fixtures".
-- Terminology (output contract, contract fixture, field scope boundary, scope gate, V1/V2) formalized as `CONTEXT.md` glossary entries.
-- `requirements.txt` vs `pyproject.toml` and Python version were open questions blocking Phase 1 — resolved via ADR 0004 before writing code.
-- Missing `PaymentDataIssueRow` contract family caught before it caused a silent gap in Phase 5 — resolved via ADR 0005, user chose "add it now" over deferring or reusing `ValidationErrorRow`.
+- Avoided a live default-argument bug (`date.today()` as literal default) before it was ever written, via user's Step-1 review feedback on the plan.
+- Balanced "prove the data will force partial allocation in Phase 4" against "don't reimplement Phase 4 in a Phase 2 test" by using a static below-reorder-point fact instead of computing allocation outcomes; `test_generate_inventory_has_at_least_one_sku_below_reorder_point` checks this directly with plain arithmetic, no sorting/warehouse-choice logic.
+- Root `CLAUDE.md` had drifted out of sync with `context/progress-tracker.md` after Phase 1 completed (still said "no app code exists yet... next is Phase 1") — now both agree.
 
 ## Current state
 
-Phase 1 (Python Project Foundation) is complete and tested. All context docs reflect current decisions: `docs/adr/0003`, `0004`, `0005`; `context/build-plan.md`, `context/progress-tracker.md`, `context/code-standards.md`, `context/architecture.md`, `CONTEXT.md`, `CLAUDE.md`. `context/progress-tracker.md` Phase 1 checkboxes are all checked. No git repo initialized yet (`.gitignore` is in place for when it is).
+Phase 2 complete and tested (`uv run pytest` → 32 passed). All context docs in sync: `context/progress-tracker.md`, root `CLAUDE.md`. No git repo initialized yet in this project (still no `git init` run — `.gitignore` has been in place since Phase 1).
 
 ## Next session starts with
 
-Begin Phase 2 — Sample Data and Contract Fixtures (`context/progress-tracker.md`): generate `sample_orders.xlsx`, `sample_product_master.xlsx`, `sample_inventory.xlsx`, `sample_invoices.xlsx` (each mostly clean with the specific realistic imperfections listed in `context/build-plan.md`), then populate contract fixtures (realistic example dicts) for all 13 families in `src/contracts.py`, including the new `PaymentDataIssueRow`.
+Begin Phase 3 — Order Validation Core (`context/progress-tracker.md`): implement `src/order_validation.py` covering every rule in `sales_admin_automation_toolkit_specs/01_demo_order_validation.md` (OV-001 through OV-007) plus `tests/test_order_validation.py` with small inline DataFrame fixtures for exhaustive edge-case coverage (not `sample_data/*.xlsx`, which stays believable-but-mostly-clean per Phase 2's design). Phase 7 (UI/TypeScript planning, docs-only) may also start in parallel now that Phase 2 contract fixtures exist, if the user wants to run it alongside Phase 3.
 
 ## Open questions
 
-None outstanding. Both prior Phase 1 tooling questions (Python version, dependency tooling) are resolved per ADR 0004.
+None outstanding. Both Phase 2 architecture decisions (date anchoring, fixture location) are resolved and implemented.
