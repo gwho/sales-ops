@@ -348,6 +348,51 @@ def test_payment_aging_report_summary_sheet_flattens_aging_bucket_counts():
     assert values["Total Invoices"] == PAYMENT_AGING_SUMMARY_FIXTURE["total_invoices"]
 
 
+def test_payment_aging_report_aging_summary_follows_provided_dict_not_hardcoded_order():
+    # Deliberately different keys/order/count than the old 5-key AGING_BUCKET_ORDER list
+    # (Current, 1-30 Days, 31-60 Days, 61-90 Days, 90+ Days) — proves the summary writer
+    # renders whatever dict it's handed, not a report_export-owned bucket list.
+    custom_summary = {
+        **PAYMENT_AGING_SUMMARY_FIXTURE,
+        "aging_bucket_counts": {
+            "91+ Days": 4,
+            "Current": 1,
+            "1-30 Days": 2,
+            "61-90 Days": 3,
+            "Zzz-Custom-Bucket": 9,
+        },
+    }
+    workbook_bytes, _ = export_payment_aging_report(
+        _payment_aging_result(summary=custom_summary), generated_at=GENERATED_AT
+    )
+    wb = _load(workbook_bytes)
+    ws = wb["Aging Summary"]
+    rows = [(row[0].value, row[1].value) for row in ws.iter_rows(min_row=2)]
+    bucket_rows = [r for r in rows if r[0].startswith("Aging Bucket Counts:")]
+    assert bucket_rows == [
+        ("Aging Bucket Counts: 91+ Days", 4),
+        ("Aging Bucket Counts: Current", 1),
+        ("Aging Bucket Counts: 1-30 Days", 2),
+        ("Aging Bucket Counts: 61-90 Days", 3),
+        ("Aging Bucket Counts: Zzz-Custom-Bucket", 9),
+    ]
+
+
+def test_payment_aging_report_draft_message_cell_wraps_text():
+    # DRAFT_MESSAGE_ROW_FIXTURE.message_text is a real multi-paragraph string with
+    # embedded \n — must be readable when opened in Excel, not squashed onto one line.
+    workbook_bytes, _ = export_payment_aging_report(_payment_aging_result(), generated_at=GENERATED_AT)
+    wb = _load(workbook_bytes)
+    ws = wb["Draft Messages"]
+    message_text_col = DRAFT_MESSAGE_COLUMNS.index("message_text") + 1  # 1-indexed
+    cell = ws.cell(row=2, column=message_text_col)
+    assert cell.value == DRAFT_MESSAGE_ROW_FIXTURE["message_text"]
+    assert cell.alignment.wrap_text is True
+    assert cell.alignment.vertical == "top"
+    column_letter = cell.column_letter
+    assert ws.column_dimensions[column_letter].width > 60
+
+
 def test_payment_aging_report_report_id_format():
     workbook_bytes, manifest = export_payment_aging_report(_payment_aging_result(), generated_at=GENERATED_AT)
     assert manifest["report_id"] == "rpt-payment_aging-20260709091500"

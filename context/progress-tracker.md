@@ -6,7 +6,7 @@ Update this file after every completed feature.
 
 **Project:** Sales Admin Automation Toolkit  
 **Phase:** Phase 6 - Excel Report Export (complete)  
-**Last completed:** Phase 6 — `src/report_export.py` (`export_order_validation_report`, `export_inventory_allocation_report`, `export_payment_aging_report`, each returning `tuple[bytes, ReportManifest]` from in-memory `openpyxl` workbooks) consuming the Phase 3–5 result envelopes directly with zero recalculation, `tests/test_report_export.py` covering workbook structure, sheet names, representative cell values, and manifest shape, tests passing (`uv run pytest` — 149 passed)  
+**Last completed:** Phase 6 — `src/report_export.py` (`export_order_validation_report`, `export_inventory_allocation_report`, `export_payment_aging_report`, each returning `tuple[bytes, ReportManifest]` from in-memory `openpyxl` workbooks) consuming the Phase 3–5 result envelopes directly with zero recalculation, `tests/test_report_export.py` covering workbook structure, sheet names, representative cell values, and manifest shape, tests passing (`uv run pytest` — 151 passed; includes a post-review TDD fix removing a duplicated aging-bucket-order constant and adding Draft Messages wrap-text formatting)  
 **Next:** Phase 7 UI planning continues in parallel (planning-only); Phase 8 (Next.js implementation) remains hard-gated until Phase 6's Excel report structure tests pass (now satisfied) plus every spec §12/§11/§12 test case
 
 ## Important Note

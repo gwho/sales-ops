@@ -15,7 +15,7 @@ from typing import Any
 
 import pandas as pd
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill
+from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.worksheet.worksheet import Worksheet
 
 from src.contracts import ReportManifest
@@ -81,7 +81,6 @@ PAYMENT_AGING_ROW_COLUMNS = [
 PAYMENT_DATA_ISSUE_COLUMNS = ["invoice_id", "customer_name", "error_code", "error_message", "severity"]
 DRAFT_MESSAGE_COLUMNS = ["invoice_id", "customer_name", "outstanding_amount", "days_overdue", "message_text"]
 
-AGING_BUCKET_ORDER = ["Current", "1-30 Days", "31-60 Days", "61-90 Days", "90+ Days"]
 FOLLOW_UP_PRIORITIES = {"High", "Medium", "Low", "Watch"}
 
 
@@ -136,14 +135,25 @@ def _write_detail_sheet(wb: Workbook, sheet_name: str, rows: list[dict], columns
     return ws
 
 
+def _apply_wrap_text_to_column(ws: Worksheet, column_index: int, width: int = 80, row_height: float = 90) -> None:
+    """Wrap long multi-line text (e.g. Draft Messages' message_text) instead of squashing
+    it onto one unreadable line — used only for the one column that needs it."""
+    column_letter = ws.cell(row=1, column=column_index).column_letter
+    ws.column_dimensions[column_letter].width = width
+    for row in ws.iter_rows(min_row=2, min_col=column_index, max_col=column_index):
+        cell = row[0]
+        cell.alignment = Alignment(wrap_text=True, vertical="top")
+        ws.row_dimensions[cell.row].height = row_height
+
+
 def _write_summary_sheet(wb: Workbook, sheet_name: str, summary: dict) -> Worksheet:
     ws = wb.create_sheet(sheet_name)
     ws.append(["Metric", "Value"])
     for key, value in summary.items():
         if isinstance(value, dict):
-            for sub_key in AGING_BUCKET_ORDER:
+            for sub_key, sub_value in value.items():
                 label = f"{_label(key)}: {sub_key}"
-                ws.append([label, _safe_cell_value(value.get(sub_key, 0))])
+                ws.append([label, _safe_cell_value(sub_value)])
         else:
             ws.append([_label(key), _safe_cell_value(value)])
     _style_header_row(ws, 2)
@@ -248,7 +258,8 @@ def export_payment_aging_report(
     _write_detail_sheet(wb, "Follow-up List", follow_up_rows, PAYMENT_AGING_ROW_COLUMNS)
     _write_detail_sheet(wb, "All Invoices with Aging", result["aging_rows"], PAYMENT_AGING_ROW_COLUMNS)
     _write_detail_sheet(wb, "Data Issues", result["data_issues"], PAYMENT_DATA_ISSUE_COLUMNS)
-    _write_detail_sheet(wb, "Draft Messages", result["draft_messages"], DRAFT_MESSAGE_COLUMNS)
+    draft_messages_ws = _write_detail_sheet(wb, "Draft Messages", result["draft_messages"], DRAFT_MESSAGE_COLUMNS)
+    _apply_wrap_text_to_column(draft_messages_ws, DRAFT_MESSAGE_COLUMNS.index("message_text") + 1)
 
     sheet_names = wb.sheetnames
     workbook_bytes = _save_workbook_bytes(wb)
