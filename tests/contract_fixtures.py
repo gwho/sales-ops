@@ -128,8 +128,8 @@ PAYMENT_AGING_SUMMARY_FIXTURE: PaymentAgingSummary = {
 PAYMENT_AGING_ROW_FIXTURE: PaymentAgingRow = {
     "invoice_id": "INV-2026-001",
     "customer_name": "Bright Medical Trading Ltd",
-    "invoice_date": "2026-04-01",
-    "due_date": "2026-05-01",
+    "invoice_date": "2026-03-31",
+    "due_date": "2026-04-30",
     "invoice_amount": 58000.00,
     "paid_amount": 0.0,
     "outstanding_amount": 58000.00,
@@ -155,7 +155,7 @@ DRAFT_MESSAGE_ROW_FIXTURE: DraftMessageRow = {
     "message_text": (
         "Dear Bright Medical Trading Ltd,\n\n"
         "Hope you are well. We would like to follow up on invoice INV-2026-001, "
-        "with an outstanding amount of $58,000.00, which is currently 70 days overdue.\n\n"
+        "with an outstanding amount of HKD 58,000.00, which is currently 70 days overdue.\n\n"
         "Please let us know the expected payment status or if any further information "
         "is required from our side.\n\nThank you."
     ),
