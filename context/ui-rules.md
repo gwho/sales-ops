@@ -116,39 +116,36 @@ Real file parsing belongs in the Python/FastAPI layer, not React components.
 
 ## Status Badges
 
-Use consistent labels:
+Every badge label is either **direct** (comes verbatim from a controlled-vocabulary Python contract field) or **derived** (computed client-side from row/list membership or a display transform of a direct field — never a new business rule). Full field-level detail and TypeScript types: `context/ui-contract-plan.md`.
 
 Order validation:
 
-- Valid
-- Missing Field
-- Invalid SKU
-- Duplicate Order
-- Invalid Quantity
-- Needs Review
+- direct (`ValidationErrorRow.severity`): `Error`, `Warning`
+- derived (list membership in `valid_orders`/`errors`): `Valid`, `Has Errors`, `Has Warnings`
+
+(The previous list — `Missing Field`, `Invalid SKU`, `Duplicate Order`, `Invalid Quantity`, `Needs Review` — mistook error *categories* for row statuses. Those categories are `error_code`/`error_message`, shown verbatim in the error table; a row doesn't need a badge duplicating them.)
 
 Inventory allocation:
 
-- Fully Allocated
-- Partially Allocated
-- Backordered
-- Below Reorder Point
-- Supplier Follow-up
+- direct (`AllocationResultRow.status`): `Fully Allocated`, `Partially Allocated`, `Backordered`
+- direct/derived (`RemainingInventoryRow.reorder_alert`, `Yes`/`No`): render as `Below Reorder Point` only when `reorder_alert = "Yes"` — this is a display label for the field, not a separate vocabulary
+- derived (list membership in `supplier_follow_ups`): `Supplier Follow-up`
 
 Payment aging:
 
-- Current
-- Due Soon
-- Overdue
-- High Priority
-- Paid
+- direct (`PaymentAgingRow.aging_bucket`): `Current`, `1-30 Days`, `31-60 Days`, `61-90 Days`, `90+ Days`
+- direct (`PaymentAgingRow.follow_up_priority`): `High`, `Medium`, `Low`, `Watch`, `None`
 
-Reports:
+(The previous list — `Overdue`, `Due Soon`, `High Priority`, `Paid` — was an unexplained ad hoc simplification never actually derived from these two fields. If a shorthand label like `Paid` is still wanted, its exact derivation rule must be defined explicitly — e.g. `outstanding_amount <= 0` — before use.)
 
-- Ready
-- Not Generated
-- Processing
-- Needs Input
+Reports — client-side session state only, not Python-sourced (no report has a persisted lifecycle; a workbook exists only once its export function has been called this session). Lifecycle order:
+
+- `Needs Input` — the underlying workflow hasn't been run this session, so there's no result envelope to export yet
+- `Not Generated` — the workflow has run and an envelope exists, but the export function hasn't been called yet
+- `Processing` — the export function is in flight
+- `Ready` — `ReportManifest` received; card shows `file_name`, `sheet_names`, `generated_at`, and a download action
+
+An export failure reverts the card to `Not Generated` with a `BusinessErrorMessage` shown, rather than adding a fifth persisted state.
 
 ## Error Messages
 
