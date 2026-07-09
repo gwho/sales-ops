@@ -5,9 +5,9 @@ Update this file after every completed feature.
 ## Current Status
 
 **Project:** Sales Admin Automation Toolkit  
-**Phase:** Phase 4 - Inventory Allocation Core (complete)  
-**Last completed:** Phase 4 — `src/inventory_allocation.py` (`load_valid_orders`, `load_inventory`, `allocate_inventory`, local `InventoryAllocationResult` envelope) implementing every IA-001–IA-006 and IA-008 rule (Optional V2 region-matching in IA-007 excluded per Scope Gate), `tests/test_inventory_allocation.py` covering all spec §11 cases plus resolved edge cases and post-review input-hardening cases, tests passing (`uv run pytest` — 93 passed)  
-**Next:** Phase 5 — Payment Aging Core (Phase 7 UI planning may also continue in parallel, since it's planning-only)
+**Phase:** Phase 5 - Payment Aging Core (complete)  
+**Last completed:** Phase 5 — `src/payment_aging.py` (`load_invoices`, `calculate_payment_aging`, local `PaymentAgingResult` envelope) implementing every PA-001–PA-007 rule, `tests/test_payment_aging.py` covering all spec §12 cases plus resolved edge cases, tests passing (`uv run pytest` — 127 passed)  
+**Next:** Phase 6 — Excel Report Export (Phase 7 UI planning may also continue in parallel, since it's planning-only)
 
 ## Important Note
 
@@ -79,15 +79,15 @@ Tooling conventions locked via `/grill-with-docs` session, see `docs/adr/0004-ph
 
 ### Phase 5 - Payment Aging Core
 
-- [ ] Outstanding amount calculation
-- [ ] Paid invoice handling
-- [ ] Days overdue calculation
-- [ ] Aging bucket assignment
-- [ ] Follow-up priority assignment
-- [ ] Missing due-date issues
-- [ ] Invalid amount issues
-- [ ] Draft reminder generation
-- [ ] pytest coverage
+- [x] Outstanding amount calculation
+- [x] Paid invoice handling
+- [x] Days overdue calculation
+- [x] Aging bucket assignment
+- [x] Follow-up priority assignment
+- [x] Missing due-date issues
+- [x] Invalid amount issues
+- [x] Draft reminder generation
+- [x] pytest coverage
 
 ### Phase 6 - Excel Report Export
 
@@ -165,3 +165,5 @@ Tooling conventions locked via `/grill-with-docs` session, see `docs/adr/0004-ph
 - Phase 3 complete: `src/order_validation.py`, `tests/test_order_validation.py`; `uv run pytest` passes (63 tests).
 - Phase 4 decisions (via `/architect`): `allocate_inventory()` returns a local `InventoryAllocationResult` dict envelope (`summary`/`allocation_results`/`backorders`/`remaining_inventory`/`supplier_follow_ups`), defined locally in `inventory_allocation.py`, not added to `contracts.py` — mirrors Phase 3's envelope pattern. IA-007 V1 warehouse choice compares `allocatable_qty` (`available_qty - reserved_qty`, floored at 0), not raw `available_qty`; ties broken by warehouse name ascending. Allocation is stateful and per-line: orders processed strictly in IA-001 order, one line fulfilled from exactly one warehouse, with warehouse choice re-evaluated per line as stock depletes. A fully-backordered line still records the best-candidate warehouse when the SKU has any inventory rows; `warehouse` is `""` only when the SKU has zero inventory rows anywhere. Supplier Follow-up is scoped strictly to IA-008's literal trigger (`reorder_point` present and `remaining_qty` strictly below it, evaluated once per (sku, warehouse) after the full batch) — not triggered by backorder status alone, despite `CONTEXT.md`'s broader glossary phrasing. `remaining_qty = starting_available_qty - allocated_qty` (not `allocatable_qty`, since `reserved_qty` only gates allocation eligibility). `low_stock_sku_count` counts distinct SKUs with at least one alerting (sku, warehouse) row, not follow-up row count. Malformed/blank required inventory values (`sku`, `warehouse`, `available_qty`) raise a new `InvalidInventoryDataError` rather than silently coercing, since no `InventoryDataIssueRow` contract exists to report them as soft errors; optional numeric fields (`reserved_qty`, `reorder_point`, `lead_time_days`) still degrade gracefully to "not present" when blank/unparseable.
 - Phase 4 complete: `src/inventory_allocation.py`, `tests/test_inventory_allocation.py`; `uv run pytest` passes (93 tests). Sanity-checked against `sample_data/sample_orders.xlsx` + `sample_data/sample_inventory.xlsx` (routed through Phase 3's `validate_orders()` first) — output matches the hand-authored fixtures in `tests/contract_fixtures.py` field-for-field. Post-review hardening added business-readable direct-call failures for malformed valid-order inputs, negative optional inventory quantities, and offending cell values in inventory error messages.
+- Phase 5 decisions (via `/architect`): `calculate_payment_aging()` returns a single local `PaymentAgingResult` dict envelope (`summary`/`aging_rows`/`data_issues`/`draft_messages`), defined locally in `payment_aging.py`, not added to `contracts.py` and not split into the spec's suggested multi-function/DataFrame-tuple shape — mirrors Phase 3/4's envelope pattern. Paid invoices (`outstanding_amount <= 0`, clamped, never negative) stay in `aging_rows` with `follow_up_priority="None"` and `suggested_action="No action required"` — excluded only from active follow-up (High/Medium/Low/Watch) and draft messages, not from the aging table itself. `total_invoices` counts every loaded row including PA-006/PA-007 data-issue rows; `aging_bucket_counts`/`total_outstanding_amount`/`overdue_amount`/`high_priority_count` are computed only from `aging_rows`, mirroring Phase 3's `total_orders` semantics. `as_of_date: date | None = None` resolves to `date.today()` inside the function body (never a literal default), matching the Phase 2 `sample_data.py` convention. `days_overdue` is the raw signed value (`effective_date - due_date`), negative for future due dates, letting Watch be derived as `-7 <= days_overdue <= 0`. Draft reminders are generated only when `outstanding_amount > 0 and days_overdue > 0 and follow_up_priority in {High, Medium, Low}` — never for Watch/Current/Paid/data-issue rows. Invalid/missing `paid_amount` (blank, non-numeric, or negative) silently degrades to `0.0` with no data issue, since PA-007 only names `invoice_amount`; only `invoice_amount` missing/non-numeric/negative triggers a PA-007 data issue, and a row can carry both a PA-006 and PA-007 issue independently. Draft message amounts are formatted with the invoice's own `currency` column when present (e.g. `"HKD 58,000.00"`), falling back to a bare `"58,000.00"` when blank — not the literal `$` the original hand-authored fixture used, since currency is not carried into any output contract per the Field Scope Boundary and a bare `$` would misrepresent HKD/SGD/TWD sample invoices. `PaymentDataIssueRow` does not surface `row_number`; it stays an internal-only loop index, matching the existing contract shape.
+- Phase 5 complete: `src/payment_aging.py`, `tests/test_payment_aging.py`; `uv run pytest` passes (127 tests). Sanity-checked against `sample_data/sample_invoices.xlsx` (`as_of_date=2026-07-09`) — `INV-2026-001`'s computed row matched `tests/contract_fixtures.py`'s `PAYMENT_AGING_ROW_FIXTURE` field-for-field after correcting a pre-existing 1-day date typo in that fixture (`invoice_date`/`due_date` were off by one from the real generated sample data) and updating `DRAFT_MESSAGE_ROW_FIXTURE`'s hardcoded `$58,000.00` to the currency-aware `HKD 58,000.00`. Before starting Phase 5, committed substantial uncommitted Phase 4 hardening work found already sitting in the working tree (new `InvalidOrderDataError` for malformed valid-order fields, negative-quantity rejection on optional inventory fields, direct column validation inside `allocate_inventory()`) to PR #3 first, per user instruction, bringing Phase 4's test count from 85 to 93 before branching Phase 5.
