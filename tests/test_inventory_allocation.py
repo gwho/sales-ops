@@ -12,6 +12,7 @@ import pytest
 from src.excel_io import MissingColumnsError
 from src.inventory_allocation import (
     InvalidInventoryDataError,
+    InvalidOrderDataError,
     allocate_inventory,
     load_inventory,
     load_valid_orders,
@@ -285,8 +286,11 @@ def test_summary_counts_match_result_statuses():
 
 def test_malformed_available_qty_raises():
     bad_row = _inventory_row(available_qty="not-a-number")
-    with pytest.raises(InvalidInventoryDataError):
+    with pytest.raises(InvalidInventoryDataError) as exc_info:
         allocate_inventory(_orders_df(_order_row()), _inventory_df(bad_row))
+    message = str(exc_info.value)
+    assert "available_qty" in message
+    assert "not-a-number" in message
 
 
 def test_blank_sku_in_inventory_raises():
@@ -299,6 +303,74 @@ def test_blank_warehouse_in_inventory_raises():
     bad_row = _inventory_row(warehouse="")
     with pytest.raises(InvalidInventoryDataError):
         allocate_inventory(_orders_df(_order_row()), _inventory_df(bad_row))
+
+
+def test_negative_reserved_qty_raises():
+    bad_row = _inventory_row(reserved_qty=-5)
+    with pytest.raises(InvalidInventoryDataError) as exc_info:
+        allocate_inventory(_orders_df(_order_row()), _inventory_df(bad_row))
+    message = str(exc_info.value)
+    assert "reserved_qty" in message
+    assert "-5" in message
+
+
+@pytest.mark.parametrize("field", ["reorder_point", "lead_time_days"])
+def test_negative_optional_inventory_quantity_raises(field: str):
+    bad_row = _inventory_row(**{field: -1})
+    with pytest.raises(InvalidInventoryDataError) as exc_info:
+        allocate_inventory(_orders_df(_order_row()), _inventory_df(bad_row))
+    message = str(exc_info.value)
+    assert field in message
+    assert "-1" in message
+
+
+# --- Malformed / missing required valid order data ------------------------
+
+
+def test_malformed_order_quantity_raises_business_readable_error():
+    bad_order = _order_row(quantity="not-a-number")
+    with pytest.raises(InvalidOrderDataError) as exc_info:
+        allocate_inventory(_orders_df(bad_order), _inventory_df(_inventory_row()))
+    message = str(exc_info.value)
+    assert "valid order row 2" in message.lower()
+    assert "quantity" in message
+    assert "not-a-number" in message
+
+
+def test_malformed_order_date_raises_business_readable_error():
+    bad_order = _order_row(order_date="not-a-date")
+    with pytest.raises(InvalidOrderDataError) as exc_info:
+        allocate_inventory(_orders_df(bad_order), _inventory_df(_inventory_row()))
+    message = str(exc_info.value)
+    assert "valid order row 2" in message.lower()
+    assert "order_date" in message
+    assert "not-a-date" in message
+
+
+def test_blank_order_id_raises_business_readable_error():
+    bad_order = _order_row(order_id="")
+    with pytest.raises(InvalidOrderDataError) as exc_info:
+        allocate_inventory(_orders_df(bad_order), _inventory_df(_inventory_row()))
+    message = str(exc_info.value)
+    assert "valid order row 2" in message.lower()
+    assert "order_id" in message
+
+
+def test_invalid_priority_raises_business_readable_error():
+    bad_order = _order_row(priority="Urgent")
+    with pytest.raises(InvalidOrderDataError) as exc_info:
+        allocate_inventory(_orders_df(bad_order), _inventory_df(_inventory_row()))
+    message = str(exc_info.value)
+    assert "valid order row 2" in message.lower()
+    assert "priority" in message
+    assert "Urgent" in message
+
+
+def test_allocate_inventory_validates_required_columns_when_called_directly():
+    orders = _orders_df(_order_row()).drop(columns=["quantity"])
+    with pytest.raises(MissingColumnsError) as exc_info:
+        allocate_inventory(orders, _inventory_df(_inventory_row()))
+    assert "quantity" in str(exc_info.value)
 
 
 # --- Loaders: required columns -------------------------------------------

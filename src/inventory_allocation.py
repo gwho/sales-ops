@@ -39,14 +39,31 @@ PRIORITY_RANK = {"High": 0, "Normal": 1, "Low": 2}
 
 
 class InvalidInventoryDataError(Exception):
-    """Business-readable error for a required inventory value that is missing or not a valid whole number."""
+    """Business-readable error for an inventory value that cannot be used for allocation."""
 
-    def __init__(self, row_number: int, field: str) -> None:
+    def __init__(self, row_number: int, field: str, value: object = None) -> None:
         self.row_number = row_number
         self.field = field
+        self.value = value
+        value_text = "" if value is None else f": {_format_cell_value(value)}"
         message = (
-            f"Inventory row {row_number} has a missing or invalid value for required field "
-            f"'{field}'. Please check the sample template."
+            f"Inventory row {row_number} has a missing or invalid value for field "
+            f"'{field}'{value_text}. Please check the sample template."
+        )
+        super().__init__(message)
+
+
+class InvalidOrderDataError(Exception):
+    """Business-readable error for a valid-orders value that cannot be used for allocation."""
+
+    def __init__(self, row_number: int, field: str, value: object = None) -> None:
+        self.row_number = row_number
+        self.field = field
+        self.value = value
+        value_text = "" if value is None else f": {_format_cell_value(value)}"
+        message = (
+            f"Valid order row {row_number} has a missing or invalid value for required field "
+            f"'{field}'{value_text}. Please re-run order validation or check the sample template."
         )
         super().__init__(message)
 
@@ -84,6 +101,10 @@ def _is_blank(value: object) -> bool:
         return False
 
 
+def _format_cell_value(value: object) -> str:
+    return repr(value)
+
+
 def _to_trimmed_str(value: object) -> str:
     return str(value).strip()
 
@@ -101,55 +122,99 @@ def _parse_date(value: object) -> pd.Timestamp | None:
     return parsed
 
 
-def _to_int(value: object) -> int:
-    """Coerce an already-validated order quantity to int, tolerating numpy-boxed scalars."""
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return int(value)
-    return int(float(str(value).strip()))
+def _require_order_quantity(value: object, row_number: int, field: str) -> int:
+    """Return a positive whole-number order quantity, or raise InvalidOrderDataError."""
+    if _is_blank(value) or isinstance(value, bool):
+        raise InvalidOrderDataError(row_number, field, value)
+    if isinstance(value, (int, float)):
+        if isinstance(value, float) and not value.is_integer():
+            raise InvalidOrderDataError(row_number, field, value)
+        quantity = int(value)
+    else:
+        try:
+            numeric = float(str(value).strip())
+        except (ValueError, TypeError):
+            raise InvalidOrderDataError(row_number, field, value) from None
+        if not numeric.is_integer():
+            raise InvalidOrderDataError(row_number, field, value)
+        quantity = int(numeric)
+    if quantity <= 0:
+        raise InvalidOrderDataError(row_number, field, value)
+    return quantity
+
+
+def _require_order_date(value: object, row_number: int, field: str) -> pd.Timestamp:
+    """Return a normalized order date, or raise InvalidOrderDataError."""
+    if _is_blank(value):
+        raise InvalidOrderDataError(row_number, field, value)
+    parsed = _parse_date(value)
+    if parsed is None:
+        raise InvalidOrderDataError(row_number, field, value)
+    return parsed
+
+
+def _require_order_text(value: object, row_number: int, field: str) -> str:
+    """Return trimmed required valid-order text, or raise InvalidOrderDataError."""
+    if _is_blank(value):
+        raise InvalidOrderDataError(row_number, field, value)
+    return _to_trimmed_str(value)
+
+
+def _require_order_priority(value: object, row_number: int) -> str:
+    priority = _require_order_text(value, row_number, "priority")
+    if priority not in PRIORITY_RANK:
+        raise InvalidOrderDataError(row_number, "priority", value)
+    return priority
 
 
 def _require_non_blank(value: object, row_number: int, field: str) -> str:
     if _is_blank(value):
-        raise InvalidInventoryDataError(row_number, field)
+        raise InvalidInventoryDataError(row_number, field, value)
     return _to_trimmed_str(value)
 
 
 def _require_quantity(value: object, row_number: int, field: str) -> int:
     """Return a validated non-negative whole number, or raise InvalidInventoryDataError."""
     if _is_blank(value) or isinstance(value, bool):
-        raise InvalidInventoryDataError(row_number, field)
+        raise InvalidInventoryDataError(row_number, field, value)
     if isinstance(value, (int, float)):
         if isinstance(value, float) and not value.is_integer():
-            raise InvalidInventoryDataError(row_number, field)
+            raise InvalidInventoryDataError(row_number, field, value)
         quantity = int(value)
     else:
         try:
             numeric = float(str(value).strip())
         except (ValueError, TypeError):
-            raise InvalidInventoryDataError(row_number, field) from None
+            raise InvalidInventoryDataError(row_number, field, value) from None
         if not numeric.is_integer():
-            raise InvalidInventoryDataError(row_number, field)
+            raise InvalidInventoryDataError(row_number, field, value)
         quantity = int(numeric)
     if quantity < 0:
-        raise InvalidInventoryDataError(row_number, field)
+        raise InvalidInventoryDataError(row_number, field, value)
     return quantity
 
 
-def _optional_quantity(value: object) -> int | None:
+def _optional_quantity(value: object, row_number: int, field: str) -> int | None:
     """Return a whole number, or None if the optional value is blank/unrecognized."""
     if _is_blank(value) or isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
         if isinstance(value, float) and not value.is_integer():
             return None
-        return int(value)
+        quantity = int(value)
+        if quantity < 0:
+            raise InvalidInventoryDataError(row_number, field, value)
+        return quantity
     try:
         numeric = float(str(value).strip())
     except (ValueError, TypeError):
         return None
     if not numeric.is_integer():
         return None
-    return int(numeric)
+    quantity = int(numeric)
+    if quantity < 0:
+        raise InvalidInventoryDataError(row_number, field, value)
+    return quantity
 
 
 def _build_inventory_state(inventory_df: pd.DataFrame) -> tuple[dict[str, list[dict]], list[dict]]:
@@ -161,9 +226,9 @@ def _build_inventory_state(inventory_df: pd.DataFrame) -> tuple[dict[str, list[d
         sku = _require_non_blank(row.get("sku"), row_number, "sku")
         warehouse = _require_non_blank(row.get("warehouse"), row_number, "warehouse")
         available_qty = _require_quantity(row.get("available_qty"), row_number, "available_qty")
-        reserved_qty = _optional_quantity(row.get("reserved_qty")) or 0
-        reorder_point = _optional_quantity(row.get("reorder_point"))
-        lead_time_days = _optional_quantity(row.get("lead_time_days"))
+        reserved_qty = _optional_quantity(row.get("reserved_qty"), row_number, "reserved_qty") or 0
+        reorder_point = _optional_quantity(row.get("reorder_point"), row_number, "reorder_point")
+        lead_time_days = _optional_quantity(row.get("lead_time_days"), row_number, "lead_time_days")
         supplier_name_value = row.get("supplier_name")
         supplier_name = None if _is_blank(supplier_name_value) else _to_trimmed_str(supplier_name_value)
 
@@ -186,23 +251,26 @@ def _build_inventory_state(inventory_df: pd.DataFrame) -> tuple[dict[str, list[d
 def _sort_orders_for_allocation(valid_orders_df: pd.DataFrame) -> list[dict]:
     """IA-001 — sort by priority, then requested delivery date, then order date, then order ID."""
     prepared: list[dict] = []
-    for _, row in valid_orders_df.iterrows():
-        requested_delivery = _parse_date(row.get("requested_delivery_date"))
-        order_date = _parse_date(row.get("order_date"))
+    for position, (_, row) in enumerate(valid_orders_df.iterrows()):
+        row_number = position + 2
+        requested_delivery = _require_order_date(
+            row.get("requested_delivery_date"), row_number, "requested_delivery_date"
+        )
+        order_date = _require_order_date(row.get("order_date"), row_number, "order_date")
         product_name = row.get("product_name")
         prepared.append(
             {
-                "order_id": _to_trimmed_str(row.get("order_id")),
-                "customer_name": _to_trimmed_str(row.get("customer_name")),
-                "sku": _to_trimmed_str(row.get("sku")),
-                "product_name": None if _is_blank(product_name) else _to_trimmed_str(product_name),
-                "quantity": _to_int(row.get("quantity")),
-                "priority": _to_trimmed_str(row.get("priority")),
-                "requested_delivery_date": (
-                    requested_delivery.date().isoformat() if requested_delivery is not None else ""
+                "order_id": _require_order_text(row.get("order_id"), row_number, "order_id"),
+                "customer_name": _require_order_text(
+                    row.get("customer_name"), row_number, "customer_name"
                 ),
-                "_requested_delivery_sort": requested_delivery or pd.Timestamp.max,
-                "_order_date_sort": order_date or pd.Timestamp.max,
+                "sku": _require_order_text(row.get("sku"), row_number, "sku"),
+                "product_name": None if _is_blank(product_name) else _to_trimmed_str(product_name),
+                "quantity": _require_order_quantity(row.get("quantity"), row_number, "quantity"),
+                "priority": _require_order_priority(row.get("priority"), row_number),
+                "requested_delivery_date": requested_delivery.date().isoformat(),
+                "_requested_delivery_sort": requested_delivery,
+                "_order_date_sort": order_date,
             }
         )
     prepared.sort(
@@ -313,6 +381,9 @@ def _build_summary(allocation_results: list[AllocationResultRow], low_stock_sku_
 
 def allocate_inventory(valid_orders_df: pd.DataFrame, inventory_df: pd.DataFrame) -> InventoryAllocationResult:
     """Allocate validated order lines against inventory and return the full result envelope."""
+    validate_required_columns(valid_orders_df, INVENTORY_ORDERS_REQUIRED_COLUMNS, "valid orders file")
+    validate_required_columns(inventory_df, INVENTORY_REQUIRED_COLUMNS, "inventory file")
+
     inventory_by_sku, inventory_entries = _build_inventory_state(inventory_df)
     sorted_orders = _sort_orders_for_allocation(valid_orders_df)
 
