@@ -5,9 +5,9 @@ Update this file after every completed feature.
 ## Current Status
 
 **Project:** Sales Admin Automation Toolkit  
-**Phase:** Phase 5 - Payment Aging Core (complete)  
-**Last completed:** Phase 5 — `src/payment_aging.py` (`load_invoices`, `calculate_payment_aging`, local `PaymentAgingResult` envelope) implementing every PA-001–PA-007 rule, `tests/test_payment_aging.py` covering all spec §12 cases plus resolved edge cases, tests passing (`uv run pytest` — 127 passed)  
-**Next:** Phase 6 — Excel Report Export (Phase 7 UI planning may also continue in parallel, since it's planning-only)
+**Phase:** Phase 6 - Excel Report Export (complete)  
+**Last completed:** Phase 6 — `src/report_export.py` (`export_order_validation_report`, `export_inventory_allocation_report`, `export_payment_aging_report`, each returning `tuple[bytes, ReportManifest]` from in-memory `openpyxl` workbooks) consuming the Phase 3–5 result envelopes directly with zero recalculation, `tests/test_report_export.py` covering workbook structure, sheet names, representative cell values, and manifest shape, tests passing (`uv run pytest` — 149 passed)  
+**Next:** Phase 7 UI planning continues in parallel (planning-only); Phase 8 (Next.js implementation) remains hard-gated until Phase 6's Excel report structure tests pass (now satisfied) plus every spec §12/§11/§12 test case
 
 ## Important Note
 
@@ -91,12 +91,12 @@ Tooling conventions locked via `/grill-with-docs` session, see `docs/adr/0004-ph
 
 ### Phase 6 - Excel Report Export
 
-- [ ] Order validation report
-- [ ] Inventory allocation report
-- [ ] Payment aging report
-- [ ] Optional full operations report pack
-- [ ] pytest coverage for workbook structure
-- [ ] Fallback demo milestone: tested logic + professional `.xlsx` reports are interview-ready
+- [x] Order validation report
+- [x] Inventory allocation report
+- [x] Payment aging report
+- [ ] Optional full operations report pack — deferred pending ADR. `operations_follow_up_pack.xlsx` is labeled V1.5 in `05_integration_and_app_flow.md` §7, not V1; per the Scope Gate it needs a new ADR before implementation, not just a build-plan checkbox.
+- [x] pytest coverage for workbook structure
+- [x] Fallback demo milestone: tested logic + professional `.xlsx` reports are interview-ready
 
 ### Phase 7 - UI Contract and Wireframe Planning
 
