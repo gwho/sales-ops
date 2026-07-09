@@ -225,3 +225,14 @@ def test_report_manifest_fixtures_cover_the_three_required_reports():
             "sheet_names",
         }
         assert isinstance(manifest["sheet_names"], list)
+
+
+def test_report_manifest_fixture_ids_match_exporter_format():
+    for manifest in REPORT_MANIFEST_FIXTURES:
+        timestamp = (
+            manifest["generated_at"]
+            .replace("-", "")
+            .replace(":", "")
+            .replace("T", "")
+        )
+        assert manifest["report_id"] == f"rpt-{manifest['report_type']}-{timestamp}"

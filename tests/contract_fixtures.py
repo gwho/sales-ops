@@ -163,14 +163,14 @@ DRAFT_MESSAGE_ROW_FIXTURE: DraftMessageRow = {
 
 REPORT_MANIFEST_FIXTURES: list[ReportManifest] = [
     {
-        "report_id": "rpt-order-validation-20260709-001",
+        "report_id": "rpt-order_validation-20260709091500",
         "report_type": "order_validation",
         "file_name": "order_validation_report.xlsx",
         "generated_at": "2026-07-09T09:15:00",
         "sheet_names": ["Summary", "Valid Orders", "Validation Errors", "Original Orders"],
     },
     {
-        "report_id": "rpt-inventory-allocation-20260709-001",
+        "report_id": "rpt-inventory_allocation-20260709092000",
         "report_type": "inventory_allocation",
         "file_name": "inventory_allocation_report.xlsx",
         "generated_at": "2026-07-09T09:20:00",
@@ -183,7 +183,7 @@ REPORT_MANIFEST_FIXTURES: list[ReportManifest] = [
         ],
     },
     {
-        "report_id": "rpt-payment-aging-20260709-001",
+        "report_id": "rpt-payment_aging-20260709092500",
         "report_type": "payment_aging",
         "file_name": "payment_aging_report.xlsx",
         "generated_at": "2026-07-09T09:25:00",

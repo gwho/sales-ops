@@ -179,7 +179,7 @@ export type ReportManifest = {
 };
 ```
 
-**Data-accuracy note (discovered this session, not fixed here):** `tests/contract_fixtures.py`'s `REPORT_MANIFEST_FIXTURES` uses stale `report_id` values (e.g. `"rpt-order-validation-20260709-001"` — hyphenated `report_type`, date-only, fake `-001` sequence). The real exporter (`src/report_export.py:188`, `_build_manifest()`) emits `f"rpt-{report_type}-{generated_at:%Y%m%d%H%M%S}"` — underscored `report_type` (it's the literal string passed in, e.g. `"order_validation"`), full `HHMMSS` timestamp, no sequence suffix. `ReportManifest` examples in this doc use the real exporter format; row/summary examples elsewhere use `tests/contract_fixtures.py` directly. The fixture itself is not corrected in this phase (test-data file, not a planning doc) — flagged as a follow-up for whoever next touches Phase 2/6 test data.
+**Data-accuracy note:** `tests/contract_fixtures.py`'s `REPORT_MANIFEST_FIXTURES` now matches the real exporter format: `f"rpt-{report_type}-{generated_at:%Y%m%d%H%M%S}"` from `src/report_export.py`'s `_build_manifest()`. Use the fixture values directly for Phase 8 mock data; `tests/test_contracts.py` includes a regression assertion that each fixture ID is derived from its own `report_type` and second-precision `generated_at` timestamp.
 
 ## Route / Page Plan
 
