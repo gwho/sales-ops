@@ -1,0 +1,73 @@
+{
+  "summary": {
+    "total_order_lines": 9,
+    "fully_allocated_count": 7,
+    "partially_allocated_count": 2,
+    "backordered_count": 0,
+    "low_stock_sku_count": 1
+  },
+  "allocation_results": [
+    {
+      "order_id": "SO-2026-008",
+      "customer_name": "Silver Oak Supplies",
+      "sku": "MED-LENS-001",
+      "product_name": "Optical Lens Kit",
+      "requested_qty": 25,
+      "allocated_qty": 20,
+      "backorder_qty": 5,
+      "warehouse": "HK Warehouse",
+      "status": "Partially Allocated",
+      "priority": "High",
+      "requested_delivery_date": "2026-07-14"
+    },
+    {
+      "order_id": "SO-2026-012",
+      "customer_name": "Formosa Industrial Group",
+      "sku": "IND-PUMP-005",
+      "product_name": "Hydraulic Pump Unit",
+      "requested_qty": 6,
+      "allocated_qty": 0,
+      "backorder_qty": 6,
+      "warehouse": "HK Warehouse",
+      "status": "Backordered",
+      "priority": "Normal",
+      "requested_delivery_date": "2026-07-28"
+    }
+  ],
+  "backorders": [
+    {
+      "order_id": "SO-2026-012",
+      "customer_name": "Formosa Industrial Group",
+      "sku": "IND-PUMP-005",
+      "product_name": "Hydraulic Pump Unit",
+      "requested_qty": 6,
+      "allocated_qty": 0,
+      "backorder_qty": 6,
+      "warehouse": "HK Warehouse",
+      "status": "Backordered",
+      "priority": "Normal",
+      "requested_delivery_date": "2026-07-28"
+    }
+  ],
+  "remaining_inventory": [
+    {
+      "sku": "MED-LENS-001",
+      "warehouse": "HK Warehouse",
+      "starting_available_qty": 20,
+      "allocated_qty": 20,
+      "remaining_qty": 0,
+      "reorder_point": 5,
+      "reorder_alert": "Yes"
+    }
+  ],
+  "supplier_follow_ups": [
+    {
+      "sku": "MED-LENS-001",
+      "warehouse": "HK Warehouse",
+      "remaining_qty": 0,
+      "reorder_point": 5,
+      "supplier_name": "Vista Optics Supply",
+      "lead_time_days": 18
+    }
+  ]
+}

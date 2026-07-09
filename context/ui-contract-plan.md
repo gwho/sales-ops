@@ -2,7 +2,7 @@
 
 Phase 7 deliverable (planning only — no production frontend code). Maps every future Next.js surface (route, table, KPI, badge, report card, empty/loading/error state) to a real Python output contract or an explicitly-labeled display-only derivation. Living reference, same tier as `ui-tokens.md`/`ui-rules.md` — update it whenever `src/contracts.py` or the business-module envelopes change.
 
-No Figma link or MCP connector was available when this was written. If one is provided later, inspect it as planning reference only: classify each screen/component as V1, V1.5, V2, or out of scope, then reconcile this doc against it — Figma never introduces a table column, KPI, or badge the contracts can't back.
+Four Figma Make prototype references were inspected via the Figma MCP server during Phase 8 (they were not available when the rest of this doc was written in Phase 7). They are visual reference only — this doc, `ui-rules.md`, `ui-tokens.md`, `src/contracts.py`, and `tests/contract_fixtures.py` remain source of truth. The full classification (V1 / correction-needed / out-of-scope) is in [Figma Reference Reconciliation](#figma-reference-reconciliation) at the end of this file. Rule: Figma never introduces a table column, KPI, or badge the contracts can't back.
 
 ## Glossary
 
@@ -299,3 +299,36 @@ Each entry: source rows, source fields, grouping rule. No new Python fields, no 
 | "90+ Days Amount" KPI | `PaymentAgingResult.aging_rows` | sum `outstanding_amount` where `aging_bucket === "90+ Days"` |
 
 Boundary: aggregation for visualization is fine; new business interpretation is not. No risk score, forecast, recommendation, or priority calculation that the Python core doesn't already produce.
+
+## Figma Reference Reconciliation
+
+Inspected in Phase 8 via the Figma MCP server (remote `mcp.figma.com`) — four Figma Make prototypes, read as source via `get_design_context` (Make path, `nodeId="0:1"`). These are AI-generated visual prototypes, useful for layout/component vocabulary only. Every element below is classified against the real contracts; anything that contradicts a contract is a **correction**, not a spec change. Phase 9 must build from the corrected version, not copy the Figma output.
+
+References: *Design Inventory Allocation Screen*, *Overview Dashboard Screen*, *Inventory Allocation Screen Design*, *Payment Aging Screen Design*.
+
+### V1 — safe visual reference (maps to already-planned components)
+
+- KPI/metric card (label + big number + icon chip) → `MetricCard`.
+- Filter bar (search + selects + clear) → generic pattern, no new component.
+- Data table with sortable headers, zebra rows, status badges → `DataTable` + `StatusBadge`.
+- Per-workflow stepper (client-only progress) → `WorkflowStepper`.
+- Aging-bucket cards, supplier follow-up side panel, draft-reminder panel *layout* → inform panel treatments around `ReportCard`/tables.
+
+### Corrections required before Phase 9 builds from these
+
+- **Inventory Allocation priority vocab.** Figma uses `Critical | High | Medium | Low`. Real vocab (`inventory_allocation.py` `PRIORITY_RANK`) is `High | Normal | Low` — no "Critical"; "Medium" is really "Normal".
+- **Allocation `status`.** Figma treats `Invalid SKU` and `Supplier Follow-up` as status values. Real `AllocationResultRow.status` has exactly three: `Fully Allocated | Partially Allocated | Backordered`. Invalid SKUs never reach allocation (caught upstream by OV-003). "Supplier Follow-up" is a separate list (`supplier_follow_ups`), never a status-column value.
+- **Supplier Follow-up fields.** Figma invents `shortageQty`, `suggestedReorderQty`, `followUpPriority`. Real `SupplierFollowUpRow` = `sku`, `warehouse`, `remaining_qty`, `reorder_point`, optional `supplier_name`, optional `lead_time_days`. No priority, no reorder-qty recommendation — those are new business rules, out of scope without an ADR.
+- **Payment Aging priority.** Figma: `High | Medium | Low | "—"`. Real `follow_up_priority`: `High | Medium | Low | Watch | None`. Include "Watch"; render "None", not "—".
+- **Payment Aging high-priority threshold.** Figma's rules panel says **$40,000**. Real threshold (`payment_aging.py`) is **$50,000** (`outstanding_amount >= 50000` or `days_overdue > 60`). Any rules-explainer must use the real number.
+- **Draft reminders.** Figma composes the email client-side from raw fields. The core already emits the finished multi-line `DraftMessageRow.message_text` — Phase 9 renders that verbatim, no React templating.
+- **Dashboard nav.** Figma shows an 8-item ERP-style mega-nav (Overview, Orders, Invoices, Inventory, Purchase Orders, Customers, Reports, Analytics). Real route set is the fixed 5 (`/dashboard`, `/order-validation`, `/inventory-allocation`, `/payment-aging`, `/reports`). The extras have no contract behind them — exactly the mega-nav `CLAUDE.md` warns against.
+- **Dashboard trends & status mix.** Figma shows `+12.4%`/`−18.2%` deltas and statuses like "On Hold"/"Pending Review"/"Cancelled". No time-series/history exists in the core (single-run snapshot), and those statuses aren't on any contract — out of scope.
+
+### Chrome pattern
+
+Only the Dashboard prototype uses the sidebar nav `ui-rules.md`/`CLAUDE.md` mandate. The Inventory prototypes use a top-nav+stepper; Payment Aging uses a bare top bar. The existing sidebar decision wins — Phase 9's `AppShell`/`SidebarNav` is uniform across all 5 routes. The other prototypes remain reference for their *content* (stepper, filter bar, upload panel), not their chrome.
+
+### Tokens
+
+All four prototypes use raw Tailwind palette classes and ad-hoc hex (`bg-red-100`, `#0f4c81`, …). Expected from AI output, but a hard reminder: Phase 9 routes every color through `ui-tokens.md` semantic tokens — never copy Figma color classes verbatim.

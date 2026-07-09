@@ -5,9 +5,9 @@ Update this file after every completed feature.
 ## Current Status
 
 **Project:** Sales Admin Automation Toolkit  
-**Phase:** Phase 7 - UI Contract and Wireframe Planning (complete)  
-**Last completed:** Post-Phase-7 fixture correction — `tests/contract_fixtures.py`'s `REPORT_MANIFEST_FIXTURES.report_id` values now match the real exporter format (`rpt-{report_type}-{YYYYMMDDHHMMSS}`), and `tests/test_contracts.py` locks that derivation so stale date-only/sequential IDs cannot drift back into Phase 8 mock data.
-**Next:** Phase 8 (Next.js implementation) remains hard-gated until every test case in spec §12 (`01_demo_order_validation.md`), §11 (`02_demo_inventory_allocation.md`), and §12 (`03_demo_payment_aging.md`) passes, plus Phase 6's Excel report structure tests. Latest verification after the fixture correction: `uv run pytest` passes (152 tests); Phase 6 report structure tests pass; the specs' illustrative test-case tables (e.g. duplicate order ID, delivery-before-order, reorder alert) are behaviorally covered by the 31/29/29 test functions in `test_order_validation.py`/`test_inventory_allocation.py`/`test_payment_aging.py` — this is a spot check of the underlying rules, not a literal line-by-line traceability audit against every §11/§12 row
+**Phase:** Phase 8 - Next.js Frontend Foundation (complete)  
+**Last completed:** Phase 8 — Next.js App Router scaffold at repo root (Next 16, React 19, TypeScript strict), Tailwind CSS 3.4 wired to the `ui-tokens.md` project tokens, shadcn plumbing only (`cn()` + `components.json` + deps), `types/index.ts` from `ui-contract-plan.md`, build-time-only mock JSON in `lib/mock-data/` generated from `tests/contract_fixtures.py`, and 5 stub routes + root redirect. `npm run build`/`lint`/`typecheck` clean; all 5 routes serve 200 with semantic tokens rendering; `uv run pytest` still 152 (Python untouched by the scaffold).
+**Next:** Phase 9 (Reusable UI Components + Static Pages). This is where shadcn primitives get added per-component and reconciled to `ui-tokens.md` (deferred from Phase 8), the 12 registry components are built and `/imprint`ed, and the 5 routes are filled in against the mock JSON. The Phase 8 hard gate is satisfied: line-by-line audit confirms all 26 spec §11/§12 test cases map to named tests, Phase 6 report-structure tests pass (24/24), full suite 152.
 
 ## Important Note
 
@@ -105,17 +105,17 @@ Tooling conventions locked via `/grill-with-docs` session, see `docs/adr/0004-ph
 - [x] Route/page plan
 - [x] Table column plan
 - [x] KPI and chart mapping
-- [x] Figma/MCP reference review if useful — no Figma link or MCP connector was available; deferred to a later session per `context/ui-contract-plan.md`'s explicit note (inspect and classify V1/V1.5/V2/out-of-scope if/when provided)
+- [x] Figma/MCP reference review if useful — deferred in Phase 7 (no connector then); actually performed in Phase 8 once the Figma MCP was connected. Four Figma Make prototypes inspected and classified in `ui-contract-plan.md`'s Figma Reference Reconciliation section.
 
 ### Phase 8 - Next.js Frontend Foundation
 
-- [ ] Gate check: all spec-listed pytest cases pass for Phases 3-5
-- [ ] Gate check: Phase 6 Excel report structure tests pass
-- [ ] Scaffold Next.js App Router project
-- [ ] Configure TypeScript strict
-- [ ] Configure Tailwind CSS 3.4 tokens
-- [ ] Add shadcn/ui base setup
-- [ ] Add app shell routes
+- [x] Gate check: all spec-listed pytest cases pass for Phases 3-5 — line-by-line audit, all 26 spec §11/§12 cases map to named tests (8 order-validation, 8 inventory-allocation, 10 payment-aging)
+- [x] Gate check: Phase 6 Excel report structure tests pass — 24/24 in `test_report_export.py`
+- [x] Scaffold Next.js App Router project — Next 16 + React 19 at repo root, transplanted from a scratchpad scaffold so no existing Python/context/docs files were clobbered
+- [x] Configure TypeScript strict — `strict: true`, `@/*` path alias, `typecheck` script (`tsc --noEmit`)
+- [x] Configure Tailwind CSS 3.4 tokens — pinned 3.4.19 (no v4), `tailwind.config.ts` + `globals.css` wired to `ui-tokens.md` tokens verbatim, Inter via `next/font`
+- [x] Add shadcn/ui base setup — plumbing only: `cn()` (`lib/utils.ts`), `components.json`, deps (clsx/tailwind-merge/cva/lucide). Primitive components and any shadcn-token bridge deferred to Phase 9 (see Decisions Made) to avoid injecting a token set that collides with `ui-tokens.md`
+- [x] Add app shell routes — 5 stub routes (`/dashboard`, `/order-validation`, `/inventory-allocation`, `/payment-aging`, `/reports`) + root redirect to `/dashboard`; real `AppShell`/`SidebarNav` and page content are Phase 9
 
 ### Phase 9 - Reusable UI Components and Static Pages
 
@@ -170,3 +170,5 @@ Tooling conventions locked via `/grill-with-docs` session, see `docs/adr/0004-ph
 - Phase 7 decisions (via `/architect` + `AskUserQuestion`): TypeScript interfaces are literal `.ts` code blocks in `context/ui-contract-plan.md` (new), snake_case fields preserved verbatim, no camelCase adapter decided. `context/ui-rules.md`'s Status Badges section rewritten in full for all 4 workflow groups (not just the 2 originally flagged) into an explicit direct-vs-derived structure — Inventory Allocation and Payment Aging were also mixing controlled-vocabulary fields with unexplained derived shorthand. `/dashboard` scoped as a read-only aggregate landing page (per-workflow KPI strips with independent empty states + 3 report cards + 3 entry cards), no persisted cross-workflow state, no new contract. Client-side derived aggregates permitted for charts/KPIs (e.g. "90+ Days Amount", "Backordered Qty by SKU") as long as each is explicitly labeled with its source rows/fields/grouping rule. `CONTEXT.md` not edited this phase — `Status Badge`/`Derived Display Value` are UI-planning terms, defined in `ui-contract-plan.md` instead. Figma/MCP reference deferred (none available this session). Discovered and flagged a `ReportManifest.report_id` format mismatch between `tests/contract_fixtures.py` (stale) and the real `report_export.py` exporter; corrected after Phase 7 before Phase 8 prep.
 - Post-Phase-7 fixture correction complete: `REPORT_MANIFEST_FIXTURES.report_id` now uses the real timestamp-based exporter format for all 3 report types, and `tests/test_contracts.py` verifies each fixture ID matches its own `report_type` + `generated_at`.
 - Phase 7 complete: `context/ui-contract-plan.md` (new), `context/ui-rules.md` (Status Badges section rewritten), `context/progress-tracker.md` updated; no `src/`/`tests/` changes, `uv run pytest` still passes (151 tests, unchanged).
+- Phase 8 decisions (via `/architect` + `AskUserQuestion`, Figma MCP now connected): scaffolded into a scratchpad temp dir and transplanted only Next.js files to the repo root, because `create-next-app` generates its own `AGENTS.md`/`CLAUDE.md`/`README.md`/`.gitignore` that would clobber the real ones — `git status` confirmed no Python/context/docs file was touched. Tailwind pinned to 3.4.19 (create-next-app defaults to v4); set up via the v3 path (`tailwind.config.ts` + `@tailwind` directives + autoprefixer), not v4's CSS-first config. Snake_case preserved verbatim in `types/index.ts` and mock JSON — no camelCase adapter (carried from Phase 7). Payment Aging badges stay direct-fields-only (`aging_bucket`, `follow_up_priority`); no Paid/Overdue shorthand. **shadcn is plumbing-only this phase** (`cn()`, `components.json`, deps) — primitive components deferred to Phase 9. Reason: `ui-tokens.md`'s token names are authoritative and collide with shadcn's default set (notably `--accent` = brand blue here vs shadcn's gray hover); adding primitives now would force injecting shadcn's parallel tokens, which the CRITICAL "never add tokens without approval" rule (`skills/tailwind-best-practices`) forbids. Phase 9 adds each primitive only when a real component needs it, reconciles its classes to `ui-tokens.md`, and `/imprint`s the pattern. Mock JSON is generated build-time-only by `scripts/generate_mock_data.py` from `tests/contract_fixtures.py`; the Next.js app never imports `tests/` at runtime — it reads committed `lib/mock-data/*.json`.
+- Phase 8 complete: `app/` (root layout + 5 stub routes + root redirect), `tailwind.config.ts`, `postcss.config.mjs`, `app/globals.css` (tokens), `lib/utils.ts`, `components.json`, `types/index.ts`, `scripts/generate_mock_data.py`, `lib/mock-data/*.json`, `package.json`/lockfile, merged `.gitignore`. `npm run build`/`lint`/`typecheck` clean; all 5 routes serve 200 with semantic-token CSS compiled; `uv run pytest` still 152 (Python untouched). `context/ui-registry.md` intentionally left empty — no reusable components built this phase.
