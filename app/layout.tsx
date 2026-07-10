@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
+import { AppShell } from "@/components/layout/AppShell";
+
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
@@ -20,8 +22,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={inter.variable}>
-      <body className="min-h-screen bg-background font-sans text-text-primary">
-        {children}
+      <body
+        className="min-h-screen bg-background font-sans text-text-primary"
+        suppressHydrationWarning
+      >
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

@@ -297,6 +297,8 @@ Each entry: source rows, source fields, grouping rule. No new Python fields, no 
 | Aging bucket distribution | `PaymentAgingSummary.aging_bucket_counts` | direct — not actually derived, listed here only for completeness since it's chart-shaped |
 | Overdue amount by customer | `PaymentAgingResult.aging_rows` | group by `customer_name`, sum `outstanding_amount` where `days_overdue > 0` |
 | "90+ Days Amount" KPI | `PaymentAgingResult.aging_rows` | sum `outstanding_amount` where `aging_bucket === "90+ Days"` |
+| "Gap to Reorder Point" (Dashboard Inventory Shortage Alerts) | `InventoryAllocationResult.supplier_follow_ups` | `reorder_point - remaining_qty`, per row. Display label only — never call this "suggested reorder quantity" (that would be a new business recommendation the Python core doesn't produce; `SupplierFollowUpRow` has no such field). |
+| Outstanding amount by aging bucket (Dashboard `VerticalBucketBarChart`) | `PaymentAgingResult.aging_rows` | group by `aging_bucket` (fixed order: Current, 1-30 Days, 31-60 Days, 61-90 Days, 90+ Days), sum `outstanding_amount`. Distinct from `PaymentAgingSummary.aging_bucket_counts`, which is a *count* per bucket, not an amount — same relationship as the existing "90+ Days Amount" KPI to that same count dict. |
 
 Boundary: aggregation for visualization is fine; new business interpretation is not. No risk score, forecast, recommendation, or priority calculation that the Python core doesn't already produce.
 

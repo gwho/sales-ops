@@ -1,48 +1,479 @@
 {
   "summary": {
-    "total_invoices": 10,
-    "total_outstanding_amount": 165000.0,
-    "overdue_amount": 111000.0,
-    "high_priority_count": 1,
+    "total_invoices": 27,
+    "total_outstanding_amount": 373000.0,
+    "overdue_amount": 331000.0,
+    "high_priority_count": 8,
     "aging_bucket_counts": {
-      "Current": 2,
-      "1-30 Days": 3,
-      "31-60 Days": 2,
-      "61-90 Days": 1,
-      "90+ Days": 0
+      "Current": 5,
+      "1-30 Days": 7,
+      "31-60 Days": 5,
+      "61-90 Days": 5,
+      "90+ Days": 3
     }
   },
   "aging_rows": [
     {
       "invoice_id": "INV-2026-001",
-      "customer_name": "Bright Medical Trading Ltd",
-      "invoice_date": "2026-03-31",
-      "due_date": "2026-04-30",
-      "invoice_amount": 58000.0,
+      "customer_name": "Victoria Harbour Eye Institute",
+      "invoice_date": "2026-01-31",
+      "due_date": "2026-03-02",
+      "invoice_amount": 68000.0,
       "paid_amount": 0.0,
-      "outstanding_amount": 58000.0,
-      "days_overdue": 70,
+      "outstanding_amount": 68000.0,
+      "days_overdue": 130,
+      "aging_bucket": "90+ Days",
+      "follow_up_priority": "High",
+      "suggested_action": "Call or email customer urgently"
+    },
+    {
+      "invoice_id": "INV-2026-002",
+      "customer_name": "Kowloon Central Hospital",
+      "invoice_date": "2026-05-16",
+      "due_date": "2026-06-15",
+      "invoice_amount": 14000.0,
+      "paid_amount": 14000.0,
+      "outstanding_amount": 0.0,
+      "days_overdue": 25,
+      "aging_bucket": "1-30 Days",
+      "follow_up_priority": "None",
+      "suggested_action": "No action required"
+    },
+    {
+      "invoice_id": "INV-2026-003",
+      "customer_name": "Lion Rock Vision Clinic Group",
+      "invoice_date": "2026-06-20",
+      "due_date": "2026-07-20",
+      "invoice_amount": 9600.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 9600.0,
+      "days_overdue": -10,
+      "aging_bucket": "Current",
+      "follow_up_priority": "None",
+      "suggested_action": "No action required"
+    },
+    {
+      "invoice_id": "INV-2026-004",
+      "customer_name": "Harbour City Biomedical Services",
+      "invoice_date": "2026-06-25",
+      "due_date": "2026-07-13",
+      "invoice_amount": 4200.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 4200.0,
+      "days_overdue": -3,
+      "aging_bucket": "Current",
+      "follow_up_priority": "Watch",
+      "suggested_action": "Monitor before due date"
+    },
+    {
+      "invoice_id": "INV-2026-005",
+      "customer_name": "New Territories Optical Supplies",
+      "invoice_date": "2026-05-31",
+      "due_date": "2026-06-28",
+      "invoice_amount": 21000.0,
+      "paid_amount": 5000.0,
+      "outstanding_amount": 16000.0,
+      "days_overdue": 12,
+      "aging_bucket": "1-30 Days",
+      "follow_up_priority": "Low",
+      "suggested_action": "Include in regular follow-up list"
+    },
+    {
+      "invoice_id": "INV-2026-006",
+      "customer_name": "Pearl River Medical Distribution Co",
+      "invoice_date": "2026-05-21",
+      "due_date": "2026-06-20",
+      "invoice_amount": 18000.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 18000.0,
+      "days_overdue": 20,
+      "aging_bucket": "1-30 Days",
+      "follow_up_priority": "Low",
+      "suggested_action": "Include in regular follow-up list"
+    },
+    {
+      "invoice_id": "INV-2026-007",
+      "customer_name": "Golden Bay Optical Chain",
+      "invoice_date": "2026-05-06",
+      "due_date": "2026-06-05",
+      "invoice_amount": 12500.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 12500.0,
+      "days_overdue": 35,
+      "aging_bucket": "31-60 Days",
+      "follow_up_priority": "Medium",
+      "suggested_action": "Send payment reminder this week"
+    },
+    {
+      "invoice_id": "INV-2026-008",
+      "customer_name": "Zhuhai Cross-Border Medical Center",
+      "invoice_date": "2026-04-26",
+      "due_date": "2026-05-23",
+      "invoice_amount": 27000.0,
+      "paid_amount": 8000.0,
+      "outstanding_amount": 19000.0,
+      "days_overdue": 48,
+      "aging_bucket": "31-60 Days",
+      "follow_up_priority": "Medium",
+      "suggested_action": "Send payment reminder this week"
+    },
+    {
+      "invoice_id": "INV-2026-009",
+      "customer_name": "Huangpu District Eye Hospital",
+      "invoice_date": "2026-05-26",
+      "due_date": "2026-06-22",
+      "invoice_amount": 9500.0,
+      "paid_amount": 3000.0,
+      "outstanding_amount": 6500.0,
+      "days_overdue": 18,
+      "aging_bucket": "1-30 Days",
+      "follow_up_priority": "Low",
+      "suggested_action": "Include in regular follow-up list"
+    },
+    {
+      "invoice_id": "INV-2026-010",
+      "customer_name": "Shanghai Vision Research Institute",
+      "invoice_date": "2026-04-21",
+      "due_date": "2026-05-19",
+      "invoice_amount": 16000.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 16000.0,
+      "days_overdue": 52,
+      "aging_bucket": "31-60 Days",
+      "follow_up_priority": "Medium",
+      "suggested_action": "Send payment reminder this week"
+    },
+    {
+      "invoice_id": "INV-2026-011",
+      "customer_name": "Bund Optical Partners",
+      "invoice_date": "2026-04-06",
+      "due_date": "2026-05-03",
+      "invoice_amount": 23000.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 23000.0,
+      "days_overdue": 68,
       "aging_bucket": "61-90 Days",
       "follow_up_priority": "High",
       "suggested_action": "Call or email customer urgently"
+    },
+    {
+      "invoice_id": "INV-2026-012",
+      "customer_name": "Beijing Capital Eye Center",
+      "invoice_date": "2026-03-22",
+      "due_date": "2026-04-19",
+      "invoice_amount": 31000.0,
+      "paid_amount": 6000.0,
+      "outstanding_amount": 25000.0,
+      "days_overdue": 82,
+      "aging_bucket": "61-90 Days",
+      "follow_up_priority": "High",
+      "suggested_action": "Call or email customer urgently"
+    },
+    {
+      "invoice_id": "INV-2026-013",
+      "customer_name": "Chaoyang Medical Equipment Co",
+      "invoice_date": "2026-05-11",
+      "due_date": "2026-06-07",
+      "invoice_amount": 13500.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 13500.0,
+      "days_overdue": 33,
+      "aging_bucket": "31-60 Days",
+      "follow_up_priority": "Medium",
+      "suggested_action": "Send payment reminder this week"
+    },
+    {
+      "invoice_id": "INV-2026-014",
+      "customer_name": "Northern Star University Hospital",
+      "invoice_date": "2026-07-05",
+      "due_date": "2026-08-04",
+      "invoice_amount": 8700.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 8700.0,
+      "days_overdue": -25,
+      "aging_bucket": "Current",
+      "follow_up_priority": "None",
+      "suggested_action": "No action required"
+    },
+    {
+      "invoice_id": "INV-2026-015",
+      "customer_name": "Sichuan Regional Health Distributors",
+      "invoice_date": "2026-04-01",
+      "due_date": "2026-04-29",
+      "invoice_amount": 19000.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 19000.0,
+      "days_overdue": 72,
+      "aging_bucket": "61-90 Days",
+      "follow_up_priority": "High",
+      "suggested_action": "Call or email customer urgently"
+    },
+    {
+      "invoice_id": "INV-2026-016",
+      "customer_name": "Yangtze Vision Clinic Network",
+      "invoice_date": "2026-02-20",
+      "due_date": "2026-03-20",
+      "invoice_amount": 52000.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 52000.0,
+      "days_overdue": 112,
+      "aging_bucket": "90+ Days",
+      "follow_up_priority": "High",
+      "suggested_action": "Call or email customer urgently"
+    },
+    {
+      "invoice_id": "INV-2026-017",
+      "customer_name": "Fujian Coastal Eye Care Group",
+      "invoice_date": "2026-02-10",
+      "due_date": "2026-03-10",
+      "invoice_amount": 6400.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 6400.0,
+      "days_overdue": 122,
+      "aging_bucket": "90+ Days",
+      "follow_up_priority": "High",
+      "suggested_action": "Call or email customer urgently"
+    },
+    {
+      "invoice_id": "INV-2026-018",
+      "customer_name": "Kowloon Central Hospital",
+      "invoice_date": "2026-06-15",
+      "due_date": "2026-07-12",
+      "invoice_amount": 3100.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 3100.0,
+      "days_overdue": -2,
+      "aging_bucket": "Current",
+      "follow_up_priority": "Watch",
+      "suggested_action": "Monitor before due date"
+    },
+    {
+      "invoice_id": "INV-2026-019",
+      "customer_name": "Victoria Harbour Eye Institute",
+      "invoice_date": "2026-06-05",
+      "due_date": "2026-07-02",
+      "invoice_amount": 5600.0,
+      "paid_amount": 5600.0,
+      "outstanding_amount": 0.0,
+      "days_overdue": 8,
+      "aging_bucket": "1-30 Days",
+      "follow_up_priority": "None",
+      "suggested_action": "No action required"
+    },
+    {
+      "invoice_id": "INV-2026-020",
+      "customer_name": "Lion Rock Vision Clinic Group",
+      "invoice_date": "2026-06-12",
+      "due_date": "2026-07-09",
+      "invoice_amount": 2100.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 2100.0,
+      "days_overdue": 1,
+      "aging_bucket": "1-30 Days",
+      "follow_up_priority": "Low",
+      "suggested_action": "Include in regular follow-up list"
+    },
+    {
+      "invoice_id": "INV-2026-021",
+      "customer_name": "Golden Bay Optical Chain",
+      "invoice_date": "2026-05-09",
+      "due_date": "2026-06-09",
+      "invoice_amount": 9800.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 9800.0,
+      "days_overdue": 31,
+      "aging_bucket": "31-60 Days",
+      "follow_up_priority": "Medium",
+      "suggested_action": "Send payment reminder this week"
+    },
+    {
+      "invoice_id": "INV-2026-022",
+      "customer_name": "Chaoyang Medical Equipment Co",
+      "invoice_date": "2026-04-09",
+      "due_date": "2026-05-10",
+      "invoice_amount": 15300.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 15300.0,
+      "days_overdue": 61,
+      "aging_bucket": "61-90 Days",
+      "follow_up_priority": "High",
+      "suggested_action": "Call or email customer urgently"
+    },
+    {
+      "invoice_id": "INV-2026-023",
+      "customer_name": "Northern Star University Hospital",
+      "invoice_date": "2026-03-12",
+      "due_date": "2026-04-11",
+      "invoice_amount": 8900.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 8900.0,
+      "days_overdue": 90,
+      "aging_bucket": "61-90 Days",
+      "follow_up_priority": "High",
+      "suggested_action": "Call or email customer urgently"
+    },
+    {
+      "invoice_id": "INV-2026-026",
+      "customer_name": "Beijing Capital Eye Center",
+      "invoice_date": "2026-05-21",
+      "due_date": "2026-06-20",
+      "invoice_amount": 7000.0,
+      "paid_amount": 8500.0,
+      "outstanding_amount": 0.0,
+      "days_overdue": 20,
+      "aging_bucket": "1-30 Days",
+      "follow_up_priority": "None",
+      "suggested_action": "No action required"
+    },
+    {
+      "invoice_id": "INV-2026-027",
+      "customer_name": "Sichuan Regional Health Distributors",
+      "invoice_date": "2026-06-25",
+      "due_date": "2026-07-22",
+      "invoice_amount": 16400.0,
+      "paid_amount": 0.0,
+      "outstanding_amount": 16400.0,
+      "days_overdue": -12,
+      "aging_bucket": "Current",
+      "follow_up_priority": "None",
+      "suggested_action": "No action required"
     }
   ],
   "data_issues": [
     {
-      "invoice_id": "INV-2026-009",
-      "customer_name": "Formosa Industrial Group",
       "error_code": "PA-006",
-      "error_message": "Due date is missing",
-      "severity": "Error"
+      "error_message": "Due date is missing.",
+      "severity": "Error",
+      "invoice_id": "INV-2026-024",
+      "customer_name": "Shanghai Vision Research Institute"
+    },
+    {
+      "error_code": "PA-007",
+      "error_message": "Invoice amount is missing or invalid.",
+      "severity": "Error",
+      "invoice_id": "INV-2026-025",
+      "customer_name": "Bund Optical Partners"
     }
   ],
   "draft_messages": [
     {
       "invoice_id": "INV-2026-001",
-      "customer_name": "Bright Medical Trading Ltd",
-      "outstanding_amount": 58000.0,
-      "days_overdue": 70,
-      "message_text": "Dear Bright Medical Trading Ltd,\n\nHope you are well. We would like to follow up on invoice INV-2026-001, with an outstanding amount of HKD 58,000.00, which is currently 70 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+      "customer_name": "Victoria Harbour Eye Institute",
+      "outstanding_amount": 68000.0,
+      "days_overdue": 130,
+      "message_text": "Dear Victoria Harbour Eye Institute,\n\nHope you are well. We would like to follow up on invoice INV-2026-001, with an outstanding amount of HKD 68,000.00, which is currently 130 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    },
+    {
+      "invoice_id": "INV-2026-005",
+      "customer_name": "New Territories Optical Supplies",
+      "outstanding_amount": 16000.0,
+      "days_overdue": 12,
+      "message_text": "Dear New Territories Optical Supplies,\n\nHope you are well. We would like to follow up on invoice INV-2026-005, with an outstanding amount of HKD 16,000.00, which is currently 12 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    },
+    {
+      "invoice_id": "INV-2026-006",
+      "customer_name": "Pearl River Medical Distribution Co",
+      "outstanding_amount": 18000.0,
+      "days_overdue": 20,
+      "message_text": "Dear Pearl River Medical Distribution Co,\n\nHope you are well. We would like to follow up on invoice INV-2026-006, with an outstanding amount of CNY 18,000.00, which is currently 20 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    },
+    {
+      "invoice_id": "INV-2026-007",
+      "customer_name": "Golden Bay Optical Chain",
+      "outstanding_amount": 12500.0,
+      "days_overdue": 35,
+      "message_text": "Dear Golden Bay Optical Chain,\n\nHope you are well. We would like to follow up on invoice INV-2026-007, with an outstanding amount of CNY 12,500.00, which is currently 35 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    },
+    {
+      "invoice_id": "INV-2026-008",
+      "customer_name": "Zhuhai Cross-Border Medical Center",
+      "outstanding_amount": 19000.0,
+      "days_overdue": 48,
+      "message_text": "Dear Zhuhai Cross-Border Medical Center,\n\nHope you are well. We would like to follow up on invoice INV-2026-008, with an outstanding amount of CNY 19,000.00, which is currently 48 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    },
+    {
+      "invoice_id": "INV-2026-009",
+      "customer_name": "Huangpu District Eye Hospital",
+      "outstanding_amount": 6500.0,
+      "days_overdue": 18,
+      "message_text": "Dear Huangpu District Eye Hospital,\n\nHope you are well. We would like to follow up on invoice INV-2026-009, with an outstanding amount of CNY 6,500.00, which is currently 18 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    },
+    {
+      "invoice_id": "INV-2026-010",
+      "customer_name": "Shanghai Vision Research Institute",
+      "outstanding_amount": 16000.0,
+      "days_overdue": 52,
+      "message_text": "Dear Shanghai Vision Research Institute,\n\nHope you are well. We would like to follow up on invoice INV-2026-010, with an outstanding amount of CNY 16,000.00, which is currently 52 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    },
+    {
+      "invoice_id": "INV-2026-011",
+      "customer_name": "Bund Optical Partners",
+      "outstanding_amount": 23000.0,
+      "days_overdue": 68,
+      "message_text": "Dear Bund Optical Partners,\n\nHope you are well. We would like to follow up on invoice INV-2026-011, with an outstanding amount of CNY 23,000.00, which is currently 68 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    },
+    {
+      "invoice_id": "INV-2026-012",
+      "customer_name": "Beijing Capital Eye Center",
+      "outstanding_amount": 25000.0,
+      "days_overdue": 82,
+      "message_text": "Dear Beijing Capital Eye Center,\n\nHope you are well. We would like to follow up on invoice INV-2026-012, with an outstanding amount of CNY 25,000.00, which is currently 82 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    },
+    {
+      "invoice_id": "INV-2026-013",
+      "customer_name": "Chaoyang Medical Equipment Co",
+      "outstanding_amount": 13500.0,
+      "days_overdue": 33,
+      "message_text": "Dear Chaoyang Medical Equipment Co,\n\nHope you are well. We would like to follow up on invoice INV-2026-013, with an outstanding amount of CNY 13,500.00, which is currently 33 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    },
+    {
+      "invoice_id": "INV-2026-015",
+      "customer_name": "Sichuan Regional Health Distributors",
+      "outstanding_amount": 19000.0,
+      "days_overdue": 72,
+      "message_text": "Dear Sichuan Regional Health Distributors,\n\nHope you are well. We would like to follow up on invoice INV-2026-015, with an outstanding amount of CNY 19,000.00, which is currently 72 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    },
+    {
+      "invoice_id": "INV-2026-016",
+      "customer_name": "Yangtze Vision Clinic Network",
+      "outstanding_amount": 52000.0,
+      "days_overdue": 112,
+      "message_text": "Dear Yangtze Vision Clinic Network,\n\nHope you are well. We would like to follow up on invoice INV-2026-016, with an outstanding amount of CNY 52,000.00, which is currently 112 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    },
+    {
+      "invoice_id": "INV-2026-017",
+      "customer_name": "Fujian Coastal Eye Care Group",
+      "outstanding_amount": 6400.0,
+      "days_overdue": 122,
+      "message_text": "Dear Fujian Coastal Eye Care Group,\n\nHope you are well. We would like to follow up on invoice INV-2026-017, with an outstanding amount of CNY 6,400.00, which is currently 122 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    },
+    {
+      "invoice_id": "INV-2026-020",
+      "customer_name": "Lion Rock Vision Clinic Group",
+      "outstanding_amount": 2100.0,
+      "days_overdue": 1,
+      "message_text": "Dear Lion Rock Vision Clinic Group,\n\nHope you are well. We would like to follow up on invoice INV-2026-020, with an outstanding amount of HKD 2,100.00, which is currently 1 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    },
+    {
+      "invoice_id": "INV-2026-021",
+      "customer_name": "Golden Bay Optical Chain",
+      "outstanding_amount": 9800.0,
+      "days_overdue": 31,
+      "message_text": "Dear Golden Bay Optical Chain,\n\nHope you are well. We would like to follow up on invoice INV-2026-021, with an outstanding amount of CNY 9,800.00, which is currently 31 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    },
+    {
+      "invoice_id": "INV-2026-022",
+      "customer_name": "Chaoyang Medical Equipment Co",
+      "outstanding_amount": 15300.0,
+      "days_overdue": 61,
+      "message_text": "Dear Chaoyang Medical Equipment Co,\n\nHope you are well. We would like to follow up on invoice INV-2026-022, with an outstanding amount of CNY 15,300.00, which is currently 61 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
+    },
+    {
+      "invoice_id": "INV-2026-023",
+      "customer_name": "Northern Star University Hospital",
+      "outstanding_amount": 8900.0,
+      "days_overdue": 90,
+      "message_text": "Dear Northern Star University Hospital,\n\nHope you are well. We would like to follow up on invoice INV-2026-023, with an outstanding amount of CNY 8,900.00, which is currently 90 days overdue.\n\nPlease let us know the expected payment status or if any further information is required from our side.\n\nThank you."
     }
   ]
 }
