@@ -1,10 +1,13 @@
 /**
- * Typed access point for the Phase 8 build-time mock JSON.
+ * Typed access point for the build-time mock JSON.
  *
  * Pages import from here, never from `lib/mock-data/*.json` directly, so the
  * JSON shape is asserted against `types/index.ts` in exactly one place. The
- * JSON itself is regenerated from `tests/contract_fixtures.py` by
- * `scripts/generate_mock_data.py` (build-time only, see that script's header).
+ * JSON itself is regenerated from the committed `sample_data/*.xlsx` files by
+ * running the real business-rule pipeline in `scripts/generate_mock_data.py`
+ * (manual, `npm run mock-data` — see that script's header). It is not derived
+ * from `tests/contract_fixtures.py`, which stays a separate, small,
+ * contract-shape-only fixture set used solely by Python tests.
  */
 
 import orderValidationData from "@/lib/mock-data/order-validation.json";
