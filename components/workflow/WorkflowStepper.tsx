@@ -12,14 +12,16 @@ export function WorkflowStepper({ steps, currentStep }: WorkflowStepperProps) {
   return (
     <ol className="flex flex-wrap items-center gap-2">
       {steps.map((step, index) => {
-        const state = index < currentStep ? "done" : index === currentStep ? "current" : "upcoming";
+        // Static showcase: every page represents an already-completed run, so a
+        // step at or before currentStep reads as "done" (green), never "current"
+        // (blue) — there's no live in-progress state to distinguish here.
+        const state = index <= currentStep ? "done" : "upcoming";
         return (
           <li key={step} className="flex items-center gap-2">
             <span
               className={cn(
                 "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium",
                 state === "done" && "bg-success text-text-on-accent",
-                state === "current" && "bg-accent text-text-on-accent",
                 state === "upcoming" && "bg-surface-muted text-text-secondary",
               )}
             >

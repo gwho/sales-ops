@@ -1,9 +1,46 @@
 // External imports
 import Link from "next/link";
+import {
+  ClipboardList,
+  CheckCircle2,
+  XCircle,
+  Copy,
+  AlertCircle,
+  FileWarning,
+  AlertTriangle,
+  TrendingDown,
+  DollarSign,
+  Clock,
+  Truck,
+  ReceiptText,
+  FileSpreadsheet,
+  Upload,
+  PackageCheck,
+  ArrowRight,
+  BookOpen,
+} from "lucide-react";
 
 // Internal imports
 import { MetricCard } from "@/components/workflow/MetricCard";
 import { ReportCard } from "@/components/workflow/ReportCard";
+import { SegmentedBar } from "@/components/tables/SegmentedBar";
+import { TableSectionHeading } from "@/components/tables/TableSectionHeading";
+import { DonutBreakdownChart } from "@/components/charts/DonutBreakdownChart";
+import { VerticalBucketBarChart } from "@/components/charts/VerticalBucketBarChart";
+import {
+  StatusBadge,
+  followUpPriorityTone,
+  agingBucketTone,
+  allocationStatusTone,
+} from "@/components/workflow/StatusBadge";
+import {
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableHeaderCell,
+  TableCell,
+} from "@/components/ui/Table";
 import { Card } from "@/components/ui/Card";
 import {
   orderValidationResult,
@@ -11,6 +48,7 @@ import {
   paymentAgingResult,
   reportManifests,
   ninetyPlusDaysAmount,
+  amountByAgingBucket,
 } from "@/lib/mock-data";
 import { formatAmount, formatNumber } from "@/lib/formatters";
 
@@ -37,6 +75,8 @@ export default function DashboardPage() {
   const validation = orderValidationResult.summary;
   const allocation = inventoryAllocationResult.summary;
   const aging = paymentAgingResult.summary;
+  const { supplier_follow_ups } = inventoryAllocationResult;
+  const followUpItems = paymentAgingResult.aging_rows.filter((row) => row.follow_up_priority !== "None");
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
@@ -49,46 +89,275 @@ export default function DashboardPage() {
         payment aging results.
       </p>
 
-      <section className="mt-8">
+      <section className="mt-6">
         <h2 className="text-base font-semibold text-text-primary">Order Validation</h2>
         <div className="mt-3 grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          <MetricCard label="Total Orders" value={formatNumber(validation.total_orders)} />
-          <MetricCard label="Valid Orders" value={formatNumber(validation.valid_orders)} />
-          <MetricCard label="Invalid Orders" value={formatNumber(validation.invalid_orders)} />
-          <MetricCard label="Duplicate Orders" value={formatNumber(validation.duplicate_orders)} />
-          <MetricCard label="Invalid SKUs" value={formatNumber(validation.invalid_skus)} />
-          <MetricCard label="Missing Fields" value={formatNumber(validation.missing_field_count)} />
+          <MetricCard
+            label="Total Orders"
+            value={formatNumber(validation.total_orders)}
+            icon={<ClipboardList size={16} />}
+            tone="info"
+          />
+          <MetricCard
+            label="Valid Orders"
+            value={formatNumber(validation.valid_orders)}
+            icon={<CheckCircle2 size={16} />}
+            tone="success"
+          />
+          <MetricCard
+            label="Invalid Orders"
+            value={formatNumber(validation.invalid_orders)}
+            icon={<XCircle size={16} />}
+            tone="danger"
+          />
+          <MetricCard
+            label="Duplicate Orders"
+            value={formatNumber(validation.duplicate_orders)}
+            icon={<Copy size={16} />}
+            tone="warning"
+          />
+          <MetricCard
+            label="Invalid SKUs"
+            value={formatNumber(validation.invalid_skus)}
+            icon={<AlertCircle size={16} />}
+            tone="danger"
+          />
+          <MetricCard
+            label="Missing Fields"
+            value={formatNumber(validation.missing_field_count)}
+            icon={<FileWarning size={16} />}
+            tone="warning"
+          />
         </div>
+        <Card className="mt-3 p-4">
+          <SegmentedBar
+            segments={[
+              { label: "Valid", value: validation.valid_orders, tone: "success" },
+              { label: "Invalid", value: validation.invalid_orders, tone: "danger" },
+            ]}
+          />
+        </Card>
       </section>
 
-      <section className="mt-8">
+      <section className="mt-6">
         <h2 className="text-base font-semibold text-text-primary">Inventory Allocation</h2>
         <div className="mt-3 grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          <MetricCard label="Total Order Lines" value={formatNumber(allocation.total_order_lines)} />
-          <MetricCard label="Fully Allocated" value={formatNumber(allocation.fully_allocated_count)} />
+          <MetricCard
+            label="Total Order Lines"
+            value={formatNumber(allocation.total_order_lines)}
+            icon={<ClipboardList size={16} />}
+            tone="info"
+          />
+          <MetricCard
+            label="Fully Allocated"
+            value={formatNumber(allocation.fully_allocated_count)}
+            icon={<CheckCircle2 size={16} />}
+            tone="success"
+          />
           <MetricCard
             label="Partially Allocated"
             value={formatNumber(allocation.partially_allocated_count)}
+            icon={<AlertTriangle size={16} />}
+            tone="warning"
           />
-          <MetricCard label="Backordered" value={formatNumber(allocation.backordered_count)} />
-          <MetricCard label="Low Stock SKUs" value={formatNumber(allocation.low_stock_sku_count)} />
+          <MetricCard
+            label="Backordered"
+            value={formatNumber(allocation.backordered_count)}
+            icon={<XCircle size={16} />}
+            tone="danger"
+          />
+          <MetricCard
+            label="Low Stock SKUs"
+            value={formatNumber(allocation.low_stock_sku_count)}
+            icon={<TrendingDown size={16} />}
+            tone="warning"
+          />
         </div>
       </section>
 
-      <section className="mt-8">
+      <section className="mt-6">
         <h2 className="text-base font-semibold text-text-primary">Payment Aging</h2>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard label="Total Outstanding" value={formatAmount(aging.total_outstanding_amount)} />
-          <MetricCard label="Overdue Amount" value={formatAmount(aging.overdue_amount)} />
-          <MetricCard label="High Priority Count" value={formatNumber(aging.high_priority_count)} />
+          <MetricCard
+            label="Total Outstanding"
+            value={formatAmount(aging.total_outstanding_amount)}
+            icon={<DollarSign size={16} />}
+            tone="info"
+          />
+          <MetricCard
+            label="Overdue Amount"
+            value={formatAmount(aging.overdue_amount)}
+            icon={<AlertTriangle size={16} />}
+            tone="warning"
+          />
+          <MetricCard
+            label="High Priority Count"
+            value={formatNumber(aging.high_priority_count)}
+            icon={<AlertCircle size={16} />}
+            tone="danger"
+          />
           <MetricCard
             label="90+ Days Amount"
             value={formatAmount(ninetyPlusDaysAmount(paymentAgingResult))}
+            icon={<Clock size={16} />}
+            tone="danger"
           />
         </div>
       </section>
 
-      <section className="mt-8">
+      <section className="mt-6 grid gap-4 lg:grid-cols-2">
+        <Card>
+          <TableSectionHeading
+            icon={<PackageCheck size={16} />}
+            title="Allocation Status"
+            caption="Fully allocated → partially allocated → backordered."
+          />
+          <div className="mt-3">
+            <DonutBreakdownChart
+              segments={[
+                {
+                  label: "Fully Allocated",
+                  value: allocation.fully_allocated_count,
+                  tone: allocationStatusTone("Fully Allocated"),
+                },
+                {
+                  label: "Partially Allocated",
+                  value: allocation.partially_allocated_count,
+                  tone: allocationStatusTone("Partially Allocated"),
+                },
+                {
+                  label: "Backordered",
+                  value: allocation.backordered_count,
+                  tone: allocationStatusTone("Backordered"),
+                },
+              ]}
+              totalLabel="Order Lines"
+            />
+          </div>
+        </Card>
+        <Card>
+          <TableSectionHeading
+            icon={<ReceiptText size={16} />}
+            title="Outstanding by Aging Bucket"
+            caption="Outstanding amount → aging bucket."
+          />
+          <div className="mt-3">
+            <VerticalBucketBarChart
+              data={amountByAgingBucket(paymentAgingResult).map((bucket) => ({
+                label: bucket.label,
+                value: bucket.value,
+                tone: agingBucketTone(bucket.label),
+              }))}
+              subtitle="Outstanding amount by bucket"
+            />
+          </div>
+        </Card>
+      </section>
+
+      <section className="mt-6">
+        <TableSectionHeading
+          icon={<Truck size={16} />}
+          title="Inventory Shortage Alerts"
+          caption="SKUs below reorder point → gap to reorder point → supplier contact."
+        />
+        <div className="mt-3 rounded-xl border border-border bg-surface-subtle p-4">
+          {supplier_follow_ups.length === 0 ? (
+            <Card className="text-sm text-text-secondary">No SKUs are currently below their reorder point.</Card>
+          ) : (
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableHeaderCell>SKU</TableHeaderCell>
+                  <TableHeaderCell>Warehouse</TableHeaderCell>
+                  <TableHeaderCell className="text-right">Remaining Qty</TableHeaderCell>
+                  <TableHeaderCell className="text-right">Reorder Point</TableHeaderCell>
+                  <TableHeaderCell className="text-right">Gap to Reorder Pt.</TableHeaderCell>
+                  <TableHeaderCell>Supplier</TableHeaderCell>
+                  <TableHeaderCell className="text-right">Lead Time (Days)</TableHeaderCell>
+                  <TableHeaderCell>Alert</TableHeaderCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {supplier_follow_ups.map((row, index) => (
+                  <TableRow key={`${row.sku}-${row.warehouse}`} className={index % 2 === 1 ? "bg-surface-muted" : undefined}>
+                    <TableCell className="whitespace-nowrap font-medium text-text-primary">{row.sku}</TableCell>
+                    <TableCell className="whitespace-nowrap text-text-secondary">{row.warehouse}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right font-medium tabular-nums">
+                      {formatNumber(row.remaining_qty)}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums">{formatNumber(row.reorder_point)}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums text-warning">
+                      {formatNumber(row.reorder_point - row.remaining_qty)}
+                    </TableCell>
+                    <TableCell
+                      className="block max-w-[140px] truncate whitespace-nowrap text-text-secondary"
+                      title={row.supplier_name ?? undefined}
+                    >
+                      {row.supplier_name ?? "—"}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums">
+                      {row.lead_time_days != null ? formatNumber(row.lead_time_days) : "—"}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <StatusBadge status="Below Reorder Point" tone="warning" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      </section>
+
+      <section className="mt-6">
+        <TableSectionHeading
+          icon={<ReceiptText size={16} />}
+          title="Payment Follow-up Items"
+          caption="Outstanding amount → aging bucket → follow-up priority."
+        />
+        <div className="mt-3 rounded-xl border border-border bg-surface-subtle p-4">
+          {followUpItems.length === 0 ? (
+            <Card className="text-sm text-text-secondary">No invoices currently need follow-up.</Card>
+          ) : (
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableHeaderCell>Invoice ID</TableHeaderCell>
+                  <TableHeaderCell>Customer</TableHeaderCell>
+                  <TableHeaderCell className="text-right">Outstanding Amount</TableHeaderCell>
+                  <TableHeaderCell className="text-right">Days Overdue</TableHeaderCell>
+                  <TableHeaderCell>Aging Bucket</TableHeaderCell>
+                  <TableHeaderCell>Follow-up Priority</TableHeaderCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {followUpItems.map((row, index) => (
+                  <TableRow key={row.invoice_id} className={index % 2 === 1 ? "bg-surface-muted" : undefined}>
+                    <TableCell className="whitespace-nowrap font-medium text-text-primary">{row.invoice_id}</TableCell>
+                    <TableCell className="block max-w-[160px] truncate whitespace-nowrap font-medium text-text-primary" title={row.customer_name}>
+                      {row.customer_name}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">
+                      {formatAmount(row.outstanding_amount)}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-right font-medium tabular-nums">
+                      {formatNumber(row.days_overdue)}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <StatusBadge status={row.aging_bucket} tone={agingBucketTone(row.aging_bucket)} />
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <StatusBadge status={row.follow_up_priority} tone={followUpPriorityTone(row.follow_up_priority)} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      </section>
+
+      <section className="mt-6">
         <h2 className="text-base font-semibold text-text-primary">Reports</h2>
         <div className="mt-3 grid gap-4 sm:grid-cols-3">
           {reportManifests.map((manifest) => (
@@ -97,7 +366,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="mt-8">
+      <section className="mt-6">
         <h2 className="text-base font-semibold text-text-primary">Workflows</h2>
         <div className="mt-3 grid gap-4 sm:grid-cols-3">
           {WORKFLOW_ENTRIES.map((entry) => (
@@ -110,6 +379,102 @@ export default function DashboardPage() {
           ))}
         </div>
       </section>
+
+      <section className="mt-6">
+        <h2 className="text-base font-semibold text-text-primary">How the Workflows Connect</h2>
+        <Card className="mt-3 flex flex-col gap-3">
+          <FlowRow
+            steps={[
+              { icon: <Upload size={14} />, label: "Orders Excel" },
+              { icon: <CheckCircle2 size={14} />, label: "Order Validation" },
+              { icon: <ClipboardList size={14} />, label: "Valid Orders" },
+            ]}
+          />
+          <FlowRow
+            steps={[
+              { icon: <ClipboardList size={14} />, label: "Valid Orders + Inventory" },
+              { icon: <PackageCheck size={14} />, label: "Allocation" },
+              { icon: <Truck size={14} />, label: "Backorders / Supplier Follow-up" },
+            ]}
+          />
+          <FlowRow
+            steps={[
+              { icon: <ReceiptText size={14} />, label: "Invoices" },
+              { icon: <Clock size={14} />, label: "Payment Aging" },
+              { icon: <AlertCircle size={14} />, label: "Draft Reminders" },
+            ]}
+          />
+          <FlowRow
+            steps={[
+              { icon: <CheckCircle2 size={14} />, label: "Workflow Outputs" },
+              { icon: <FileSpreadsheet size={14} />, label: "Excel Reports" },
+            ]}
+          />
+        </Card>
+      </section>
+
+      <section className="mt-6">
+        <h2 className="flex items-center gap-2 text-base font-semibold text-text-primary">
+          <BookOpen size={16} className="text-text-secondary" aria-hidden="true" />
+          How This Demo Works
+        </h2>
+        <Card className="mt-3 flex flex-col gap-3 text-sm text-text-secondary">
+          <p>
+            This toolkit simulates three sales-admin workflows — <span className="font-medium text-text-primary">order validation</span>,{" "}
+            <span className="font-medium text-text-primary">inventory allocation</span>, and{" "}
+            <span className="font-medium text-text-primary">payment aging</span> — plus the Excel reports each one exports. It is a
+            portfolio project, not a real ERP/CRM system.
+          </p>
+          <p>
+            The three workflows connect in one direction: validated orders feed inventory allocation, and allocation and payment
+            aging each produce their own report. Nothing here is cross-workflow risk scoring or forecasting — every number traces to
+            a specific, tested Python function.
+          </p>
+          <p>
+            <span className="font-medium text-text-primary">All data is fictional</span> — sample orders, customers, SKUs, and
+            invoices generated for this demo, refreshed each time the underlying fixtures are regenerated. No real customer,
+            order, or financial data is used anywhere.
+          </p>
+          <p>
+            <span className="font-medium text-text-primary">Reading tags:</span> colored pills always come from a fixed, controlled
+            vocabulary — e.g. Order priority is exactly High/Normal/Low, Allocation status is exactly Fully Allocated/Partially
+            Allocated/Backordered, Payment follow-up priority is exactly High/Medium/Low/Watch/None. The color (green/amber/red/blue/
+            gray) is a visual aid; the label is always the source of truth.
+          </p>
+          <p>
+            <span className="font-medium text-text-primary">Filters and sorting</span> on each workflow page run entirely in the
+            browser against the data already loaded — use the dropdowns and search box above a table to narrow it, and click a
+            sortable column header to reorder it. Filtering never changes the KPI totals above the table, which always reflect the
+            full result set.
+          </p>
+          <p>
+            <span className="font-medium text-text-primary">Why Python first:</span> every rule you see enforced here (duplicate
+            order detection, warehouse allocation order, aging-bucket thresholds, follow-up priority) is implemented and unit-tested
+            in a Python core before this interface was built — the UI only displays outputs the tested business logic already
+            produced, not the other way around.
+          </p>
+        </Card>
+      </section>
+    </div>
+  );
+}
+
+function FlowRow({ steps }: { steps: { icon: React.ReactNode; label: string }[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {steps.map((step, index) => (
+        <div key={step.label} className="flex items-center gap-2">
+          <span className="flex items-center gap-1.5 rounded-md border border-border bg-surface-subtle px-2.5 py-1.5 text-xs font-medium text-text-primary">
+            <span className="text-text-secondary" aria-hidden="true">
+              {step.icon}
+            </span>
+            {step.label}
+          </span>
+          {index < steps.length - 1 ? (
+            <ArrowRight size={14} className="shrink-0 text-text-muted" aria-hidden="true" />
+          ) : null}
+        </div>
+      ))}
     </div>
   );
 }

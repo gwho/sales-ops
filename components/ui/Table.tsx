@@ -14,7 +14,7 @@ export function Table({ className, ...props }: TableHTMLAttributes<HTMLTableElem
   return (
     <div className="rounded-xl border border-border overflow-hidden">
       <div className="overflow-x-auto">
-        <table className={cn("w-full border-collapse text-sm", className)} {...props} />
+        <table className={cn("w-full border-collapse text-xs", className)} {...props} />
       </div>
     </div>
   );
@@ -36,7 +36,7 @@ export function TableHeaderCell({ className, ...props }: ThHTMLAttributes<HTMLTa
   return (
     <th
       className={cn(
-        "px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-text-secondary",
+        "whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-text-secondary",
         className,
       )}
       {...props}
@@ -45,5 +45,5 @@ export function TableHeaderCell({ className, ...props }: ThHTMLAttributes<HTMLTa
 }
 
 export function TableCell({ className, ...props }: TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn("px-4 py-3 text-sm text-text-primary", className)} {...props} />;
+  return <td className={cn("px-3 py-2 text-xs text-text-primary", className)} {...props} />;
 }

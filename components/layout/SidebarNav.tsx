@@ -20,9 +20,9 @@ export function SidebarNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex h-screen w-60 shrink-0 flex-col gap-1 border-r border-border bg-surface p-4">
+    <nav className="flex h-full w-60 shrink-0 flex-col gap-1 overflow-y-auto border-r border-border bg-surface p-4">
       <span className="mb-4 px-2 text-xs font-medium uppercase tracking-wide text-text-secondary">
-        Sales Admin Toolkit
+        Sales Admin Automation Toolkit
       </span>
       {NAV_ITEMS.map((item) => {
         const active = pathname === item.href;
