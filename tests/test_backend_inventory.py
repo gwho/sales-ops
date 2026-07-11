@@ -1,11 +1,37 @@
 import io
 
+import pandas as pd
 from fastapi.testclient import TestClient
 
 from backend.main import app
 from tests.backend_test_helpers import SAMPLE_DATA_DIR, XLSX_MEDIA_TYPE, upload_file
 
 client = TestClient(app)
+
+
+def _all_invalid_orders_xlsx() -> io.BytesIO:
+    """One order row with a blank customer_name -- OV-001 fails it, so
+    validate_orders() produces zero valid_orders and allocate_inventory()
+    receives an empty (columnless) DataFrame."""
+    orders_df = pd.DataFrame(
+        [
+            {
+                "order_id": "SO-BAD-001",
+                "order_date": "2026-01-01",
+                "customer_name": "",
+                "customer_region": "HK",
+                "sku": "PART-BULB-013",
+                "quantity": 1,
+                "requested_delivery_date": "2026-01-10",
+                "priority": "Normal",
+                "payment_terms": "30 days",
+            }
+        ]
+    )
+    buffer = io.BytesIO()
+    orders_df.to_excel(buffer, index=False)
+    buffer.seek(0)
+    return buffer
 
 
 def _post(path: str):
@@ -54,6 +80,44 @@ def test_allocate_inventory_missing_inventory_file_returns_400():
             files={
                 "orders_file": upload_file("sample_orders.xlsx", orders),
                 "product_master_file": upload_file("sample_product_master.xlsx", product_master),
+            },
+        )
+
+    assert response.status_code == 400
+    assert isinstance(response.json()["detail"], str)
+
+
+def test_allocate_inventory_zero_valid_orders_returns_400_not_500():
+    bad_orders = _all_invalid_orders_xlsx()
+    with (
+        (SAMPLE_DATA_DIR / "sample_product_master.xlsx").open("rb") as product_master,
+        (SAMPLE_DATA_DIR / "sample_inventory.xlsx").open("rb") as inventory,
+    ):
+        response = client.post(
+            "/api/inventory/allocate",
+            files={
+                "orders_file": ("orders.xlsx", bad_orders, XLSX_MEDIA_TYPE),
+                "product_master_file": upload_file("sample_product_master.xlsx", product_master),
+                "inventory_file": upload_file("sample_inventory.xlsx", inventory),
+            },
+        )
+
+    assert response.status_code == 400
+    assert isinstance(response.json()["detail"], str)
+
+
+def test_allocate_inventory_report_zero_valid_orders_returns_400_not_500():
+    bad_orders = _all_invalid_orders_xlsx()
+    with (
+        (SAMPLE_DATA_DIR / "sample_product_master.xlsx").open("rb") as product_master,
+        (SAMPLE_DATA_DIR / "sample_inventory.xlsx").open("rb") as inventory,
+    ):
+        response = client.post(
+            "/api/inventory/allocate/report",
+            files={
+                "orders_file": ("orders.xlsx", bad_orders, XLSX_MEDIA_TYPE),
+                "product_master_file": upload_file("sample_product_master.xlsx", product_master),
+                "inventory_file": upload_file("sample_inventory.xlsx", inventory),
             },
         )
 

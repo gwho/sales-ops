@@ -283,14 +283,16 @@ export default function PaymentAgingPage() {
           </div>
           <Button
             variant="secondary"
-            disabled={!canSubmit || reportStatus === "processing"}
+            disabled={!canSubmit || reportStatus === "processing" || status === "submitting" || sampleDataLoading}
             onClick={handleDownloadReport}
             title={canSubmit ? "Recomputes and downloads payment_aging_report.xlsx" : "Upload an invoices file first"}
           >
             {reportStatus === "processing" ? "Preparing report…" : "Download Report"}
           </Button>
           {reportStatus === "failed" && reportErrorDetail ? (
-            <p className="max-w-xs text-right text-xs text-danger">{reportErrorDetail}</p>
+            <div className="max-w-xs">
+              <BusinessErrorMessage message={reportErrorDetail} />
+            </div>
           ) : null}
         </div>
       </div>
@@ -305,11 +307,12 @@ export default function PaymentAgingPage() {
           requiredColumns={["invoice_id", "customer_name", "invoice_date", "due_date", "invoice_amount"]}
           sampleFileName="invoices"
           onFileChange={setInvoicesFile}
+          selectedFileName={invoicesFile?.name ?? null}
         />
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <Button onClick={handleCalculateAging} disabled={!canSubmit || status === "submitting"}>
+        <Button onClick={handleCalculateAging} disabled={!canSubmit || status === "submitting" || sampleDataLoading}>
           {status === "submitting" ? "Calculating…" : "Calculate Aging"}
         </Button>
         <Button

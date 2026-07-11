@@ -6,7 +6,13 @@
  * docs/architect/phase-10-fastapi-integration/decisions.md #4.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+// 127.0.0.1, not localhost: the FastAPI dev server binds IPv4-only, but
+// /etc/hosts commonly maps "localhost" to both 127.0.0.1 and ::1 -- a browser
+// that tries the IPv6 loopback first (Happy Eyeballs / RFC 8305) gets a
+// connection failure before the request ever reaches the backend, since
+// nothing listens on [::1]:8000. Using the literal IPv4 address removes the
+// ambiguity. See docs/recover/ for the diagnosis.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
 const NETWORK_ERROR_MESSAGE =
   "Could not reach the API server. Make sure the FastAPI backend is running and try again.";

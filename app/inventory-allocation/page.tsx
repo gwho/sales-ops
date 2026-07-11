@@ -395,14 +395,16 @@ export default function InventoryAllocationPage() {
         <div className="flex flex-col items-end gap-2">
           <Button
             variant="secondary"
-            disabled={!canSubmit || reportStatus === "processing"}
+            disabled={!canSubmit || reportStatus === "processing" || status === "submitting" || sampleDataLoading}
             onClick={handleDownloadReport}
             title={canSubmit ? "Recomputes and downloads inventory_allocation_report.xlsx" : "Upload all three files first"}
           >
             {reportStatus === "processing" ? "Preparing report…" : "Download Report"}
           </Button>
           {reportStatus === "failed" && reportErrorDetail ? (
-            <p className="max-w-xs text-right text-xs text-danger">{reportErrorDetail}</p>
+            <div className="max-w-xs">
+              <BusinessErrorMessage message={reportErrorDetail} />
+            </div>
           ) : null}
         </div>
       </div>
@@ -427,18 +429,21 @@ export default function InventoryAllocationPage() {
           ]}
           sampleFileName="orders"
           onFileChange={setOrdersFile}
+          selectedFileName={ordersFile?.name ?? null}
         />
         <UploadPanel
           label="Product Master File"
           requiredColumns={["sku", "product_name", "active"]}
           sampleFileName="product-master"
           onFileChange={setProductMasterFile}
+          selectedFileName={productMasterFile?.name ?? null}
         />
         <UploadPanel
           label="Inventory File"
           requiredColumns={["sku", "warehouse", "available_qty"]}
           sampleFileName="inventory"
           onFileChange={setInventoryFile}
+          selectedFileName={inventoryFile?.name ?? null}
         />
       </div>
       <p className="mt-2 text-xs text-text-muted">
@@ -446,7 +451,7 @@ export default function InventoryAllocationPage() {
       </p>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <Button onClick={handleRunAllocation} disabled={!canSubmit || status === "submitting"}>
+        <Button onClick={handleRunAllocation} disabled={!canSubmit || status === "submitting" || sampleDataLoading}>
           {status === "submitting" ? "Allocating…" : "Run Allocation"}
         </Button>
         <Button

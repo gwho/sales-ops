@@ -17,6 +17,16 @@ type UploadPanelProps = {
   sampleFileName?: string;
   /** Hands the selected File to the parent page so it can be submitted with the Workflow Request. */
   onFileChange?: (file: File | null) => void;
+  /**
+   * Displayed filename, controlled by the parent's own file state. Pages hold
+   * the File as the source of truth (native pick or "Run sample data" both
+   * flow through the same onFileChange -> parent state), so passing this down
+   * keeps the panel's display in sync regardless of which path set the file --
+   * "Run sample data" bypasses the native <input>, so without this the panel
+   * would keep showing "Choose a file..." even after a sample file was loaded
+   * and submitted.
+   */
+  selectedFileName?: string | null;
 };
 
 /**
@@ -31,9 +41,11 @@ export function UploadPanel({
   accept = ".xlsx",
   sampleFileName,
   onFileChange,
+  selectedFileName,
 }: UploadPanelProps) {
   const inputId = useId();
   const [fileName, setFileName] = useState<string | null>(null);
+  const displayedFileName = selectedFileName !== undefined ? selectedFileName : fileName;
 
   return (
     <Card className="flex flex-col gap-3">
@@ -51,7 +63,7 @@ export function UploadPanel({
         htmlFor={inputId}
         className="flex cursor-pointer items-center justify-between gap-3 rounded-md border border-dashed border-border-strong bg-surface-subtle px-3 py-2 text-sm text-text-secondary hover:border-accent"
       >
-        <span className="truncate">{fileName ?? "Choose a file…"}</span>
+        <span className="truncate">{displayedFileName ?? "Choose a file…"}</span>
         <span className="shrink-0 rounded-md bg-accent px-3 py-1 text-xs font-medium text-text-on-accent">
           Browse
         </span>

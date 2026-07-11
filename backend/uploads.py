@@ -38,6 +38,16 @@ def read_xlsx_upload(
     except MissingColumnsError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
+        # Deliberately broad: pandas/openpyxl don't expose one shared exception
+        # type for "this isn't a valid .xlsx workbook" -- a corrupt file can
+        # surface as zipfile.BadZipFile, ValueError, an openpyxl-internal
+        # exception, or others, and the exact set isn't guaranteed stable
+        # across dependency versions. Narrowing this to an explicit list would
+        # be fragile (silently regress to a leaking 500 on a version bump) for
+        # a boundary whose only job is "the file couldn't be parsed" -- not
+        # "diagnose exactly why." A genuine bug inside a load_* function would
+        # also be caught here and reported as a file-format error rather than
+        # a 500; if that ever needs to be distinguished, narrow this then.
         raise HTTPException(
             status_code=400,
             detail=(

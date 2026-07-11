@@ -13,10 +13,17 @@ from datetime import datetime
 from typing import Annotated
 
 import pandas as pd
-from fastapi import APIRouter, File, Response, UploadFile
+from fastapi import APIRouter, File, HTTPException, Response, UploadFile
 
 from backend.uploads import read_xlsx_upload
-from src.inventory_allocation import InventoryAllocationResult, allocate_inventory, load_inventory
+from src.excel_io import MissingColumnsError
+from src.inventory_allocation import (
+    InvalidInventoryDataError,
+    InvalidOrderDataError,
+    InventoryAllocationResult,
+    allocate_inventory,
+    load_inventory,
+)
 from src.order_validation import load_orders, load_product_master, validate_orders
 from src.report_export import export_inventory_allocation_report
 
@@ -36,7 +43,14 @@ def _run_allocation(
 
     validation_result = validate_orders(orders_df, product_master_df)
     valid_orders_df = pd.DataFrame(validation_result["valid_orders"])
-    return allocate_inventory(valid_orders_df, inventory_df)
+    try:
+        return allocate_inventory(valid_orders_df, inventory_df)
+    except (MissingColumnsError, InvalidOrderDataError, InvalidInventoryDataError) as exc:
+        # Zero valid orders (or otherwise malformed valid-order/inventory data)
+        # is a business/input failure, not a server failure -- allocate_inventory
+        # raises these for exactly that reason, so they map to 400, not the
+        # generic 500 an uncaught exception would produce.
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/allocate")
