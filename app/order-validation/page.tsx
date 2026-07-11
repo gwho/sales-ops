@@ -2,8 +2,7 @@
 
 // This page must be a Client Component: its DataTable column definitions
 // contain render functions, and functions cannot cross the Server->Client
-// props boundary (only the DataTable primitive itself strictly needed to be
-// client — but its callers do too, since they construct its column config).
+// props boundary. Phase 10: also owns live Workflow Request/Result state.
 
 // External imports
 import { useMemo, useState } from "react";
@@ -26,15 +25,21 @@ import { FilterToolbar } from "@/components/tables/FilterToolbar";
 import { FilterSelect } from "@/components/tables/FilterSelect";
 import { TableSectionHeading } from "@/components/tables/TableSectionHeading";
 import { StatusBadge, severityTone, importancePriorityTone } from "@/components/workflow/StatusBadge";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { LoadingState } from "@/components/feedback/LoadingState";
+import { BusinessErrorMessage } from "@/components/feedback/BusinessErrorMessage";
 import { Button } from "@/components/ui/Button";
-import { orderValidationResult, reportManifests } from "@/lib/mock-data";
+import { ApiError, downloadBlob, fetchSampleFile, postJSON, postReport } from "@/lib/api-client";
 import { formatDate, formatNumber } from "@/lib/formatters";
-import type { ValidationErrorRow, ValidOrderRow } from "@/types";
+import type { OrderValidationResult, ValidationErrorRow, ValidOrderRow } from "@/types";
 
 const SEVERITY_OPTIONS = ["All", "Error", "Warning"];
 const PRIORITY_OPTIONS = ["All", "High", "Normal", "Low"];
 
 const STEPS = ["Upload Files", "Run Validation", "Review Results"];
+
+type RequestStatus = "idle" | "submitting" | "succeeded" | "failed";
+type ReportRequestState = "idle" | "processing" | "failed";
 
 const ERROR_COLUMNS: DataTableColumn<ValidationErrorRow>[] = [
   { key: "row_number", header: "Row", render: (r) => r.row_number, sortable: true, sortValue: (r) => r.row_number, align: "right" },
@@ -140,13 +145,88 @@ const VALID_ORDER_COLUMNS: DataTableColumn<ValidOrderRow>[] = [
 
 // Component
 export default function OrderValidationPage() {
-  const { summary, errors, valid_orders } = orderValidationResult;
-  const report = reportManifests.find((m) => m.report_type === "order_validation");
+  const [ordersFile, setOrdersFile] = useState<File | null>(null);
+  const [productMasterFile, setProductMasterFile] = useState<File | null>(null);
+
+  const [status, setStatus] = useState<RequestStatus>("idle");
+  const [currentResult, setCurrentResult] = useState<OrderValidationResult | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+
+  const [reportStatus, setReportStatus] = useState<ReportRequestState>("idle");
+  const [reportErrorDetail, setReportErrorDetail] = useState<string | null>(null);
 
   const [errorSeverity, setErrorSeverity] = useState("All");
   const [errorSearch, setErrorSearch] = useState("");
   const [orderPriority, setOrderPriority] = useState("All");
   const [orderSearch, setOrderSearch] = useState("");
+
+  const [sampleDataLabel, setSampleDataLabel] = useState<string | null>(null);
+  const [sampleDataLoading, setSampleDataLoading] = useState(false);
+
+  const canSubmit = ordersFile !== null && productMasterFile !== null;
+  const currentStep = status === "succeeded" ? 2 : canSubmit ? 1 : 0;
+
+  async function runValidation(orders: File, productMaster: File) {
+    setStatus("submitting");
+    setErrorDetail(null);
+    try {
+      const formData = new FormData();
+      formData.set("orders_file", orders);
+      formData.set("product_master_file", productMaster);
+      const result = await postJSON<OrderValidationResult>("/api/orders/validate", formData);
+      setCurrentResult(result);
+      setStatus("succeeded");
+    } catch (error) {
+      setErrorDetail(error instanceof ApiError ? error.message : "Something went wrong. Please try again.");
+      setStatus("failed");
+    }
+  }
+
+  function handleRunValidation() {
+    if (!ordersFile || !productMasterFile) return;
+    void runValidation(ordersFile, productMasterFile);
+  }
+
+  async function handleRunSampleData() {
+    setSampleDataLoading(true);
+    setSampleDataLabel(null);
+    setErrorDetail(null);
+    try {
+      const [orders, productMaster] = await Promise.all([
+        fetchSampleFile("orders", "sample_orders.xlsx"),
+        fetchSampleFile("product-master", "sample_product_master.xlsx"),
+      ]);
+      setOrdersFile(orders);
+      setProductMasterFile(productMaster);
+      setSampleDataLabel(`Using sample data: ${orders.name}, ${productMaster.name}`);
+      setSampleDataLoading(false);
+      await runValidation(orders, productMaster);
+    } catch (error) {
+      setSampleDataLoading(false);
+      setErrorDetail(error instanceof ApiError ? error.message : "Something went wrong. Please try again.");
+      setStatus("failed");
+    }
+  }
+
+  async function handleDownloadReport() {
+    if (!ordersFile || !productMasterFile) return;
+    setReportStatus("processing");
+    setReportErrorDetail(null);
+    try {
+      const formData = new FormData();
+      formData.set("orders_file", ordersFile);
+      formData.set("product_master_file", productMasterFile);
+      const report = await postReport("/api/orders/validate/report", formData, "order_validation_report.xlsx");
+      downloadBlob(report.blob, report.filename);
+      setReportStatus("idle");
+    } catch (error) {
+      setReportErrorDetail(error instanceof ApiError ? error.message : "Something went wrong. Please try again.");
+      setReportStatus("failed");
+    }
+  }
+
+  const errors = useMemo(() => currentResult?.errors ?? [], [currentResult]);
+  const validOrders = useMemo(() => currentResult?.valid_orders ?? [], [currentResult]);
 
   const filteredErrors = useMemo(() => {
     const query = errorSearch.trim().toLowerCase();
@@ -162,7 +242,7 @@ export default function OrderValidationPage() {
 
   const filteredValidOrders = useMemo(() => {
     const query = orderSearch.trim().toLowerCase();
-    return valid_orders.filter((row) => {
+    return validOrders.filter((row) => {
       if (orderPriority !== "All" && row.priority !== orderPriority) return false;
       if (query) {
         const haystack = `${row.order_id} ${row.customer_name} ${row.sku}`.toLowerCase();
@@ -170,7 +250,7 @@ export default function OrderValidationPage() {
       }
       return true;
     });
-  }, [valid_orders, orderPriority, orderSearch]);
+  }, [validOrders, orderPriority, orderSearch]);
 
   const errorFiltersActive = errorSeverity !== "All" || errorSearch !== "";
   const orderFiltersActive = orderPriority !== "All" || orderSearch !== "";
@@ -184,21 +264,23 @@ export default function OrderValidationPage() {
             Check orders against required fields, active SKUs, and business rules.
           </p>
         </div>
-        <Button
-          variant="secondary"
-          disabled
-          title={
-            report
-              ? `Download ${report.file_name} — available once the API layer (Phase 10) is live`
-              : "Available once the API layer (Phase 10) is live"
-          }
-        >
-          Download Report
-        </Button>
+        <div className="flex flex-col items-end gap-2">
+          <Button
+            variant="secondary"
+            disabled={!canSubmit || reportStatus === "processing"}
+            onClick={handleDownloadReport}
+            title={canSubmit ? "Recomputes and downloads order_validation_report.xlsx" : "Upload both files first"}
+          >
+            {reportStatus === "processing" ? "Preparing report…" : "Download Report"}
+          </Button>
+          {reportStatus === "failed" && reportErrorDetail ? (
+            <p className="max-w-xs text-right text-xs text-danger">{reportErrorDetail}</p>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-6">
-        <WorkflowStepper steps={STEPS} currentStep={STEPS.length - 1} />
+        <WorkflowStepper steps={STEPS} currentStep={currentStep} />
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -215,113 +297,160 @@ export default function OrderValidationPage() {
             "priority",
             "payment_terms",
           ]}
+          sampleFileName="orders"
+          onFileChange={setOrdersFile}
         />
-        <UploadPanel label="Product Master File" requiredColumns={["sku", "product_name", "active"]} />
+        <UploadPanel
+          label="Product Master File"
+          requiredColumns={["sku", "product_name", "active"]}
+          sampleFileName="product-master"
+          onFileChange={setProductMasterFile}
+        />
       </div>
 
-      <section className="mt-6">
-        <h2 className="text-base font-semibold text-text-primary">Summary</h2>
-        <div className="mt-3 grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          <MetricCard
-            label="Total Orders"
-            value={formatNumber(summary.total_orders)}
-            icon={<ClipboardList size={16} />}
-            tone="info"
-          />
-          <MetricCard
-            label="Valid Orders"
-            value={formatNumber(summary.valid_orders)}
-            icon={<CheckCircle2 size={16} />}
-            tone="success"
-          />
-          <MetricCard
-            label="Invalid Orders"
-            value={formatNumber(summary.invalid_orders)}
-            icon={<XCircle size={16} />}
-            tone="danger"
-          />
-          <MetricCard
-            label="Duplicate Orders"
-            value={formatNumber(summary.duplicate_orders)}
-            icon={<Copy size={16} />}
-            tone="warning"
-          />
-          <MetricCard
-            label="Invalid SKUs"
-            value={formatNumber(summary.invalid_skus)}
-            icon={<AlertCircle size={16} />}
-            tone="danger"
-          />
-          <MetricCard
-            label="Missing Fields"
-            value={formatNumber(summary.missing_field_count)}
-            icon={<FileWarning size={16} />}
-            tone="warning"
-          />
-        </div>
-      </section>
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <Button onClick={handleRunValidation} disabled={!canSubmit || status === "submitting"}>
+          {status === "submitting" ? "Validating…" : "Run Validation"}
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={handleRunSampleData}
+          disabled={sampleDataLoading || status === "submitting"}
+          title="Fetches the committed sample workbooks and runs validation on them"
+        >
+          {sampleDataLoading ? "Loading sample data…" : "Run sample data"}
+        </Button>
+        {sampleDataLabel ? <span className="text-xs text-text-muted">{sampleDataLabel}</span> : null}
+      </div>
 
-      <section className="mt-6">
-        <TableSectionHeading
-          icon={<AlertTriangle size={16} />}
-          title="Validation Errors"
-          caption="Row → error code → business-readable message."
-        />
-        <div className="mt-3 flex flex-col gap-3">
-          <FilterToolbar
-            search={{ value: errorSearch, onChange: setErrorSearch, placeholder: "Order ID or SKU…" }}
-            onClear={() => {
-              setErrorSeverity("All");
-              setErrorSearch("");
-            }}
-            hasActiveFilters={errorFiltersActive}
-          >
-            <FilterSelect label="Severity" value={errorSeverity} options={SEVERITY_OPTIONS} onChange={setErrorSeverity} />
-          </FilterToolbar>
-          <DataTable
-            columns={ERROR_COLUMNS}
-            data={filteredErrors}
-            getRowKey={(r) => `${r.row_number}-${r.error_code}`}
-            emptyTitle={errorFiltersActive ? "No errors match the current filter." : "No validation errors."}
-            emptyDescription={
-              errorFiltersActive
-                ? "Try a different severity or search term."
-                : "Every row in the uploaded orders file passed validation."
-            }
+      {status === "idle" ? (
+        <div className="mt-6">
+          <EmptyState
+            title="Upload an orders file and product master file to begin validation."
+            description="Both files are required before validation can run."
           />
         </div>
-      </section>
+      ) : null}
 
-      <section className="mt-6">
-        <TableSectionHeading
-          icon={<CheckCircle2 size={16} />}
-          title="Valid Orders"
-          caption="Validated orders → allocation-ready rows."
-        />
-        <div className="mt-3 flex flex-col gap-3">
-          <FilterToolbar
-            search={{ value: orderSearch, onChange: setOrderSearch, placeholder: "Order ID, customer, or SKU…" }}
-            onClear={() => {
-              setOrderPriority("All");
-              setOrderSearch("");
-            }}
-            hasActiveFilters={orderFiltersActive}
-          >
-            <FilterSelect label="Priority" value={orderPriority} options={PRIORITY_OPTIONS} onChange={setOrderPriority} />
-          </FilterToolbar>
-          <DataTable
-            columns={VALID_ORDER_COLUMNS}
-            data={filteredValidOrders}
-            getRowKey={(r) => r.order_id}
-            emptyTitle={orderFiltersActive ? "No orders match the current filter." : "No valid orders yet."}
-            emptyDescription={
-              orderFiltersActive
-                ? "Try a different priority or search term."
-                : "No rows in the uploaded orders file passed validation."
-            }
-          />
+      {status === "submitting" ? (
+        <div className="mt-6">
+          <LoadingState label="Validating orders…" />
         </div>
-      </section>
+      ) : null}
+
+      {status === "failed" && errorDetail ? (
+        <div className="mt-6">
+          <BusinessErrorMessage message={errorDetail} />
+        </div>
+      ) : null}
+
+      {status === "succeeded" && currentResult ? (
+        <>
+          <section className="mt-6">
+            <h2 className="text-base font-semibold text-text-primary">Summary</h2>
+            <div className="mt-3 grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+              <MetricCard
+                label="Total Orders"
+                value={formatNumber(currentResult.summary.total_orders)}
+                icon={<ClipboardList size={16} />}
+                tone="info"
+              />
+              <MetricCard
+                label="Valid Orders"
+                value={formatNumber(currentResult.summary.valid_orders)}
+                icon={<CheckCircle2 size={16} />}
+                tone="success"
+              />
+              <MetricCard
+                label="Invalid Orders"
+                value={formatNumber(currentResult.summary.invalid_orders)}
+                icon={<XCircle size={16} />}
+                tone="danger"
+              />
+              <MetricCard
+                label="Duplicate Orders"
+                value={formatNumber(currentResult.summary.duplicate_orders)}
+                icon={<Copy size={16} />}
+                tone="warning"
+              />
+              <MetricCard
+                label="Invalid SKUs"
+                value={formatNumber(currentResult.summary.invalid_skus)}
+                icon={<AlertCircle size={16} />}
+                tone="danger"
+              />
+              <MetricCard
+                label="Missing Fields"
+                value={formatNumber(currentResult.summary.missing_field_count)}
+                icon={<FileWarning size={16} />}
+                tone="warning"
+              />
+            </div>
+          </section>
+
+          <section className="mt-6">
+            <TableSectionHeading
+              icon={<AlertTriangle size={16} />}
+              title="Validation Errors"
+              caption="Row → error code → business-readable message."
+            />
+            <div className="mt-3 flex flex-col gap-3">
+              <FilterToolbar
+                search={{ value: errorSearch, onChange: setErrorSearch, placeholder: "Order ID or SKU…" }}
+                onClear={() => {
+                  setErrorSeverity("All");
+                  setErrorSearch("");
+                }}
+                hasActiveFilters={errorFiltersActive}
+              >
+                <FilterSelect label="Severity" value={errorSeverity} options={SEVERITY_OPTIONS} onChange={setErrorSeverity} />
+              </FilterToolbar>
+              <DataTable
+                columns={ERROR_COLUMNS}
+                data={filteredErrors}
+                getRowKey={(r) => `${r.row_number}-${r.error_code}`}
+                emptyTitle={errorFiltersActive ? "No errors match the current filter." : "No validation errors."}
+                emptyDescription={
+                  errorFiltersActive
+                    ? "Try a different severity or search term."
+                    : "Every row in the uploaded orders file passed validation."
+                }
+              />
+            </div>
+          </section>
+
+          <section className="mt-6">
+            <TableSectionHeading
+              icon={<CheckCircle2 size={16} />}
+              title="Valid Orders"
+              caption="Validated orders → allocation-ready rows."
+            />
+            <div className="mt-3 flex flex-col gap-3">
+              <FilterToolbar
+                search={{ value: orderSearch, onChange: setOrderSearch, placeholder: "Order ID, customer, or SKU…" }}
+                onClear={() => {
+                  setOrderPriority("All");
+                  setOrderSearch("");
+                }}
+                hasActiveFilters={orderFiltersActive}
+              >
+                <FilterSelect label="Priority" value={orderPriority} options={PRIORITY_OPTIONS} onChange={setOrderPriority} />
+              </FilterToolbar>
+              <DataTable
+                columns={VALID_ORDER_COLUMNS}
+                data={filteredValidOrders}
+                getRowKey={(r) => r.order_id}
+                emptyTitle={orderFiltersActive ? "No orders match the current filter." : "No valid orders yet."}
+                emptyDescription={
+                  orderFiltersActive
+                    ? "Try a different priority or search term."
+                    : "No rows in the uploaded orders file passed validation."
+                }
+              />
+            </div>
+          </section>
+        </>
+      ) : null}
     </div>
   );
 }

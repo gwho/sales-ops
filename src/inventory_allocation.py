@@ -48,7 +48,7 @@ class InvalidInventoryDataError(Exception):
         value_text = "" if value is None else f": {_format_cell_value(value)}"
         message = (
             f"Inventory row {row_number} has a missing or invalid value for field "
-            f"'{field}'{value_text}. Please check the sample template."
+            f"'{field}'{value_text}. Please check the sample file."
         )
         super().__init__(message)
 
@@ -63,7 +63,7 @@ class InvalidOrderDataError(Exception):
         value_text = "" if value is None else f": {_format_cell_value(value)}"
         message = (
             f"Valid order row {row_number} has a missing or invalid value for required field "
-            f"'{field}'{value_text}. Please re-run order validation or check the sample template."
+            f"'{field}'{value_text}. Please re-run order validation or check the sample file."
         )
         super().__init__(message)
 

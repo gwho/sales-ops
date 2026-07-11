@@ -83,7 +83,7 @@ Plan this after Phase 2 contract fixtures are stable. Build it only after Phases
 | `src/report_export.py` | Excel workbook generation from result data | Business-rule calculations |
 | `src/excel_io.py` | Loading and required-column validation helpers | Workflow-specific rules |
 | `tests/` | Regression coverage for business rules | Snapshotting UI |
-| Future `backend/` | FastAPI orchestration over tested modules | Duplicated business logic |
+| `backend/` | FastAPI orchestration over tested modules | Duplicated business logic |
 | Future `app/` and `components/` | UI composition and reusable dashboard components | Spreadsheet parsing or business-rule calculations |
 
 ## Python Output Contracts
@@ -114,24 +114,31 @@ Python owns fields explicitly specified by each workflow spec in `sales_admin_au
 
 Example: `PaymentAgingRow` includes `suggested_action` because `03_demo_payment_aging.md` §6-7 explicitly defines it as a deterministic output of the aging/priority rules. `AllocationResultRow` does not include `suggested_action` because `02_demo_inventory_allocation.md` never specifies one — allocation's `status`, `backorder_qty`, `warehouse`, and supplier follow-up fields are sufficient, and the future UI can derive display copy from `status` without a new contract field. Do not add a field to a contract for cross-module consistency alone; add it only when the corresponding spec is amended.
 
-## Future API Contract
+## API Contract (Phase 10)
 
-FastAPI comes after the Python core and UI contracts are stable.
+Resolved via a `/grilling` session and `/architect` session before implementation — see `docs/adr/0006-stateless-fastapi-workflow-and-report-exports.md`, `docs/grilling/phase-10-fastapi-integration/`, `docs/architect/phase-10-fastapi-integration/`, and `context/library-docs.md`'s "Future FastAPI" section for full detail.
 
 ```text
 POST /api/orders/validate
+POST /api/orders/validate/report
+
 POST /api/inventory/allocate
+POST /api/inventory/allocate/report
+
 POST /api/payments/aging
-GET  /api/reports/{report_id}
+POST /api/payments/aging/report
+
+GET  /api/templates/{template_name}
 ```
 
-Expected backend behavior:
+`GET /api/reports/{report_id}` was never implemented — it implied persisted report artifacts, which contradicts the stateless architecture below. Each `.../report` endpoint re-accepts its workflow's source file(s) and recomputes server-side rather than trusting a client-supplied result.
 
-- Process uploaded Excel files in memory or temporary storage.
-- Call tested Python modules.
-- Return JSON matching the stable output contracts.
-- Generate downloadable Excel reports.
-- Convert technical exceptions into business-readable messages.
+Backend behavior:
+
+- Process uploaded Excel files in memory only (`backend/uploads.py`); nothing is written to disk or retained after the response.
+- Call the tested Python modules in `src/`, never duplicating business rules in route handlers.
+- Return JSON matching the stable output contracts for the three workflow endpoints; return `.xlsx` bytes directly for the three report endpoints.
+- Convert technical exceptions into business-readable `{"detail": "string"}` responses at the `backend/` boundary — `src/` itself stays framework-free.
 
 ## UI Design Input Workflow
 

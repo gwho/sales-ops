@@ -16,7 +16,7 @@ class MissingColumnsError(Exception):
         column_list = ", ".join(missing_columns)
         message = (
             f"The uploaded {file_label} is missing required columns: {column_list}. "
-            "Please check the sample template."
+            "Please check the sample file."
         )
         super().__init__(message)
 

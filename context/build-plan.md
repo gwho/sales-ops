@@ -230,14 +230,7 @@ Update `context/ui-registry.md` after each reusable component is built.
 
 Only begin after the Python core and static UI are reviewed.
 
-Planned endpoints:
-
-```text
-POST /api/orders/validate
-POST /api/inventory/allocate
-POST /api/payments/aging
-GET  /api/reports/{report_id}
-```
+Resolved in a `/grilling` planning session before implementation — see `docs/adr/0006-stateless-fastapi-workflow-and-report-exports.md` and `context/library-docs.md`'s "Future FastAPI" section for the full endpoint list and conventions. Summary: the API is stateless (no persisted Workflow Run/job store, no `GET /api/reports/{report_id}`); each workflow gets a `POST .../validate|allocate|aging` endpoint plus a matching `POST .../report` endpoint that re-accepts source files and recomputes rather than trusting a client-supplied result; report downloads return `.xlsx` bytes directly, never a stored artifact fetched by ID.
 
 FastAPI should wrap the already-tested Python modules. It should not duplicate business rules in route handlers.
 

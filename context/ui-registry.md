@@ -34,7 +34,7 @@ Hand-written under `components/ui/` in Phase 9 — never generated via `npx shad
 
 | Component | File | Classes |
 | --- | --- | --- |
-| `Button` | `components/ui/Button.tsx` | `rounded-md px-4 py-2 text-sm font-medium`; primary: `bg-accent text-text-on-accent hover:bg-accent-hover`; secondary: `border border-border bg-surface text-text-primary hover:bg-surface-muted` |
+| `Button` | `components/ui/Button.tsx` | `rounded-md px-4 py-2 text-sm font-medium`; primary: `bg-accent text-text-on-accent hover:bg-accent-hover`; secondary: `border border-border bg-surface text-text-primary hover:bg-surface-muted`. Phase 10: `buttonVariants` (the underlying `cva`) is now exported, so a styled-but-non-`<button>` element (e.g. an `<a>` acting as a button) can apply the identical classes without duplicating them — used by `UploadPanel`'s Sample File link and `ReportCard`'s "Go to workflow" link. |
 | `Card` | `components/ui/Card.tsx` | `rounded-xl border border-border bg-surface p-6 shadow-sm` |
 | `Badge` | `components/ui/Badge.tsx` | `rounded-full px-3 py-1 text-xs font-semibold`; tone maps to `bg-{success,warning,danger,info}-subtle text-{success,warning,danger,info}` or `bg-surface-muted text-text-secondary` for neutral. Phase 9.1: leading `dot?: boolean` (default `true`) renders a `h-1.5 w-1.5 rounded-full bg-{tone}` (solid) dot before the label — every current `StatusBadge` usage keeps it on; pass `dot={false}` only for a hypothetical future non-status badge. |
 | `Table` (+ `TableHead`/`TableBody`/`TableRow`/`TableHeaderCell`/`TableCell`) | `components/ui/Table.tsx` | Wrapper: `rounded-xl border border-border overflow-hidden`; header cells: `px-3 py-2 text-xs font-medium uppercase tracking-wide text-text-secondary whitespace-nowrap`; body cells: `px-3 py-2 text-xs text-text-primary` (Phase 9.1: tightened from `px-4 py-3 text-sm` for a denser operations-table look, matching the Figma references' table density) |
@@ -139,7 +139,7 @@ Last updated: 2026-07-09
 | Accent/status usage | spinner: `border-t-accent` |
 
 Pattern notes:
-Server Component, built but not wired to a real Suspense boundary in Phase 9 — there's no live async fetch yet (static mock JSON import), so this has no current call site. Ready for Phase 10 when real API calls exist.
+Server Component. **Phase 10:** now has real call sites — all 3 workflow pages render it while `status === "submitting"` (a live `postJSON` request in flight), with a workflow-specific `label` (e.g. "Validating orders…", "Allocating inventory by priority, delivery date, and stock availability…").
 
 ### BusinessErrorMessage
 
@@ -159,7 +159,7 @@ Last updated: 2026-07-09
 | Accent/status usage | `bg-danger-subtle text-danger`, `role="alert"` |
 
 Pattern notes:
-Server Component. Always render business-readable copy here, never a raw exception — see `ui-rules.md`'s Error Messages bad/good example. No current call site in Phase 9 (no real parsing failures to surface yet); ready for Phase 10.
+Server Component. Always render business-readable copy here, never a raw exception — see `ui-rules.md`'s Error Messages bad/good example. **Phase 10:** now has real call sites — all 3 workflow pages render it when `status === "failed"` with the API's `{"detail": "..."}` message (via `ApiError`), and again in a smaller inline form next to the "Download Report" button when the separate report request fails. Never a raw exception in either spot — confirmed live: a deliberately malformed upload renders exactly the backend's business-readable `detail` string, not a stack trace.
 
 ### StatusBadge
 
@@ -231,7 +231,7 @@ Last updated: 2026-07-09
 | Accent/status usage | `StatusBadge` with `reportLifecycleTone` |
 
 Pattern notes:
-Server Component — static showcase decision means it never live-transitions between lifecycle states. `state: "Ready"` renders straight from a `ReportManifest`; the other 3 states (`Needs Input`/`Not Generated`/`Processing`) are prop-driven visual variants only, with a disabled "Download .xlsx" button in the Ready state (no real file exists to download until Phase 10's API layer).
+Server Component — still never live-transitions between lifecycle states; that decision holds even in Phase 10, because `ReportCard` is only used on the two pages that deliberately stayed static (`/dashboard`, `/reports` — see Page composition notes below). `state: "Ready"` renders straight from a `ReportManifest`. **Phase 10:** added an optional `workflowHref` prop on the `Ready` variant — when provided, the Ready branch renders a `Link` (styled via `buttonVariants`) reading "Go to workflow" instead of the disabled "Download .xlsx" `Button`; when omitted (still `/dashboard`'s usage, unchanged), the disabled button remains, now with copy that reads "Sample manifest only — no live download from this card" rather than the old "becomes available once Phase 10 is live" (now false, since Phase 10 is live — just not through this card). Live report downloads never go through `ReportCard`; see Page composition notes.
 
 ### UploadPanel
 
@@ -251,7 +251,7 @@ Last updated: 2026-07-09
 | Accent/status usage | "Browse" chip: `bg-accent text-text-on-accent` |
 
 Pattern notes:
-Client Component (`useState` for selected filename). Real file picker — accepts a file, shows the filename — but never parses the file and never gates page content (static showcase decision). "Sample template" is a disabled `Button` with an explanatory `title`, not wired to a real download (no generated `.xlsx` exists in the repo to link to).
+Client Component (`useState` for selected filename). Real file picker — accepts a file, shows the filename, never parses it itself (parsing stays a `backend/` concern). **Phase 10:** gained two props — `onFileChange?: (file: File | null) => void` (hands the selected `File` object to the parent page for submission; the component's own `fileName` display state is separate and still uncontrolled) and `sampleFileName?: string` (an allowlisted `backend/routers/templates.py` key). The "Sample Template" button was renamed to "Sample File" (matching `CONTEXT.md`'s corrected term — the files carry the same intentional data-quality issues as the rest of the demo, not a blank starting point) and is now a real `<a href download>` styled via `buttonVariants` (not a `<button>`, so no JS/CORS involved — a plain browser navigation to `GET /api/templates/{name}`), rendered only when `sampleFileName` is provided.
 
 ### WorkflowStepper
 
@@ -271,7 +271,7 @@ Last updated: 2026-07-09 (Phase 9.1: terminal-step color fixed)
 | Accent/status usage | done step (index ≤ `currentStep`): `bg-success text-text-on-accent`; upcoming: `bg-surface-muted text-text-secondary` |
 
 Pattern notes:
-**Server Component** — takes `steps`/`currentStep` as plain props, no client state. **Phase 9.1 fix:** every step at or before `currentStep` now renders as "done" (green) — there is no separate blue "current" state anymore. The original 3-state version (done/current/upcoming) rendered the terminal step in `bg-accent` (blue), which the visual review found reads as "still in progress," the opposite of the static-showcase intent that every page represents an already-completed run. Re-introduce a distinct "current" state only once a real, live multi-step flow exists (Phase 10+).
+**Server Component** — takes `steps`/`currentStep` as plain props, no client state. **Phase 9.1 fix:** every step at or before `currentStep` now renders as "done" (green) — there is no separate blue "current" state anymore. The original 3-state version (done/current/upcoming) rendered the terminal step in `bg-accent` (blue), which the visual review found reads as "still in progress," the opposite of the static-showcase intent that every page represents an already-completed run. **Phase 10:** `currentStep` is now driven by real client state on all 3 workflow pages (0 = no files selected, 1 = files selected but not yet run, 2 = `status === "succeeded"`) instead of being hardcoded to the last step — the component itself is unchanged, still just done/upcoming with no distinct "current" visual, which continues to read correctly now that "done" genuinely means "this step happened."
 
 ### DataTable
 
@@ -475,3 +475,17 @@ Plain CSS bar chart — `div` columns, height as a `%` of a fixed `h-32` contain
 **Section spacing tightened from `mt-8` to `mt-6` between major sections, page-wide.** Applies to every `<section>` on all 5 routes. `mt-3` (heading → content) and `mt-1`/`mt-2` (title → caption) were already tight and are unchanged.
 
 **Secondary/supporting sections get a `rounded-xl border border-border bg-surface-subtle p-4` wrapper** to visually separate them from primary sections (KPI strips, main tables) now that spacing between all sections is tighter. Applied to: Inventory Allocation's "Remaining Inventory" and "Supplier Follow-up" (the `grid lg:grid-cols-2` pair), Payment Aging's "Data Issues", and both new Dashboard sections ("Inventory Shortage Alerts", "Payment Follow-up Items"). Primary sections (KPI strips, the main "Allocation Results"/"Payment Aging"/"Validation Errors"/"Valid Orders" tables) stay on the plain page background — no wrapper. This is the only background-tone distinction in use; do not introduce a third tier without updating this note.
+
+## Page composition notes (Phase 10)
+
+**The 3 workflow pages (`/order-validation`, `/inventory-allocation`, `/payment-aging`) are now genuinely live**, driven by page-local React state, not `lib/mock-data.ts` imports. Each page owns: `RequestStatus` (`"idle" | "submitting" | "succeeded" | "failed"`), `currentResult` (the typed Workflow Result, or `null`), `errorDetail` (the API's `{detail}` string on failure), and a separate `ReportRequestState` (`"idle" | "processing" | "failed"`) for the "Download Report" button, which is an independent request/response cycle from the main "Run" action (per `docs/adr/0006` — reports recompute from source, they don't reuse `currentResult`). This state lives in each page directly, not in a shared hook — see `docs/architect/phase-10-fastapi-integration/decisions.md` #4 for why. `lib/api-client.ts` is the one shared piece: low-level `postJSON`/`postReport`/`downloadBlob`/`fetchSampleFile` mechanics, reused identically by all 3 pages.
+
+**Explicit "Run" action, not upload-triggers-computation.** Each page has a primary button ("Run Validation" / "Run Allocation" / "Calculate Aging") that only enables once every required file (and, for Payment Aging, a non-empty as-of date) is selected. Selecting a file alone never triggers a request.
+
+**"Run sample data" is a second, secondary-styled button next to the primary "Run" action** — added mid-session, after the original Phase 10 plan. It fetches the page's required sample file(s) via `fetchSampleFile()` (which wraps `GET /api/templates/{name}`'s response blob into a real `File` object), sets them into the same file state the manual `UploadPanel`s use, shows a small `text-xs text-text-muted` status line ("Using sample data: sample_orders.xlsx, sample_product_master.xlsx"), and then runs the exact same request path as a manual upload — no separate backend endpoint, no shortcut around validation. Distinct from `UploadPanel`'s own "Sample File" link, which only downloads the workbook.
+
+**`ReportLifecycleState`/`ReportCard` and `ReportRequestState`/live download buttons are two unrelated systems that happen to share visual language.** `ReportCard` (with its 4-state lifecycle) only ever appears on `/dashboard` and `/reports`, both of which stayed static — it has no live call site. The 3 workflow pages' "Download Report" buttons are plain `Button`s with their own `ReportRequestState`, never `ReportCard`. Do not attempt to unify these two into one component; the underlying data they represent (a static mock manifest vs. a live binary download that either succeeded or didn't) isn't the same shape.
+
+**`/reports` reframed, not rebuilt.** Still a Server Component reading `reportManifests` from static mock JSON, same as Phase 9 — only the heading ("Sample Report Overview"), intro copy, and each `ReportCard`'s action (now `workflowHref` pointing at the matching workflow page instead of a disabled download button) changed. `/dashboard` is completely unchanged from Phase 9.1.
+
+**Payment Aging's date input is now a real, enabled, required `<input type="date">`**, defaulting to the browser's current date via `new Date().toISOString().slice(0, 10)` and updating `asOfDate` state directly on change — no more `disabled`/`readOnly`, no more prefilling from a mock `ReportManifest.generated_at`.

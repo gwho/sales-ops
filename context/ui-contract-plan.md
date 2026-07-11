@@ -272,7 +272,7 @@ Exact copy from each spec's own §UI-requirements section — not invented:
 
 **Order Validation** (`01_demo_order_validation.md` §9)
 - Empty: *"Upload an orders file and product master file to begin validation."*
-- Error (missing columns): *"The uploaded file is missing required columns: [column list]. Please check the sample template."*
+- Error (missing columns): *"The uploaded file is missing required columns: [column list]. Please check the sample file."*
 
 **Inventory Allocation** (`02_demo_inventory_allocation.md` §8)
 - Empty: *"Upload validated orders and inventory files to run allocation."*
@@ -284,7 +284,7 @@ Exact copy from each spec's own §UI-requirements section — not invented:
 
 **Reports** — no spec-defined copy exists (no source file). Use `ui-rules.md`'s bad/good error pattern as the template if a report export fails: never a raw exception, always a business-readable sentence.
 
-**General error copy pattern** (`ui-rules.md`): bad — `KeyError: 'sku'`; good — *"The uploaded order file is missing the required column: SKU. Please use the sample template and try again."*
+**General error copy pattern** (`ui-rules.md`): bad — `KeyError: 'sku'`; good — *"The uploaded order file is missing the required column: SKU. Please use the sample file and try again."*
 
 ## Derived Display-Only Aggregates
 

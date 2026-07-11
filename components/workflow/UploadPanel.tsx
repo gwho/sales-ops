@@ -5,22 +5,33 @@ import { useId, useState } from "react";
 
 // Internal imports
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { buttonVariants } from "@/components/ui/Button";
+import { getSampleFileUrl } from "@/lib/api-client";
 
 // Types
 type UploadPanelProps = {
   label: string;
   requiredColumns: string[];
   accept?: string;
+  /** Allowlisted backend/routers/templates.py key, e.g. "orders" -- omit to hide the Sample file link. */
+  sampleFileName?: string;
+  /** Hands the selected File to the parent page so it can be submitted with the Workflow Request. */
+  onFileChange?: (file: File | null) => void;
 };
 
 /**
- * Real file picker (accepts a file, shows the filename) but never parses the
- * file and never gates page content — Phase 9 is a static showcase, real
- * parsing/validation is a FastAPI concern (Phase 10). See ui-rules.md's
- * Upload Panel rules.
+ * Real file picker: accepts a file, shows the filename, and (Phase 10) hands
+ * the File object up to the parent page via onFileChange for submission. This
+ * component itself still never parses the file -- that stays a FastAPI
+ * concern. See ui-rules.md's Upload Panel rules.
  */
-export function UploadPanel({ label, requiredColumns, accept = ".xlsx" }: UploadPanelProps) {
+export function UploadPanel({
+  label,
+  requiredColumns,
+  accept = ".xlsx",
+  sampleFileName,
+  onFileChange,
+}: UploadPanelProps) {
   const inputId = useId();
   const [fileName, setFileName] = useState<string | null>(null);
 
@@ -49,21 +60,22 @@ export function UploadPanel({ label, requiredColumns, accept = ".xlsx" }: Upload
           type="file"
           accept={accept}
           className="sr-only"
-          onChange={(event) => setFileName(event.target.files?.[0]?.name ?? null)}
+          onChange={(event) => {
+            const file = event.target.files?.[0] ?? null;
+            setFileName(file?.name ?? null);
+            onFileChange?.(file);
+          }}
         />
       </label>
 
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xs text-text-muted">Need a starting point? Use the sample template.</span>
-        <Button
-          variant="secondary"
-          type="button"
-          disabled
-          title="Static demo — file parsing arrives with the API layer (Phase 10)"
-        >
-          Sample template
-        </Button>
-      </div>
+      {sampleFileName ? (
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs text-text-muted">Need a starting point? Use the sample file.</span>
+          <a href={getSampleFileUrl(sampleFileName)} download className={buttonVariants({ variant: "secondary" })}>
+            Sample file
+          </a>
+        </div>
+      ) : null}
     </Card>
   );
 }

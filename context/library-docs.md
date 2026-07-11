@@ -60,24 +60,38 @@ Required test areas:
 
 ## Future FastAPI
 
-Use FastAPI only after the Python core is reviewed.
+Use FastAPI only after the Python core is reviewed. Resolved in a `/grilling` planning session before Phase 10 implementation; the stateless architecture behind these endpoints is recorded in `docs/adr/0006-stateless-fastapi-workflow-and-report-exports.md` — see that ADR before changing the shape below.
 
 Planned endpoints:
 
 ```text
 POST /api/orders/validate
+POST /api/orders/validate/report
+
 POST /api/inventory/allocate
+POST /api/inventory/allocate/report
+
 POST /api/payments/aging
-GET  /api/reports/{report_id}
+POST /api/payments/aging/report
+
+GET  /api/templates/{template_name}
 ```
+
+`GET /api/reports/{report_id}` is not used — see ADR 0006. Each `.../report` endpoint re-accepts the same source file(s)/parameters as its non-report counterpart and recomputes server-side rather than accepting a client-supplied result. Inventory allocation's endpoints take `orders_file`, `product_master_file`, and `inventory_file`, and run `validate_orders` internally before `allocate_inventory`, since `allocate_inventory` requires already-valid orders. Payment aging's endpoints take `invoices_file` plus a required `as_of_date` form field (`YYYY-MM-DD`) — the client always sends it explicitly; the Python function's `as_of_date=None` fallback stays for direct/test callers only.
+
+`GET /api/templates/{template_name}` serves the existing committed `sample_data/*.xlsx` files as downloads (a "Sample File," not a generated template — see `CONTEXT.md`) through an allowlisted name→path mapping, never a raw filesystem path. `sample_customers.xlsx` is not exposed here — it's reference-only and unused by any live workflow.
 
 Rules:
 
-- Keep route handlers thin.
-- Call Python business modules from route handlers.
-- Return JSON matching stable contracts.
-- Return downloadable Excel files for reports.
-- Never expose Python tracebacks to users.
+- Keep route handlers thin. Call the tested Python business modules from route handlers; never duplicate business rules in a route.
+- Use sync `def` path operations (not `async def`) for handlers that call blocking pandas/openpyxl code, per the `fastapi` skill's guidance.
+- Use `Annotated[UploadFile, File()]` and `Annotated[str, Form()]` for upload/form parameters.
+- Return JSON matching stable Output Contracts for the three workflow endpoints; return `.xlsx` bytes directly (`Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `Content-Disposition: attachment`) for the three report endpoints, with `X-Report-Id` / `X-Generated-At` headers for download metadata. Don't force `sheet_names` into a header unless the UI actually needs it.
+- Uploaded files must be `.xlsx`. Check the filename extension (mandatory) and content-type (advisory) before parsing; reject with `400` otherwise.
+- Every failure response uses a uniform `{ "detail": "<business-readable message>" }` shape — never a raw traceback, pandas/openpyxl exception, or FastAPI's default list-shaped validation error. Add a `RequestValidationError` handler that normalizes validation failures into a single string `detail`.
+- Known business/input failures (`MissingColumnsError`, `InvalidInventoryDataError`, `InvalidOrderDataError`, missing/malformed `as_of_date`, missing file, wrong extension, unreadable/corrupt `.xlsx`) return `400`. Truly unexpected failures return a generic `500` message — never expose Python tracebacks to users.
+- No custom upload size limit in Phase 10 (demo-scale files only); revisit if this is ever deployed beyond a portfolio demo.
+- The frontend's `ReportLifecycleState` (`Needs Input` / `Not Generated` / `Processing` / `Ready`) does not gain an `Error` state. A failed request renders `BusinessErrorMessage` in place of the `ReportCard`/`DataTable`, at the page level.
 
 ## Future Next.js
 

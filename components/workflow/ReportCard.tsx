@@ -1,6 +1,9 @@
+// External imports
+import Link from "next/link";
+
 // Internal imports
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonVariants } from "@/components/ui/Button";
 import {
   StatusBadge,
   reportLifecycleTone,
@@ -11,7 +14,7 @@ import type { ReportManifest } from "@/types";
 
 // Types
 type ReportCardProps =
-  | { state: "Ready"; manifest: ReportManifest }
+  | { state: "Ready"; manifest: ReportManifest; workflowHref?: string }
   | { state: Exclude<ReportLifecycleState, "Ready">; reportTypeLabel: string };
 
 const NOT_READY_COPY: Record<Exclude<ReportLifecycleState, "Ready">, string> = {
@@ -42,13 +45,19 @@ export function ReportCard(props: ReportCardProps) {
               Sheets: {props.manifest.sheet_names.join(", ")}
             </span>
           </div>
-          <Button
-            variant="secondary"
-            disabled
-            title="Download becomes available once the API layer (Phase 10) is live"
-          >
-            Download .xlsx
-          </Button>
+          {props.workflowHref ? (
+            <Link
+              href={props.workflowHref}
+              className={buttonVariants({ variant: "secondary" })}
+              title="Sample data shown here — upload files on the workflow page for a real download"
+            >
+              Go to workflow
+            </Link>
+          ) : (
+            <Button variant="secondary" disabled title="Sample manifest only — no live download from this card">
+              Download .xlsx
+            </Button>
+          )}
         </>
       ) : (
         <p className="text-sm text-text-secondary">{NOT_READY_COPY[props.state]}</p>
