@@ -4,8 +4,8 @@ Fictional-data Excel automation for order validation, inventory allocation, and 
 
 ## Live Demo
 
-- App: `<TODO: fill in the Vercel production URL after deployment>`
-- API: `<TODO: fill in the Render production URL after deployment>`
+- App: <https://sales-ops-gamma.vercel.app/>
+- API: <https://sales-ops-6e84.onrender.com>
 
 Try it: open the app, view the Dashboard and Reports pages, then visit any of the three workflow pages (Order Validation, Inventory Allocation, Payment Aging) and click **Run sample data** — no file to find or prepare, it runs the workflow against the same committed fictional dataset shown throughout the demo. Each page also lets you download the resulting Excel report.
 
