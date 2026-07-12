@@ -236,7 +236,7 @@ FastAPI should wrap the already-tested Python modules. It should not duplicate b
 
 ## Phase 10.2 - Portfolio UI Polish
 
-Planned via `/architect` after Phase 10 shipped — see `docs/architect/phase-10.2-portfolio-ui-polish/`. A token-only visual/hierarchy pass, no backend/API/contract changes, inserted ahead of the already-planned Phase 11 (SQL Reporting + Active Dashboard).
+Planned via `/architect` after Phase 10 shipped — see `docs/architect/phase-10.2-portfolio-ui-polish/`. A token-only visual/hierarchy pass, no backend/API/contract changes, inserted ahead of Phase 11.
 
 - New "Inverse Surface" token family (`surface-inverse`, `surface-inverse-hover`, `text-on-inverse`, `text-on-inverse-muted`) — dark navy sidebar + a new `Button` `dark` variant, both sharing one token family so they can't visually drift apart.
 - `SidebarNav` recolored dark navy with a solid-accent active state and a `lucide-react` icon per nav item.
@@ -247,6 +247,17 @@ Planned via `/architect` after Phase 10 shipped — see `docs/architect/phase-10
 - `UploadPanel` fixed to bottom-anchor its drop zone across multi-panel rows (previously misaligned when "Required columns" text wrapped to different line counts), and its "Sample file" link switched to the new `dark` `Button` variant with a sizing fix so it never wraps to two lines.
 - Each workflow page's "Download Report" button switched to the `dark` variant; KPI summary grids fit each page's own card count in a single row on desktop.
 - Full detail, including bugs found and fixed along the way (a hydration mismatch, a pointer-events bug), is in `context/ui-registry.md`'s Phase 10.2 entries and "Page composition notes (Phase 10.2)".
+
+## Phase 11 - Deployment Baseline
+
+Deploy the current, post-Phase-10.2 app to a stable public URL a hiring manager can open and use — no new backend logic, no database, no auth, no persistence. Planned via `/grill-with-docs` + `/architect`; see `context/architecture.md`'s "Deployment (Phase 11)" section for the full shape.
+
+- Two independently hosted services, mirroring the app's existing local architecture: Vercel (Next.js frontend, Hobby tier) and Render (FastAPI backend, Free Web Service), connected by the same `NEXT_PUBLIC_API_BASE_URL` / `CORS_ALLOWED_ORIGINS` contract already used locally.
+- Deployed from a dedicated `deploy/portfolio-demo` branch, fast-forwarded from the active implementation branch after each verified change — never `main` directly (the PR-stack merge decision stays deferred, as it has been every session) and never an active feature branch (which keeps receiving unrelated WIP).
+- No secrets: the only two env vars are the plain config strings above.
+- Accepted trade-off: Render's free tier sleeps after ~15 minutes idle, ~1 minute cold-start on wake — mitigated with a README note, not a keep-alive job or paid tier.
+
+**Note on the prior Phase 11 scope:** an earlier "SQL Reporting and Active Sample Dashboard" phase (a SQLite-backed `Demo Reporting Database` and a live `GET /api/dashboard`) was planned, approved, and partially implemented — see `docs/adr/0007-sql-reporting-seeds-from-tested-workflow-outputs.md` and `docs/grilling/phase-11-sql-reporting-and-active-dashboard/`. It was paused before completion in favor of deploying first; the working code is preserved (not deleted) in a git stash for possible reuse by a future Postgres-backed dashboard phase.
 
 ## Optional Design Workflow
 

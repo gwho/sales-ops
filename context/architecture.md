@@ -129,9 +129,10 @@ POST /api/payments/aging
 POST /api/payments/aging/report
 
 GET  /api/templates/{template_name}
+GET  /health
 ```
 
-`GET /api/reports/{report_id}` was never implemented — it implied persisted report artifacts, which contradicts the stateless architecture below. Each `.../report` endpoint re-accepts its workflow's source file(s) and recomputes server-side rather than trusting a client-supplied result.
+`GET /api/reports/{report_id}` was never implemented — it implied persisted report artifacts, which contradicts the stateless architecture below. Each `.../report` endpoint re-accepts its workflow's source file(s) and recomputes server-side rather than trusting a client-supplied result. `GET /health` (Phase 11) is a minimal liveness check (`{"status": "ok"}`, no database query) added for the deployed backend host's health-check config.
 
 Backend behavior:
 
@@ -139,6 +140,28 @@ Backend behavior:
 - Call the tested Python modules in `src/`, never duplicating business rules in route handlers.
 - Return JSON matching the stable output contracts for the three workflow endpoints; return `.xlsx` bytes directly for the three report endpoints.
 - Convert technical exceptions into business-readable `{"detail": "string"}` responses at the `backend/` boundary — `src/` itself stays framework-free.
+
+## Deployment (Phase 11)
+
+Planned via `/grill-with-docs` + `/architect`; see `context/build-plan.md`'s Phase 11 entry for scope and rationale. Two independently hosted services, mirroring the app's existing local dev shape (`localhost:3000` ↔ `127.0.0.1:8000` over CORS) rather than a single container:
+
+| Service | Host | Notes |
+| --- | --- | --- |
+| Frontend (Next.js) | Vercel, Hobby tier | Zero config — `package.json` sits at repo root, Vercel auto-detects and builds normally alongside the unrelated `backend/`/`src/`/`sample_data/` directories. |
+| Backend (FastAPI) | Render, Free Web Service | Python runtime (matches `.python-version`'s `3.12`). Build: `python -m pip install uv && uv sync --frozen --no-dev`. Start: `uv run fastapi run backend/main.py --host 0.0.0.0 --port $PORT`. Health Check Path: `/health`. |
+
+Both are deployed from a dedicated `deploy/portfolio-demo` branch, fast-forwarded from the active implementation branch after each verified change — not `main` (the PR-stack merge decision stays a separate, deferred call) and not an active feature branch (which keeps receiving unrelated WIP).
+
+Env vars, both plain config strings, no secrets involved:
+
+- `NEXT_PUBLIC_API_BASE_URL` (Vercel) — the deployed Render URL. Falls back to `http://127.0.0.1:8000` locally if unset (`lib/api-client.ts`).
+- `CORS_ALLOWED_ORIGINS` (Render) — the deployed Vercel URL, comma-separated if more than one origin is ever needed. Falls back to `http://localhost:3000` locally if unset (`backend/main.py`). Read once at app construction (`CORSMiddleware` is configured at `add_middleware()` time, not per-request) — changing this env var on Render requires a redeploy, not just a dashboard save.
+
+Deploy sequencing resolves the circular URL dependency: Render first (get its URL) → Vercel with `NEXT_PUBLIC_API_BASE_URL` set to it (get its URL) → `CORS_ALLOWED_ORIGINS` on Render set to the Vercel URL → redeploy Render.
+
+Accepted trade-off: Render's free tier sleeps after ~15 minutes idle; the first request after that can take up to ~1 minute to wake. Mitigated with a `README.md` note, not a keep-alive job or a paid tier — see `README.md`'s "Live Demo" section.
+
+`sample_data/*.xlsx` needs no special deployment packaging — it's already committed and read via paths relative to the repo (`backend/routers/templates.py`, the `load_*` functions), so it's simply present once Render builds from the real repo root.
 
 ## UI Design Input Workflow
 

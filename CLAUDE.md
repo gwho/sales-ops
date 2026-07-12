@@ -53,7 +53,7 @@ That sequencing has now been carried out through Phase 10.2:
 - Phase 10 added the stateless FastAPI layer and live-wired the three workflow pages.
 - Phase 10.2 was a token-only visual/hierarchy polish pass (dark sidebar, compact KPI tiles, paired dashboard sections, chart-card interactivity, button hierarchy) — no backend/API/contract changes.
 
-`context/build-plan.md` currently ends at Phase 10.2. Phase 11 (SQL Reporting + Active Sample Dashboard) is already planned and approved but queued — see `/Users/jessejames/.claude/plans/yes-the-plan-aligns-smooth-barto.md`. Any other new work, including deployment, auth, persistence, or resume-focused hardening beyond that plan, is new scope and needs its own planning pass before implementation.
+`context/build-plan.md` currently ends at Phase 11 (Deployment Baseline) — see that file for the current phase's scope. An earlier "SQL Reporting + Active Sample Dashboard" Phase 11 was planned, approved, and partially implemented, then paused in favor of deploying first; that work is preserved in a git stash (see `context/build-plan.md`'s Phase 11 entry) rather than deleted, and remains a candidate input for a future Postgres-backed dashboard phase. Any new work beyond the active phase's plan is new scope and needs its own planning pass before implementation.
 
 ### Current Python and backend shape
 
@@ -124,15 +124,9 @@ Current development shape is two independent servers: FastAPI on `127.0.0.1:8000
 
 ### Candidate next scope
 
-The most likely next portfolio-worthy scope is **SQL Reporting and Deployable Demo Hardening**, but it is not yet part of `context/build-plan.md`.
+Phase 11 (Deployment Baseline) is the active phase — see `context/build-plan.md` and `context/architecture.md`'s "Deployment (Phase 11)" section.
 
-Recommended direction to plan before implementing:
-
-- Add a modest SQLite-backed reporting layer seeded from the committed fictional sample Excel files.
-- Keep uploaded workflow results stateless and page-local; do not introduce user accounts, uploaded-file persistence, run history, or multi-user sessions as part of the SQL/dashboard phase.
-- Make `/dashboard` active by querying SQL-backed FastAPI dashboard endpoints over the included fictional sample dataset.
-- Prepare deployment paths that a hiring manager can actually try: likely Vercel for the Next.js frontend plus a Python-capable host for FastAPI, or a single containerized deployment on a platform that supports both services.
-- Update `context/build-plan.md`, `context/architecture.md`, and `context/progress-tracker.md` only after the new phase is explicitly planned.
+The most likely scope after that is **Phase 12: a Postgres-backed latest-session dashboard** — replacing the paused SQLite sample-dashboard idea with something that stores computed workflow outputs after each run and shows a session's latest results (falling back to sample data when none exist), not yet part of `context/build-plan.md`. Not to be planned or implemented until Phase 11 is deployed and verified.
 
 ## Output contracts
 
