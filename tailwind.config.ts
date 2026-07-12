@@ -54,6 +54,12 @@ const config: Config = {
           DEFAULT: "hsl(var(--info))",
           subtle: "hsl(var(--info-subtle))",
         },
+        "surface-inverse": {
+          DEFAULT: "hsl(var(--surface-inverse))",
+          hover: "hsl(var(--surface-inverse-hover))",
+        },
+        "text-on-inverse": "hsl(var(--text-on-inverse))",
+        "text-on-inverse-muted": "hsl(var(--text-on-inverse-muted))",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],

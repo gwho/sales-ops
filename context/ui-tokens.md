@@ -36,8 +36,26 @@ Define tokens in the Tailwind config and map them to CSS variables in `app/globa
 
   --info: 199 89% 48%;
   --info-subtle: 204 100% 97%;
+
+  --surface-inverse: 222 47% 11%;
+  --surface-inverse-hover: 222 39% 20%;
+  --text-on-inverse: 0 0% 100%;
+  --text-on-inverse-muted: 215 20% 65%;
 }
 ```
+
+## Inverse Surface (Phase 10.2)
+
+A small dark-navy-on-light-text token family, added for the sidebar and one dedicated button variant only — not a dark mode. Reuses `--text-primary`'s navy hue/lightness as a fill (`--surface-inverse`) and `--text-on-accent`'s white (`--text-on-inverse`), so the dark surface stays inside the same palette rather than introducing a new hue.
+
+| Token | Class | Usage |
+| --- | --- | --- |
+| `--surface-inverse` | `bg-surface-inverse` | `SidebarNav` background, `Button` `dark` variant background |
+| `--surface-inverse-hover` | `bg-surface-inverse-hover` | `SidebarNav` inactive-link hover, `Button` `dark` variant hover |
+| `--text-on-inverse` | `text-text-on-inverse` | `SidebarNav` active/hover link text, `Button` `dark` variant text |
+| `--text-on-inverse-muted` | `text-text-on-inverse-muted` | `SidebarNav` brand label and inactive link text |
+
+Do not use these tokens outside `SidebarNav` and the `Button` `dark` variant without a new token-change decision — the rest of the app stays on the light `surface`/`background` tokens.
 
 Expected Tailwind names:
 

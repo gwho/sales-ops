@@ -7,6 +7,7 @@ import { useId, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { buttonVariants } from "@/components/ui/Button";
 import { getSampleFileUrl } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 
 // Types
 type UploadPanelProps = {
@@ -48,7 +49,7 @@ export function UploadPanel({
   const displayedFileName = selectedFileName !== undefined ? selectedFileName : fileName;
 
   return (
-    <Card className="flex flex-col gap-3">
+    <Card className="flex h-full flex-col gap-3">
       <div>
         <span className="text-sm font-semibold text-text-primary">{label}</span>
         <p className="mt-1 text-xs text-text-muted">Accepted file type: {accept}</p>
@@ -59,35 +60,41 @@ export function UploadPanel({
         {requiredColumns.join(", ")}
       </p>
 
-      <label
-        htmlFor={inputId}
-        className="flex cursor-pointer items-center justify-between gap-3 rounded-md border border-dashed border-border-strong bg-surface-subtle px-3 py-2 text-sm text-text-secondary hover:border-accent"
-      >
-        <span className="truncate">{displayedFileName ?? "Choose a file…"}</span>
-        <span className="shrink-0 rounded-md bg-accent px-3 py-1 text-xs font-medium text-text-on-accent">
-          Browse
-        </span>
-        <input
-          id={inputId}
-          type="file"
-          accept={accept}
-          className="sr-only"
-          onChange={(event) => {
-            const file = event.target.files?.[0] ?? null;
-            setFileName(file?.name ?? null);
-            onFileChange?.(file);
-          }}
-        />
-      </label>
+      <div className="mt-auto flex flex-col gap-3">
+        <label
+          htmlFor={inputId}
+          className="flex cursor-pointer items-center justify-between gap-3 rounded-md border border-dashed border-border-strong bg-surface-subtle px-3 py-2 text-sm text-text-secondary hover:border-accent"
+        >
+          <span className="truncate">{displayedFileName ?? "Choose a file…"}</span>
+          <span className="shrink-0 rounded-md bg-accent px-3 py-1 text-xs font-medium text-text-on-accent">
+            Browse
+          </span>
+          <input
+            id={inputId}
+            type="file"
+            accept={accept}
+            className="sr-only"
+            onChange={(event) => {
+              const file = event.target.files?.[0] ?? null;
+              setFileName(file?.name ?? null);
+              onFileChange?.(file);
+            }}
+          />
+        </label>
 
-      {sampleFileName ? (
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xs text-text-muted">Need a starting point? Use the sample file.</span>
-          <a href={getSampleFileUrl(sampleFileName)} download className={buttonVariants({ variant: "secondary" })}>
-            Sample file
-          </a>
-        </div>
-      ) : null}
+        {sampleFileName ? (
+          <div className="flex items-center justify-between gap-3">
+            <span className="min-w-0 text-xs text-text-muted">Need a starting point? Use the sample file.</span>
+            <a
+              href={getSampleFileUrl(sampleFileName)}
+              download
+              className={cn(buttonVariants({ variant: "dark" }), "shrink-0 whitespace-nowrap")}
+            >
+              Sample file
+            </a>
+          </div>
+        ) : null}
+      </div>
     </Card>
   );
 }

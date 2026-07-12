@@ -234,6 +234,20 @@ Resolved in a `/grilling` planning session before implementation — see `docs/a
 
 FastAPI should wrap the already-tested Python modules. It should not duplicate business rules in route handlers.
 
+## Phase 10.2 - Portfolio UI Polish
+
+Planned via `/architect` after Phase 10 shipped — see `docs/architect/phase-10.2-portfolio-ui-polish/`. A token-only visual/hierarchy pass, no backend/API/contract changes, inserted ahead of the already-planned Phase 11 (SQL Reporting + Active Dashboard).
+
+- New "Inverse Surface" token family (`surface-inverse`, `surface-inverse-hover`, `text-on-inverse`, `text-on-inverse-muted`) — dark navy sidebar + a new `Button` `dark` variant, both sharing one token family so they can't visually drift apart.
+- `SidebarNav` recolored dark navy with a solid-accent active state and a `lucide-react` icon per nav item.
+- `MetricCard` restructured into a compact, roughly square tile (icon → value → label, centered, min-height) with a hover/shadow lift, applied across `/dashboard`'s Overview row and all 3 workflow pages' post-run summary grids.
+- `/dashboard` consolidated from 3 separate per-workflow KPI groups (~15 tiles) into one 5-card "Overview" row, matching the reference dashboard's composition — a deliberate content reduction, not just a restyle (dropped KPIs remain on their workflow page's own summary).
+- `/dashboard`'s two chart cards (Allocation Status, Outstanding by Aging Bucket) fixed for a card-sizing bug (stable min-height instead of accidental CSS Grid row-stretch), gained a compact top-right action link (new `TableSectionHeading` `action` prop), a hover/shadow lift, and genuine data-bearing hover/focus tooltips on every donut segment and bar — no new charting library.
+- `/dashboard`'s "Inventory Shortage Alerts" and "Payment Follow-up Items" paired side by side (`grid lg:grid-cols-2`) instead of stacked full-width.
+- `UploadPanel` fixed to bottom-anchor its drop zone across multi-panel rows (previously misaligned when "Required columns" text wrapped to different line counts), and its "Sample file" link switched to the new `dark` `Button` variant with a sizing fix so it never wraps to two lines.
+- Each workflow page's "Download Report" button switched to the `dark` variant; KPI summary grids fit each page's own card count in a single row on desktop.
+- Full detail, including bugs found and fixed along the way (a hydration mismatch, a pointer-events bug), is in `context/ui-registry.md`'s Phase 10.2 entries and "Page composition notes (Phase 10.2)".
+
 ## Optional Design Workflow
 
 Use `ui_reference_to_figma_workflow/` and `ui_prompts_for_agents_mcp/` as guidance:

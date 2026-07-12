@@ -28,6 +28,7 @@ const GUIDE_LINES = [25, 50, 75];
 /** Plain CSS bar chart — no charting library. Values always shown above each bar, never bar-only. */
 export function VerticalBucketBarChart({ data, subtitle }: VerticalBucketBarChartProps) {
   const max = Math.max(0, ...data.map((datum) => datum.value));
+  const total = data.reduce((sum, datum) => sum + datum.value, 0);
 
   return (
     <div className="flex flex-col gap-3">
@@ -44,17 +45,31 @@ export function VerticalBucketBarChart({ data, subtitle }: VerticalBucketBarChar
               style={{ bottom: `${percent}%` }}
             />
           ))}
-          {data.map((datum) => (
-            <div key={datum.label} className="relative flex h-full flex-1 flex-col items-center justify-end gap-1">
-              <span className="text-[10px] font-medium tabular-nums text-text-secondary">
-                {formatAmount(datum.value)}
-              </span>
+          {data.map((datum) => {
+            const percent = total > 0 ? Math.round((datum.value / total) * 100) : 0;
+            return (
               <div
-                className={`w-full rounded-t-md ${BAR_FILL_CLASSES[datum.tone]}`}
-                style={{ height: `${(datum.value / max) * 100}%` }}
-              />
-            </div>
-          ))}
+                key={datum.label}
+                tabIndex={0}
+                aria-label={`${datum.label}: ${formatAmount(datum.value)} (${percent}% of total)`}
+                className="group relative flex h-full flex-1 cursor-default flex-col items-center justify-end gap-1 focus:outline-none"
+              >
+                <div
+                  role="tooltip"
+                  className="pointer-events-none absolute -top-2 left-1/2 z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md border border-border bg-surface px-2 py-1 text-[10px] font-medium text-text-primary opacity-0 shadow-md transition-opacity duration-150 group-hover:opacity-100 group-focus:opacity-100"
+                >
+                  {datum.label}: {formatAmount(datum.value)} ({percent}%)
+                </div>
+                <span className="text-[10px] font-medium tabular-nums text-text-secondary">
+                  {formatAmount(datum.value)}
+                </span>
+                <div
+                  className={`w-full rounded-t-md transition-opacity duration-150 group-hover:opacity-70 group-focus:opacity-70 ${BAR_FILL_CLASSES[datum.tone]}`}
+                  style={{ height: `${(datum.value / max) * 100}%` }}
+                />
+              </div>
+            );
+          })}
         </div>
       )}
       {max > 0 ? (

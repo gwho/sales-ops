@@ -266,7 +266,7 @@ export default function OrderValidationPage() {
         </div>
         <div className="flex flex-col items-end gap-2">
           <Button
-            variant="secondary"
+            variant="dark"
             disabled={!canSubmit || reportStatus === "processing" || status === "submitting" || sampleDataLoading}
             onClick={handleDownloadReport}
             title={canSubmit ? "Recomputes and downloads order_validation_report.xlsx" : "Upload both files first"}
@@ -352,7 +352,7 @@ export default function OrderValidationPage() {
         <>
           <section className="mt-6">
             <h2 className="text-base font-semibold text-text-primary">Summary</h2>
-            <div className="mt-3 grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
               <MetricCard
                 label="Total Orders"
                 value={formatNumber(currentResult.summary.total_orders)}

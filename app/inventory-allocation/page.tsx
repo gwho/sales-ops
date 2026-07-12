@@ -394,7 +394,7 @@ export default function InventoryAllocationPage() {
         </div>
         <div className="flex flex-col items-end gap-2">
           <Button
-            variant="secondary"
+            variant="dark"
             disabled={!canSubmit || reportStatus === "processing" || status === "submitting" || sampleDataLoading}
             onClick={handleDownloadReport}
             title={canSubmit ? "Recomputes and downloads inventory_allocation_report.xlsx" : "Upload all three files first"}
@@ -490,7 +490,7 @@ export default function InventoryAllocationPage() {
         <>
           <section className="mt-6">
             <h2 className="text-base font-semibold text-text-primary">Summary</h2>
-            <div className="mt-3 grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
               <MetricCard
                 label="Total Order Lines"
                 value={formatNumber(currentResult.summary.total_order_lines)}

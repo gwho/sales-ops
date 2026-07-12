@@ -34,7 +34,7 @@ Hand-written under `components/ui/` in Phase 9 — never generated via `npx shad
 
 | Component | File | Classes |
 | --- | --- | --- |
-| `Button` | `components/ui/Button.tsx` | `rounded-md px-4 py-2 text-sm font-medium`; primary: `bg-accent text-text-on-accent hover:bg-accent-hover`; secondary: `border border-border bg-surface text-text-primary hover:bg-surface-muted`. Phase 10: `buttonVariants` (the underlying `cva`) is now exported, so a styled-but-non-`<button>` element (e.g. an `<a>` acting as a button) can apply the identical classes without duplicating them — used by `UploadPanel`'s Sample File link and `ReportCard`'s "Go to workflow" link. |
+| `Button` | `components/ui/Button.tsx` | `rounded-md px-4 py-2 text-sm font-medium`; primary: `bg-accent text-text-on-accent hover:bg-accent-hover`; secondary: `border border-border bg-surface text-text-primary hover:bg-surface-muted`; **Phase 10.2** dark: `bg-surface-inverse text-text-on-inverse hover:bg-surface-inverse-hover disabled:bg-surface-muted disabled:text-text-muted` — the disabled override is deliberate: the base `disabled:opacity-50` (shared by all variants) reads as clearly inert on the light `secondary` variant, but a dimmed solid-navy fill could still look "present"/clickable at 50% opacity, so `dark` falls back to a neutral light-gray disabled look instead. Scoped to exactly two usages — `UploadPanel`'s Sample file link and each workflow page's "Download Report" button — never the primary Run action or "Run sample data". Phase 10: `buttonVariants` (the underlying `cva`) is now exported, so a styled-but-non-`<button>` element (e.g. an `<a>` acting as a button) can apply the identical classes without duplicating them — used by `UploadPanel`'s Sample File link and `ReportCard`'s "Go to workflow" link (the latter stays `secondary`, not `dark` — Phase 10.2 didn't touch it). |
 | `Card` | `components/ui/Card.tsx` | `rounded-xl border border-border bg-surface p-6 shadow-sm` |
 | `Badge` | `components/ui/Badge.tsx` | `rounded-full px-3 py-1 text-xs font-semibold`; tone maps to `bg-{success,warning,danger,info}-subtle text-{success,warning,danger,info}` or `bg-surface-muted text-text-secondary` for neutral. Phase 9.1: leading `dot?: boolean` (default `true`) renders a `h-1.5 w-1.5 rounded-full bg-{tone}` (solid) dot before the label — every current `StatusBadge` usage keeps it on; pass `dot={false}` only for a hypothetical future non-status badge. |
 | `Table` (+ `TableHead`/`TableBody`/`TableRow`/`TableHeaderCell`/`TableCell`) | `components/ui/Table.tsx` | Wrapper: `rounded-xl border border-border overflow-hidden`; header cells: `px-3 py-2 text-xs font-medium uppercase tracking-wide text-text-secondary whitespace-nowrap`; body cells: `px-3 py-2 text-xs text-text-primary` (Phase 9.1: tightened from `px-4 py-3 text-sm` for a denser operations-table look, matching the Figma references' table density) |
@@ -64,22 +64,22 @@ Server Component. Root layout wraps `{children}` in this once (`app/layout.tsx`)
 ### SidebarNav
 
 File: `components/layout/SidebarNav.tsx`
-Last updated: 2026-07-09
+Last updated: 2026-07-12 (Phase 10.2)
 
 | Property | Class |
 | --- | --- |
-| Background | `bg-surface` |
-| Border | `border-r border-border` |
+| Background | `bg-surface-inverse` (dark navy — Phase 10.2 Inverse Surface tokens, see `ui-tokens.md`) |
+| Border | none (the navy/off-white boundary is its own separation; the old `border-r border-border` was dropped as redundant against the dark fill) |
 | Border radius | none (full-height panel) |
-| Text — primary | active link: `text-accent` on `bg-accent-subtle` |
-| Text — secondary | inactive link: `text-text-secondary`, hover `text-text-primary` |
-| Spacing | `w-60 p-4`, links `gap-1` |
-| Hover/focus state | inactive link hover: `hover:bg-surface-muted hover:text-text-primary` |
+| Text — primary | active link: solid `bg-accent text-text-on-accent` (changed from a subtle light-tint in Phase 9, which had poor contrast against the new dark background) |
+| Text — secondary | inactive link: `text-text-on-inverse-muted`, hover `text-text-on-inverse` |
+| Spacing | `w-60 p-4`, links `gap-1`, each link `flex items-center gap-2` for its icon |
+| Hover/focus state | inactive link hover: `hover:bg-surface-inverse-hover hover:text-text-on-inverse` |
 | Shadow | none |
-| Accent/status usage | active route: `bg-accent-subtle text-accent` |
+| Accent/status usage | active route: solid `bg-accent text-text-on-accent` (reuses the same accent as `Button`'s `primary` variant, not a separate "selected-on-dark" token) |
 
 Pattern notes:
-Client Component (`usePathname()` for active-route highlighting via exact match). Fixed 5-item nav — do not add ERP-style extra destinations; the route set is closed per `architecture.md`.
+Client Component (`usePathname()` for active-route highlighting via exact match). Fixed 5-item nav — do not add ERP-style extra destinations; the route set is closed per `architecture.md`. Phase 10.2 added a `lucide-react` icon per nav item (`LayoutDashboard`, `ClipboardList`, `PackageCheck`, `Clock`, `FileSpreadsheet`) rendered before the label — decorative only, reusing icons already established elsewhere in the app for the same concepts (e.g. `Clock` for Payment Aging matches its `FlowRow` icon on `/dashboard`). Known limitation, out of scope for Phase 10.2: the sidebar has no responsive collapse/drawer behavior — it stays a fixed `w-60` on every viewport, which squeezes the main content column on narrow mobile widths. This predates Phase 10.2 (only the color/icons changed here, not the width or breakpoints) and would need its own planning decision.
 
 ### TopHeader
 
@@ -196,7 +196,7 @@ Server Component, thin wrapper over `Badge`. Tone is never inferred from the lab
 ### MetricCard
 
 File: `components/workflow/MetricCard.tsx`
-Last updated: 2026-07-09 (Phase 9.1: icon chip added)
+Last updated: 2026-07-12 (Phase 10.2: restructured into a compact tile)
 
 | Property | Class |
 | --- | --- |
@@ -205,13 +205,13 @@ Last updated: 2026-07-09 (Phase 9.1: icon chip added)
 | Border radius | `rounded-xl` (via `Card`); icon chip: `rounded` |
 | Text — primary | `text-2xl font-semibold text-text-primary` (value) |
 | Text — secondary | `text-xs font-medium uppercase tracking-wide text-text-secondary` (label) |
-| Spacing | `p-4` (compact card override, not `Card`'s default `p-6`), `gap-3`; icon chip: `h-7 w-7` |
-| Hover/focus state | none |
-| Shadow | `shadow-sm` (via `Card`) |
-| Accent/status usage | optional `icon`/`tone` props render a `w-7 h-7 rounded` chip (`bg-{tone}-subtle`, icon `text-{tone}`) top-right of the label — `success`/`warning`/`danger`/`info`/`neutral`, same `Tone` type `StatusBadge` exports |
+| Spacing | `min-h-[104px] flex-col items-center justify-center gap-2 p-4`, centered/stacked: icon chip → value → label |
+| Hover/focus state | `transition-shadow hover:border-border-strong hover:shadow-md` (Phase 10.2) |
+| Shadow | `shadow-sm` (via `Card`), `hover:shadow-md` on hover |
+| Accent/status usage | optional `icon`/`tone` props render a `w-7 h-7 rounded` chip (`bg-{tone}-subtle`, icon `text-{tone}`) above the value — `success`/`warning`/`danger`/`info`/`neutral`, same `Tone` type `StatusBadge` exports |
 
 Pattern notes:
-Server Component. `p-4` overrides `Card`'s default `p-6` — KPI tiles are "compact cards" per `ui-tokens.md`'s spacing table, not "primary dashboard cards". **Phase 9.1:** icon chip is optional and purely decorative, added because `context/ui-contract-plan.md`'s Figma Reference Reconciliation had already pre-approved "label + big number + icon chip" as a safe KPI-card pattern in Phase 8/9 but it was never built. Every KPI tile across the 4 pages (~15 call sites) now passes a `lucide-react` icon + matching `tone`. Deliberately **not** adopted: the trend-delta (`+12.4%` arrow) that sits next to the icon chip in the same Figma reference — that stays rejected (no time-series data exists to back it).
+Server Component. Same `label`/`value`/`icon`/`tone` prop contract as Phase 9.1 — only the internal layout changed, so every existing call site (~15, across `/dashboard`'s Overview row and all 3 workflow pages' post-run summary grids) kept working with no edits. **Phase 10.2:** restructured from a short wide strip (label+icon row, value below, left-aligned) into a compact, roughly square, centered tile (icon chip → big value → label, all centered, `min-h-[104px]`) to read as a "dashboard tile" rather than a KPI strip, matching the reference dashboard's tile proportions. Added a subtle hover lift (`hover:border-border-strong hover:shadow-md`) matching the chart-card hover treatment below. Deliberately **not** adopted: the trend-delta (`+12.4%` arrow) from the same reference — still rejected, no time-series data exists to back it.
 
 ### ReportCard
 
@@ -236,7 +236,7 @@ Server Component — still never live-transitions between lifecycle states; that
 ### UploadPanel
 
 File: `components/workflow/UploadPanel.tsx`
-Last updated: 2026-07-09
+Last updated: 2026-07-12 (Phase 10.2: bottom-anchored drop zone, dark Sample file button)
 
 | Property | Class |
 | --- | --- |
@@ -245,13 +245,13 @@ Last updated: 2026-07-09
 | Border radius | `rounded-xl` (via `Card`), drop zone: `rounded-md` |
 | Text — primary | `text-sm font-semibold text-text-primary` (label) |
 | Text — secondary | `text-xs text-text-muted` / `text-xs text-text-secondary` |
-| Spacing | `gap-3` (via `Card` default `p-6`) |
+| Spacing | `Card` gets `h-full`; drop zone + Sample file row wrapped in `mt-auto flex flex-col gap-3` so they anchor to the bottom of the card |
 | Hover/focus state | drop zone: `hover:border-accent` |
 | Shadow | `shadow-sm` (via `Card`) |
-| Accent/status usage | "Browse" chip: `bg-accent text-text-on-accent` |
+| Accent/status usage | "Browse" chip: `bg-accent text-text-on-accent`; "Sample file" link: `buttonVariants({ variant: "dark" })` |
 
 Pattern notes:
-Client Component (`useState` for selected filename). Real file picker — accepts a file, shows the filename, never parses it itself (parsing stays a `backend/` concern). **Phase 10:** gained two props — `onFileChange?: (file: File | null) => void` (hands the selected `File` object to the parent page for submission; the component's own `fileName` display state is separate and still uncontrolled) and `sampleFileName?: string` (an allowlisted `backend/routers/templates.py` key). The "Sample Template" button was renamed to "Sample File" (matching `CONTEXT.md`'s corrected term — the files carry the same intentional data-quality issues as the rest of the demo, not a blank starting point) and is now a real `<a href download>` styled via `buttonVariants` (not a `<button>`, so no JS/CORS involved — a plain browser navigation to `GET /api/templates/{name}`), rendered only when `sampleFileName` is provided.
+Client Component (`useState` for selected filename). Real file picker — accepts a file, shows the filename, never parses it itself (parsing stays a `backend/` concern). Gained two Phase 10 props — `onFileChange?: (file: File | null) => void` and `sampleFileName?: string` (an allowlisted `backend/routers/templates.py` key), rendering a real `<a href download>` "Sample file" link via `buttonVariants` only when `sampleFileName` is provided. **Phase 10.2 fix:** when several `UploadPanel`s sit side by side in a grid (e.g. Inventory Allocation's 3 panels), each panel's "Required columns" text wraps to a different number of lines, which previously left the drop-zone rows at inconsistent heights across the row — not a same-row alignment bug (that row was already `flex items-center justify-between`), but a bottom-anchoring one. Fixed by giving `Card` `h-full` (so it stretches to match the tallest sibling in its grid row) and wrapping the drop-zone `<label>` + Sample-file `<div>` in `mt-auto flex flex-col gap-3`, pinning them to the bottom regardless of the required-columns text length above. Also switched the "Sample file" link from `secondary` to the new Phase 10.2 `dark` `Button` variant (same inverse-surface tokens as `SidebarNav`), and added `min-w-0` to the caption span + `shrink-0 whitespace-nowrap` to the link — without these, a long caption in a narrow (3-column) card could squeeze the link's width enough that "Sample file" wrapped onto two lines and the button rendered oversized; now the caption wraps/truncates instead and the button always stays single-line at its normal compact size.
 
 ### WorkflowStepper
 
@@ -345,7 +345,7 @@ Client Component, a native `<select>` (matches `UploadPanel`'s existing preferen
 ### TableSectionHeading
 
 File: `components/tables/TableSectionHeading.tsx`
-Last updated: 2026-07-09 (Phase 9.1)
+Last updated: 2026-07-12 (Phase 10.2: optional `action` slot)
 
 | Property | Class |
 | --- | --- |
@@ -354,13 +354,13 @@ Last updated: 2026-07-09 (Phase 9.1)
 | Border radius | none |
 | Text — primary | `text-base font-semibold text-text-primary` (title, matches the pre-existing "Section title" typography token) |
 | Text — secondary | `text-xs text-text-muted` (one-line caption) |
-| Spacing | `gap-2` (icon-to-title), `mt-1` (title-to-caption) |
-| Hover/focus state | none |
+| Spacing | `flex items-start justify-between gap-3` (title block vs. optional action); `gap-2` (icon-to-title), `mt-1` (title-to-caption) |
+| Hover/focus state | none (the `action` slot's own element, e.g. a `Link`, carries its own hover state) |
 | Shadow | none |
 | Accent/status usage | icon renders in `text-text-secondary`, never a status color — it's a category icon (what kind of table this is), not a status indicator |
 
 Pattern notes:
-Server Component. Replaces the bare `<h2>` pattern above every table/panel section with `icon + title` plus an optional one-line business-readable caption showing the data relationship (e.g. *"Requested qty → allocated qty → backorder qty."*). Icon choice must clarify the table's purpose, not decorate randomly — see each page's call site for the specific `lucide-react` icon chosen (`AlertTriangle` for Validation Errors, `PackageCheck` for Allocation Results, `Warehouse` for Remaining Inventory, `Truck` for Supplier Follow-up, `ReceiptText` for Payment Aging, `Mail` for Draft Messages, etc.). Captions are short by design — this is not a place for instructional copy.
+Server Component. Replaces the bare `<h2>` pattern above every table/panel section with `icon + title` plus an optional one-line business-readable caption showing the data relationship (e.g. *"Requested qty → allocated qty → backorder qty."*). Icon choice must clarify the table's purpose, not decorate randomly — see each page's call site for the specific `lucide-react` icon chosen (`AlertTriangle` for Validation Errors, `PackageCheck` for Allocation Results, `Warehouse` for Remaining Inventory, `Truck` for Supplier Follow-up, `ReceiptText` for Payment Aging, `Mail` for Draft Messages, etc.). Captions are short by design — this is not a place for instructional copy. **Phase 10.2:** added an optional `action?: ReactNode` prop, rendered top-right of the title/caption block (`shrink-0 pt-0.5`) — a compact text link only, never a large CTA (e.g. `/dashboard`'s two chart cards pass a small `text-xs font-medium text-accent` `Link` reading "View all"/"AR report", pointing at the workflow page that owns that data). Every other call site omits `action` and renders exactly as before — this is additive, not a breaking change.
 
 ### SegmentedBar
 
@@ -429,42 +429,42 @@ A separate top-level folder from `components/tables/` — these render whole-cha
 ### DonutBreakdownChart
 
 File: `components/charts/DonutBreakdownChart.tsx`
-Last updated: 2026-07-10 (Phase 9.1)
+Last updated: 2026-07-12 (Phase 10.2: hover/focus tooltip + right-aligned legend)
 
 | Property | Class |
 | --- | --- |
-| Background | ring track: none (segments are drawn directly, no separate track circle unless `total === 0`) |
-| Border | none |
-| Border radius | `rounded-full` (legend dots) |
-| Text — primary | `text-xl font-semibold text-text-primary` (center total) |
-| Text — secondary | `text-[10px] uppercase tracking-wide text-text-muted` (center label); `text-xs text-text-secondary` (legend labels) |
-| Spacing | `h-32 w-32` (ring), `gap-6` (ring-to-legend), `gap-1.5` (legend rows) |
-| Hover/focus state | none |
-| Shadow | none |
+| Background | ring track: none (segments are drawn directly, no separate track circle unless `total === 0`); floating tooltip: `bg-surface` |
+| Border | none; floating tooltip: `border border-border` |
+| Border radius | `rounded-full` (legend dots); floating tooltip: `rounded-lg`; legend-row hover: `rounded` |
+| Text — primary | `text-xl font-semibold text-text-primary` (center total); tooltip label: `text-sm font-semibold text-text-primary` |
+| Text — secondary | `text-[10px] uppercase tracking-wide text-text-muted` (center label); `text-xs text-text-secondary` (legend labels); legend count: `font-semibold tabular-nums text-text-primary` right-aligned |
+| Spacing | `h-32 w-32` (ring), `gap-6` (ring-to-legend), `gap-2` (legend rows, each `flex items-center justify-between`) |
+| Hover/focus state | ring segment: `hover:opacity-70 focus:opacity-70` (each `<circle>` is `tabIndex={0}` + `role="img"`); legend row: `hover:`/focus-driven `bg-surface-muted` highlight, both share one `hoveredLabel` state |
+| Shadow | floating tooltip: `shadow-md` |
 | Accent/status usage | one `stroke-{tone}` ring segment per category (literal `Record<Tone, string>` map, never interpolated), matching legend dot in `bg-{tone}` |
 
 Pattern notes:
-Pure-SVG donut (stacked `<circle>` strokes, `stroke-dasharray`/`stroke-dashoffset`, `viewBox="0 0 100 100"`, `-rotate-90` so the first segment starts at 12 o'clock). `tone` per segment is **never decided inside this component** — callers resolve it via the existing `allocationStatusTone`/`agingBucketTone` helpers from `StatusBadge.tsx` before passing it as a prop, so a chart segment and a table badge for the same status can never show different colors (only the `Tone` *type* is imported here, not the helper functions — no runtime coupling to the `StatusBadge` component). **Zero guard:** if every segment's value is 0, renders one full-circumference neutral ring (`stroke-border-strong`) with center text `"0"` instead of computing `0/0`. Used once today: `/dashboard`'s "Allocation Status" card (Fully Allocated / Partially Allocated / Backordered).
+Pure-SVG donut (stacked `<circle>` strokes, `stroke-dasharray`/`stroke-dashoffset`, `viewBox="0 0 100 100"`, `-rotate-90` so the first segment starts at 12 o'clock). `tone` per segment is **never decided inside this component** — callers resolve it via the existing `allocationStatusTone`/`agingBucketTone` helpers from `StatusBadge.tsx` before passing it as a prop, so a chart segment and a table badge for the same status can never show different colors. **Zero guard:** if every segment's value is 0, renders one full-circumference neutral ring (`stroke-border-strong`) with center text `"0"` instead of computing `0/0`. Used once today: `/dashboard`'s "Allocation Status" card. **Phase 10.2:** promoted to a Client Component (`"use client"` + local `useState<string | null>` for `hoveredLabel`) to support data-bearing hover/focus — hovering *or* keyboard-focusing a ring segment (or its matching legend row; both drive the same state) shows a floating tooltip card (`label`, count, `%` of total) anchored at the donut's bottom-left, overlapping the ring like the reference dashboard, without replacing the always-visible center total. Each `<circle>` also carries a native SVG `<title>` (built from one single-expression string, not multi-line JSX children — a multi-line `<title>{a}: {b} ({c}%)</title>` produced a real hydration mismatch, since server/client whitespace inside `<title>` didn't match bit-for-bit) and an `aria-label`, so the same info is available without JS/mouse. The center total overlay is `pointer-events-none` — without that, it sat on top of the entire ring (not just the hole) and silently ate every hover/focus event meant for the segments beneath it. Legend rows now show count **right-aligned** (`justify-between`, not the old inline `label: value` string) with `%` appended only while that row (or its ring segment) is hovered/focused.
 
 ### VerticalBucketBarChart
 
 File: `components/charts/VerticalBucketBarChart.tsx`
-Last updated: 2026-07-10 (Phase 9.1)
+Last updated: 2026-07-12 (Phase 10.2: per-bar hover/focus tooltip)
 
 | Property | Class |
 | --- | --- |
-| Background | bars: `bg-{tone}`; guide lines: `border-t border-border` |
-| Border | none |
-| Border radius | `rounded-t-md` (bar tops only) |
+| Background | bars: `bg-{tone}`; guide lines: `border-t border-border`; tooltip: `bg-surface` |
+| Border | none; tooltip: `border border-border` |
+| Border radius | `rounded-t-md` (bar tops only); tooltip: `rounded-md` |
 | Text — primary | n/a |
-| Text — secondary | `text-xs text-text-muted` (subtitle), `text-[10px]` (value-above-bar and bucket-label-below-bar) |
+| Text — secondary | `text-xs text-text-muted` (subtitle), `text-[10px]` (value-above-bar, bucket-label-below-bar, and tooltip text) |
 | Spacing | `h-32` (chart area), `gap-3` (columns) |
-| Hover/focus state | none |
-| Shadow | none |
+| Hover/focus state | each bar column: `group`, `tabIndex={0}`; bar fill: `group-hover:opacity-70 group-focus:opacity-70`; tooltip: `opacity-0` → `group-hover:opacity-100 group-focus:opacity-100` |
+| Shadow | tooltip: `shadow-md` |
 | Accent/status usage | one `bg-{tone}` bar per bucket (literal `Record<Tone, string>` map), tone resolved by the caller via `agingBucketTone`, same reuse rule as `DonutBreakdownChart` |
 
 Pattern notes:
-Plain CSS bar chart — `div` columns, height as a `%` of a fixed `h-32` container, 3 absolute-positioned `border-t border-border` guide lines at 25/50/75%. The formatted value always renders above the bar, never bar-only. **Zero guard:** if every value is 0, renders `EmptyState` (`"No outstanding amounts to show."`) instead of a row of degenerate flat bars. Subtitle text is deliberately neutral (`"Outstanding amount by bucket"`, no `$` or "Total Outstanding" framing) since no contract field carries a currency code (Field Scope Boundary, Phase 5). Used once today: `/dashboard`'s "Outstanding by Aging Bucket" card, sourced from the new `amountByAgingBucket()` helper in `lib/mock-data.ts` (see `context/ui-contract-plan.md`'s Derived Display-Only Aggregates table) — distinct from `PaymentAgingSummary.aging_bucket_counts`, which is a *count*, not an amount.
+Plain CSS bar chart — `div` columns, height as a `%` of a fixed `h-32` container, 3 absolute-positioned `border-t border-border` guide lines at 25/50/75%. The formatted value always renders above the bar, never bar-only. **Zero guard:** if every value is 0, renders `EmptyState` instead of a row of degenerate flat bars. Subtitle text is deliberately neutral, no `$`/"Total Outstanding" framing, since no contract field carries a currency code (Field Scope Boundary, Phase 5). Used once today: `/dashboard`'s "Outstanding by Aging Bucket" card, sourced from `amountByAgingBucket()` in `lib/mock-data.ts`. **Phase 10.2:** stayed a Server Component — no local state needed, since each bar's tooltip is an independent pure-CSS `group-hover`/`group-focus` reveal (no cross-element coordination like the donut's shared hover state). Each bar column is `tabIndex={0}` with an `aria-label` (label, formatted amount, `%` of total across all buckets) and a `role="tooltip"` div positioned `absolute -top-2 -translate-y-full` above the column (not the bar itself, so it lands at a consistent height regardless of that bar's own height) showing the same three facts on hover or keyboard focus.
 
 ## Page composition notes (Phase 9.1)
 
@@ -489,3 +489,17 @@ Plain CSS bar chart — `div` columns, height as a `%` of a fixed `h-32` contain
 **`/reports` reframed, not rebuilt.** Still a Server Component reading `reportManifests` from static mock JSON, same as Phase 9 — only the heading ("Sample Report Overview"), intro copy, and each `ReportCard`'s action (now `workflowHref` pointing at the matching workflow page instead of a disabled download button) changed. `/dashboard` is completely unchanged from Phase 9.1.
 
 **Payment Aging's date input is now a real, enabled, required `<input type="date">`**, defaulting to the browser's current date via `new Date().toISOString().slice(0, 10)` and updating `asOfDate` state directly on change — no more `disabled`/`readOnly`, no more prefilling from a mock `ReportManifest.generated_at`.
+
+## Page composition notes (Phase 10.2)
+
+**`/dashboard`'s three per-workflow KPI groups (Order Validation / Inventory Allocation / Payment Aging, ~15 tiles total + a `SegmentedBar`) were consolidated into one unified "Overview" row of 5 `MetricCard`s** (`grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5`): Total Orders, Invalid Orders, Fully Allocated, Backordered, Overdue Amount — 4 counts + 1 amount, mirroring the reference dashboard's own mix. This was a deliberate, user-directed content reduction (not just a restyle): dropped KPIs (Duplicate Orders, Invalid SKUs, Missing Fields, Total Order Lines, Partially Allocated, Low Stock SKUs, Total Outstanding, High Priority Count, 90+ Days Amount) remain available on each workflow page's own post-run summary grid — `/dashboard` is an executive overview, not a mirror of every summary metric. The `SegmentedBar` (Valid/Invalid) was dropped, not relocated — its information is already conveyed by the Total Orders/Invalid Orders cards, and the reference's "main insight row" only specified two charts, not a third. **Do not silently re-add dropped KPIs to `/dashboard`** without the same explicit user direction this consolidation had.
+
+**Workflow pages' post-run summary grids intentionally do NOT follow the dashboard's 4-column cap.** `/order-validation` (6 KPIs) uses `lg:grid-cols-6`, `/inventory-allocation` (5 KPIs) uses `lg:grid-cols-5`, `/payment-aging` (4 KPIs) uses `lg:grid-cols-4` — each fits its own card count in a single row on desktop, a direct user correction to an earlier draft that capped all KPI grids (dashboard and workflow pages alike) at 4 columns. Only `/dashboard`'s 5-card Overview row is deliberately capped/single-row by card count; the three workflow pages should keep matching their own count if a KPI is ever added/removed from a workflow's summary.
+
+**Chart-card sizing fix (`/dashboard`'s Allocation Status + Outstanding by Aging Bucket cards):** both charts' body wrapper (the `<div className="mt-3">` between `TableSectionHeading` and the chart) is `flex min-h-48 flex-col justify-center` — a stable, identical minimum height with vertically centered content, replacing plain `<div className="mt-3">` which let CSS Grid's default row-stretch (the two `Card`s sit in one `grid lg:grid-cols-2` row) pull one card to match whatever height the other's content happened to need, leaving a large blank area under the shorter chart. Both cards also gained `transition-shadow hover:border-border-strong hover:shadow-md`, matching `MetricCard`'s hover treatment.
+
+**Chart-card headers gained a compact top-right action link** via `TableSectionHeading`'s new `action` prop (see above) — "View all" → `/inventory-allocation`, "AR report" → `/payment-aging`. Non-functional beyond navigation (no live cross-page state), but points at a real page with real data, not a dead end.
+
+**`SidebarNav` gained a `lucide-react` icon per nav item** (see `SidebarNav`'s registry entry above) — purely decorative, reusing icons already established elsewhere in the app for the same concept.
+
+**Known pre-existing limitation, out of scope this phase:** the sidebar has no responsive collapse/drawer — it's a fixed `w-60` on every viewport, so narrow mobile widths get a squeezed main-content column. This predates Phase 10.2 (only `SidebarNav`'s color/icons changed, not `AppShell`'s layout or breakpoints) and would need its own planning pass, not a silent fix folded into a token-polish phase.

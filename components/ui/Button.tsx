@@ -13,6 +13,7 @@ export const buttonVariants = cva(
       variant: {
         primary: "bg-accent text-text-on-accent hover:bg-accent-hover",
         secondary: "border border-border bg-surface text-text-primary hover:bg-surface-muted",
+        dark: "bg-surface-inverse text-text-on-inverse hover:bg-surface-inverse-hover disabled:bg-surface-muted disabled:text-text-muted",
       },
     },
     defaultVariants: {

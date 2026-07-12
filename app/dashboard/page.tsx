@@ -4,12 +4,8 @@ import {
   ClipboardList,
   CheckCircle2,
   XCircle,
-  Copy,
   AlertCircle,
-  FileWarning,
   AlertTriangle,
-  TrendingDown,
-  DollarSign,
   Clock,
   Truck,
   ReceiptText,
@@ -23,7 +19,6 @@ import {
 // Internal imports
 import { MetricCard } from "@/components/workflow/MetricCard";
 import { ReportCard } from "@/components/workflow/ReportCard";
-import { SegmentedBar } from "@/components/tables/SegmentedBar";
 import { TableSectionHeading } from "@/components/tables/TableSectionHeading";
 import { DonutBreakdownChart } from "@/components/charts/DonutBreakdownChart";
 import { VerticalBucketBarChart } from "@/components/charts/VerticalBucketBarChart";
@@ -47,7 +42,6 @@ import {
   inventoryAllocationResult,
   paymentAgingResult,
   reportManifests,
-  ninetyPlusDaysAmount,
   amountByAgingBucket,
 } from "@/lib/mock-data";
 import { formatAmount, formatNumber } from "@/lib/formatters";
@@ -90,19 +84,13 @@ export default function DashboardPage() {
       </p>
 
       <section className="mt-6">
-        <h2 className="text-base font-semibold text-text-primary">Order Validation</h2>
-        <div className="mt-3 grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <h2 className="text-base font-semibold text-text-primary">Overview</h2>
+        <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           <MetricCard
             label="Total Orders"
             value={formatNumber(validation.total_orders)}
             icon={<ClipboardList size={16} />}
             tone="info"
-          />
-          <MetricCard
-            label="Valid Orders"
-            value={formatNumber(validation.valid_orders)}
-            icon={<CheckCircle2 size={16} />}
-            tone="success"
           />
           <MetricCard
             label="Invalid Orders"
@@ -111,78 +99,16 @@ export default function DashboardPage() {
             tone="danger"
           />
           <MetricCard
-            label="Duplicate Orders"
-            value={formatNumber(validation.duplicate_orders)}
-            icon={<Copy size={16} />}
-            tone="warning"
-          />
-          <MetricCard
-            label="Invalid SKUs"
-            value={formatNumber(validation.invalid_skus)}
-            icon={<AlertCircle size={16} />}
-            tone="danger"
-          />
-          <MetricCard
-            label="Missing Fields"
-            value={formatNumber(validation.missing_field_count)}
-            icon={<FileWarning size={16} />}
-            tone="warning"
-          />
-        </div>
-        <Card className="mt-3 p-4">
-          <SegmentedBar
-            segments={[
-              { label: "Valid", value: validation.valid_orders, tone: "success" },
-              { label: "Invalid", value: validation.invalid_orders, tone: "danger" },
-            ]}
-          />
-        </Card>
-      </section>
-
-      <section className="mt-6">
-        <h2 className="text-base font-semibold text-text-primary">Inventory Allocation</h2>
-        <div className="mt-3 grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          <MetricCard
-            label="Total Order Lines"
-            value={formatNumber(allocation.total_order_lines)}
-            icon={<ClipboardList size={16} />}
-            tone="info"
-          />
-          <MetricCard
             label="Fully Allocated"
             value={formatNumber(allocation.fully_allocated_count)}
             icon={<CheckCircle2 size={16} />}
             tone="success"
           />
           <MetricCard
-            label="Partially Allocated"
-            value={formatNumber(allocation.partially_allocated_count)}
-            icon={<AlertTriangle size={16} />}
-            tone="warning"
-          />
-          <MetricCard
             label="Backordered"
             value={formatNumber(allocation.backordered_count)}
-            icon={<XCircle size={16} />}
+            icon={<Truck size={16} />}
             tone="danger"
-          />
-          <MetricCard
-            label="Low Stock SKUs"
-            value={formatNumber(allocation.low_stock_sku_count)}
-            icon={<TrendingDown size={16} />}
-            tone="warning"
-          />
-        </div>
-      </section>
-
-      <section className="mt-6">
-        <h2 className="text-base font-semibold text-text-primary">Payment Aging</h2>
-        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            label="Total Outstanding"
-            value={formatAmount(aging.total_outstanding_amount)}
-            icon={<DollarSign size={16} />}
-            tone="info"
           />
           <MetricCard
             label="Overdue Amount"
@@ -190,29 +116,22 @@ export default function DashboardPage() {
             icon={<AlertTriangle size={16} />}
             tone="warning"
           />
-          <MetricCard
-            label="High Priority Count"
-            value={formatNumber(aging.high_priority_count)}
-            icon={<AlertCircle size={16} />}
-            tone="danger"
-          />
-          <MetricCard
-            label="90+ Days Amount"
-            value={formatAmount(ninetyPlusDaysAmount(paymentAgingResult))}
-            icon={<Clock size={16} />}
-            tone="danger"
-          />
         </div>
       </section>
 
       <section className="mt-6 grid gap-4 lg:grid-cols-2">
-        <Card>
+        <Card className="transition-shadow hover:border-border-strong hover:shadow-md">
           <TableSectionHeading
             icon={<PackageCheck size={16} />}
             title="Allocation Status"
             caption="Fully allocated → partially allocated → backordered."
+            action={
+              <Link href="/inventory-allocation" className="text-xs font-medium text-accent hover:text-accent-hover">
+                View all
+              </Link>
+            }
           />
-          <div className="mt-3">
+          <div className="mt-3 flex min-h-48 flex-col justify-center">
             <DonutBreakdownChart
               segments={[
                 {
@@ -235,13 +154,18 @@ export default function DashboardPage() {
             />
           </div>
         </Card>
-        <Card>
+        <Card className="transition-shadow hover:border-border-strong hover:shadow-md">
           <TableSectionHeading
             icon={<ReceiptText size={16} />}
             title="Outstanding by Aging Bucket"
             caption="Outstanding amount → aging bucket."
+            action={
+              <Link href="/payment-aging" className="text-xs font-medium text-accent hover:text-accent-hover">
+                AR report
+              </Link>
+            }
           />
-          <div className="mt-3">
+          <div className="mt-3 flex min-h-48 flex-col justify-center">
             <VerticalBucketBarChart
               data={amountByAgingBucket(paymentAgingResult).map((bucket) => ({
                 label: bucket.label,
@@ -254,12 +178,13 @@ export default function DashboardPage() {
         </Card>
       </section>
 
-      <section className="mt-6">
-        <TableSectionHeading
-          icon={<Truck size={16} />}
-          title="Inventory Shortage Alerts"
-          caption="SKUs below reorder point → gap to reorder point → supplier contact."
-        />
+      <section className="mt-6 grid gap-4 lg:grid-cols-2">
+        <div>
+          <TableSectionHeading
+            icon={<Truck size={16} />}
+            title="Inventory Shortage Alerts"
+            caption="SKUs below reorder point → gap to reorder point → supplier contact."
+          />
         <div className="mt-3 rounded-xl border border-border bg-surface-subtle p-4">
           {supplier_follow_ups.length === 0 ? (
             <Card className="text-sm text-text-secondary">No SKUs are currently below their reorder point.</Card>
@@ -307,14 +232,14 @@ export default function DashboardPage() {
             </Table>
           )}
         </div>
-      </section>
+        </div>
 
-      <section className="mt-6">
-        <TableSectionHeading
-          icon={<ReceiptText size={16} />}
-          title="Payment Follow-up Items"
-          caption="Outstanding amount → aging bucket → follow-up priority."
-        />
+        <div>
+          <TableSectionHeading
+            icon={<ReceiptText size={16} />}
+            title="Payment Follow-up Items"
+            caption="Outstanding amount → aging bucket → follow-up priority."
+          />
         <div className="mt-3 rounded-xl border border-border bg-surface-subtle p-4">
           {followUpItems.length === 0 ? (
             <Card className="text-sm text-text-secondary">No invoices currently need follow-up.</Card>
@@ -354,6 +279,7 @@ export default function DashboardPage() {
               </TableBody>
             </Table>
           )}
+        </div>
         </div>
       </section>
 

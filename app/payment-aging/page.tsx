@@ -282,7 +282,7 @@ export default function PaymentAgingPage() {
             />
           </div>
           <Button
-            variant="secondary"
+            variant="dark"
             disabled={!canSubmit || reportStatus === "processing" || status === "submitting" || sampleDataLoading}
             onClick={handleDownloadReport}
             title={canSubmit ? "Recomputes and downloads payment_aging_report.xlsx" : "Upload an invoices file first"}
@@ -351,7 +351,7 @@ export default function PaymentAgingPage() {
         <>
           <section className="mt-6">
             <h2 className="text-base font-semibold text-text-primary">Summary</h2>
-            <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               <MetricCard
                 label="Total Outstanding"
                 value={formatAmount(currentResult.summary.total_outstanding_amount)}
