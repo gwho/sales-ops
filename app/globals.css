@@ -36,6 +36,13 @@
 
   --info: 199 89% 48%;
   --info-subtle: 204 100% 97%;
+
+  --surface-inverse: 222 47% 11%;
+  --surface-inverse-hover: 222 39% 20%;
+  --text-on-inverse: 0 0% 100%;
+  --text-on-inverse-muted: 215 20% 65%;
+
+  --overlay: 222 47% 11%;
 }
 
 @layer base {

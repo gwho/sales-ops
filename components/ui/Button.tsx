@@ -6,13 +6,14 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 // Types
-const buttonVariants = cva(
+export const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
         primary: "bg-accent text-text-on-accent hover:bg-accent-hover",
         secondary: "border border-border bg-surface text-text-primary hover:bg-surface-muted",
+        dark: "bg-surface-inverse text-text-on-inverse hover:bg-surface-inverse-hover disabled:bg-surface-muted disabled:text-text-muted",
       },
     },
     defaultVariants: {
@@ -25,8 +26,8 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<typeof
 
 // Component
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { className, variant, ...props },
+  { className, variant, type = "button", ...props },
   ref,
 ) {
-  return <button ref={ref} className={cn(buttonVariants({ variant }), className)} {...props} />;
+  return <button ref={ref} type={type} className={cn(buttonVariants({ variant }), className)} {...props} />;
 });

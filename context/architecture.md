@@ -83,7 +83,7 @@ Plan this after Phase 2 contract fixtures are stable. Build it only after Phases
 | `src/report_export.py` | Excel workbook generation from result data | Business-rule calculations |
 | `src/excel_io.py` | Loading and required-column validation helpers | Workflow-specific rules |
 | `tests/` | Regression coverage for business rules | Snapshotting UI |
-| Future `backend/` | FastAPI orchestration over tested modules | Duplicated business logic |
+| `backend/` | FastAPI orchestration over tested modules | Duplicated business logic |
 | Future `app/` and `components/` | UI composition and reusable dashboard components | Spreadsheet parsing or business-rule calculations |
 
 ## Python Output Contracts
@@ -114,24 +114,54 @@ Python owns fields explicitly specified by each workflow spec in `sales_admin_au
 
 Example: `PaymentAgingRow` includes `suggested_action` because `03_demo_payment_aging.md` §6-7 explicitly defines it as a deterministic output of the aging/priority rules. `AllocationResultRow` does not include `suggested_action` because `02_demo_inventory_allocation.md` never specifies one — allocation's `status`, `backorder_qty`, `warehouse`, and supplier follow-up fields are sufficient, and the future UI can derive display copy from `status` without a new contract field. Do not add a field to a contract for cross-module consistency alone; add it only when the corresponding spec is amended.
 
-## Future API Contract
+## API Contract (Phase 10)
 
-FastAPI comes after the Python core and UI contracts are stable.
+Resolved via a `/grilling` session and `/architect` session before implementation — see `docs/adr/0006-stateless-fastapi-workflow-and-report-exports.md`, `docs/grilling/phase-10-fastapi-integration/`, `docs/architect/phase-10-fastapi-integration/`, and `context/library-docs.md`'s "Future FastAPI" section for full detail.
 
 ```text
 POST /api/orders/validate
+POST /api/orders/validate/report
+
 POST /api/inventory/allocate
+POST /api/inventory/allocate/report
+
 POST /api/payments/aging
-GET  /api/reports/{report_id}
+POST /api/payments/aging/report
+
+GET  /api/templates/{template_name}
+GET  /health
 ```
 
-Expected backend behavior:
+`GET /api/reports/{report_id}` was never implemented — it implied persisted report artifacts, which contradicts the stateless architecture below. Each `.../report` endpoint re-accepts its workflow's source file(s) and recomputes server-side rather than trusting a client-supplied result. `GET /health` (Phase 11) is a minimal liveness check (`{"status": "ok"}`, no database query) added for the deployed backend host's health-check config.
 
-- Process uploaded Excel files in memory or temporary storage.
-- Call tested Python modules.
-- Return JSON matching the stable output contracts.
-- Generate downloadable Excel reports.
-- Convert technical exceptions into business-readable messages.
+Backend behavior:
+
+- Process uploaded Excel files in memory only (`backend/uploads.py`); nothing is written to disk or retained after the response.
+- Call the tested Python modules in `src/`, never duplicating business rules in route handlers.
+- Return JSON matching the stable output contracts for the three workflow endpoints; return `.xlsx` bytes directly for the three report endpoints.
+- Convert technical exceptions into business-readable `{"detail": "string"}` responses at the `backend/` boundary — `src/` itself stays framework-free.
+
+## Deployment (Phase 11)
+
+Planned via `/grill-with-docs` + `/architect`; see `context/build-plan.md`'s Phase 11 entry for scope and rationale. Two independently hosted services, mirroring the app's existing local dev shape (`localhost:3000` ↔ `127.0.0.1:8000` over CORS) rather than a single container:
+
+| Service | Host | Notes |
+| --- | --- | --- |
+| Frontend (Next.js) | Vercel, Hobby tier | Zero config — `package.json` sits at repo root, Vercel auto-detects and builds normally alongside the unrelated `backend/`/`src/`/`sample_data/` directories. |
+| Backend (FastAPI) | Render, Free Web Service | Python runtime (matches `.python-version`'s `3.12`). Build: `python -m pip install uv && uv sync --frozen --no-dev`. Start: `uv run fastapi run backend/main.py --host 0.0.0.0 --port $PORT`. Health Check Path: `/health`. |
+
+Both are deployed from a dedicated `deploy/portfolio-demo` branch, fast-forwarded from the active implementation branch after each verified change — not `main` (the PR-stack merge decision stays a separate, deferred call) and not an active feature branch (which keeps receiving unrelated WIP).
+
+Env vars, both plain config strings, no secrets involved:
+
+- `NEXT_PUBLIC_API_BASE_URL` (Vercel) — the deployed Render URL. Falls back to `http://127.0.0.1:8000` locally if unset (`lib/api-client.ts`).
+- `CORS_ALLOWED_ORIGINS` (Render) — the deployed Vercel URL, comma-separated if more than one origin is ever needed. Falls back to `http://localhost:3000` locally if unset (`backend/main.py`). Read once at app construction (`CORSMiddleware` is configured at `add_middleware()` time, not per-request) — changing this env var on Render requires a redeploy, not just a dashboard save.
+
+Deploy sequencing resolves the circular URL dependency: Render first (get its URL) → Vercel with `NEXT_PUBLIC_API_BASE_URL` set to it (get its URL) → `CORS_ALLOWED_ORIGINS` on Render set to the Vercel URL → redeploy Render.
+
+Accepted trade-off: Render's free tier sleeps after ~15 minutes idle; the first request after that can take up to ~1 minute to wake. Mitigated with a `README.md` note, not a keep-alive job or a paid tier — see `README.md`'s "Live Demo" section.
+
+`sample_data/*.xlsx` needs no special deployment packaging — it's already committed and read via paths relative to the repo (`backend/routers/templates.py`, the `load_*` functions), so it's simply present once Render builds from the real repo root.
 
 ## UI Design Input Workflow
 

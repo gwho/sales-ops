@@ -14,20 +14,36 @@ import { WorkflowStepper } from "@/components/workflow/WorkflowStepper";
 import { DataTable, type DataTableColumn } from "@/components/tables/DataTable";
 import { FilterToolbar } from "@/components/tables/FilterToolbar";
 import { FilterSelect } from "@/components/tables/FilterSelect";
-import { TableSectionHeading } from "@/components/tables/TableSectionHeading";
 import { AgingBucketBars } from "@/components/tables/AgingBucketBars";
+import { TableSectionHeading } from "@/components/tables/TableSectionHeading";
 import { StatusBadge, agingBucketTone, followUpPriorityTone } from "@/components/workflow/StatusBadge";
 import { EmptyState } from "@/components/feedback/EmptyState";
+import { LoadingState } from "@/components/feedback/LoadingState";
+import { BusinessErrorMessage } from "@/components/feedback/BusinessErrorMessage";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { paymentAgingResult, ninetyPlusDaysAmount, reportManifests } from "@/lib/mock-data";
+import { ApiError, downloadBlob, fetchSampleFile, postJSON, postReport } from "@/lib/api-client";
 import { formatAmount, formatDate, formatNumber } from "@/lib/formatters";
-import type { DraftMessageRow, PaymentAgingRow, PaymentDataIssueRow } from "@/types";
+import type { DraftMessageRow, PaymentAgingResult, PaymentAgingRow, PaymentDataIssueRow } from "@/types";
 
 const STEPS = ["Upload Invoices", "Calculate Aging", "Review Results"];
 
 const AGING_BUCKET_OPTIONS = ["All", "Current", "1-30 Days", "31-60 Days", "61-90 Days", "90+ Days"];
 const FOLLOW_UP_PRIORITY_OPTIONS = ["All", "High", "Medium", "Low", "Watch", "None"];
+
+type RequestStatus = "idle" | "submitting" | "succeeded" | "failed";
+type ReportRequestState = "idle" | "processing" | "failed";
+
+function todayIsoDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Sums outstanding_amount for 90+ Days rows -- a derived display-only aggregate (ui-contract-plan.md), not new business logic. */
+function ninetyPlusDaysAmount(result: PaymentAgingResult): number {
+  return result.aging_rows
+    .filter((row) => row.aging_bucket === "90+ Days")
+    .reduce((sum, row) => sum + row.outstanding_amount, 0);
+}
 
 const AGING_ROW_COLUMNS: DataTableColumn<PaymentAgingRow>[] = [
   {
@@ -141,9 +157,87 @@ const DATA_ISSUE_COLUMNS: DataTableColumn<PaymentDataIssueRow>[] = [
 
 // Component
 export default function PaymentAgingPage() {
-  const { summary, aging_rows, data_issues, draft_messages } = paymentAgingResult;
-  const report = reportManifests.find((m) => m.report_type === "payment_aging");
   const dateInputId = useId();
+
+  const [invoicesFile, setInvoicesFile] = useState<File | null>(null);
+  const [asOfDate, setAsOfDate] = useState<string>(() => todayIsoDate());
+
+  const [status, setStatus] = useState<RequestStatus>("idle");
+  const [currentResult, setCurrentResult] = useState<PaymentAgingResult | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+
+  const [reportStatus, setReportStatus] = useState<ReportRequestState>("idle");
+  const [reportErrorDetail, setReportErrorDetail] = useState<string | null>(null);
+
+  const [sampleDataLabel, setSampleDataLabel] = useState<string | null>(null);
+  const [sampleDataLoading, setSampleDataLoading] = useState(false);
+
+  const canSubmit = invoicesFile !== null && asOfDate !== "";
+  const currentStep = status === "succeeded" ? 2 : canSubmit ? 1 : 0;
+
+  function buildFormData(invoices: File, forDate: string): FormData {
+    const formData = new FormData();
+    formData.set("invoices_file", invoices);
+    formData.set("as_of_date", forDate);
+    return formData;
+  }
+
+  async function runAging(invoices: File, forDate: string) {
+    setStatus("submitting");
+    setErrorDetail(null);
+    try {
+      const result = await postJSON<PaymentAgingResult>("/api/payments/aging", buildFormData(invoices, forDate));
+      setCurrentResult(result);
+      setStatus("succeeded");
+    } catch (error) {
+      setErrorDetail(error instanceof ApiError ? error.message : "Something went wrong. Please try again.");
+      setStatus("failed");
+    }
+  }
+
+  function handleCalculateAging() {
+    if (!invoicesFile || asOfDate === "") return;
+    void runAging(invoicesFile, asOfDate);
+  }
+
+  async function handleRunSampleData() {
+    setSampleDataLoading(true);
+    setSampleDataLabel(null);
+    setErrorDetail(null);
+    try {
+      const invoices = await fetchSampleFile("invoices", "sample_invoices.xlsx");
+      setInvoicesFile(invoices);
+      setSampleDataLabel(`Using sample data: ${invoices.name} (as of ${asOfDate})`);
+      setSampleDataLoading(false);
+      await runAging(invoices, asOfDate);
+    } catch (error) {
+      setSampleDataLoading(false);
+      setErrorDetail(error instanceof ApiError ? error.message : "Something went wrong. Please try again.");
+      setStatus("failed");
+    }
+  }
+
+  async function handleDownloadReport() {
+    if (!invoicesFile || asOfDate === "") return;
+    setReportStatus("processing");
+    setReportErrorDetail(null);
+    try {
+      const report = await postReport(
+        "/api/payments/aging/report",
+        buildFormData(invoicesFile, asOfDate),
+        "payment_aging_report.xlsx",
+      );
+      downloadBlob(report.blob, report.filename);
+      setReportStatus("idle");
+    } catch (error) {
+      setReportErrorDetail(error instanceof ApiError ? error.message : "Something went wrong. Please try again.");
+      setReportStatus("failed");
+    }
+  }
+
+  const agingRows = useMemo(() => currentResult?.aging_rows ?? [], [currentResult]);
+  const dataIssues = useMemo(() => currentResult?.data_issues ?? [], [currentResult]);
+  const draftMessages = useMemo(() => currentResult?.draft_messages ?? [], [currentResult]);
 
   const [bucket, setBucket] = useState("All");
   const [priority, setPriority] = useState("All");
@@ -151,7 +245,7 @@ export default function PaymentAgingPage() {
 
   const filteredAgingRows = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return aging_rows.filter((row) => {
+    return agingRows.filter((row) => {
       if (bucket !== "All" && row.aging_bucket !== bucket) return false;
       if (priority !== "All" && row.follow_up_priority !== priority) return false;
       if (query) {
@@ -160,7 +254,7 @@ export default function PaymentAgingPage() {
       }
       return true;
     });
-  }, [aging_rows, bucket, priority, search]);
+  }, [agingRows, bucket, priority, search]);
 
   const agingFiltersActive = bucket !== "All" || priority !== "All" || search !== "";
 
@@ -181,136 +275,180 @@ export default function PaymentAgingPage() {
             <input
               id={dateInputId}
               type="date"
-              value={report ? report.generated_at.slice(0, 10) : ""}
-              disabled
-              readOnly
-              title="Live date selection arrives with the API layer (Phase 10) — this reflects the mock report's generated date."
-              className="rounded-md border border-border bg-surface-subtle px-2 py-1 text-sm text-text-secondary disabled:cursor-not-allowed"
+              value={asOfDate}
+              onChange={(event) => setAsOfDate(event.target.value)}
+              title="Recalculates aging buckets, days overdue, and follow-up priority against this date"
+              className="rounded-md border border-border bg-surface px-2 py-1 text-sm text-text-primary"
             />
           </div>
           <Button
-            variant="secondary"
-            disabled
-            title={
-              report
-                ? `Download ${report.file_name} — available once the API layer (Phase 10) is live`
-                : "Available once the API layer (Phase 10) is live"
-            }
+            variant="dark"
+            disabled={!canSubmit || reportStatus === "processing" || status === "submitting" || sampleDataLoading}
+            onClick={handleDownloadReport}
+            title={canSubmit ? "Recomputes and downloads payment_aging_report.xlsx" : "Upload an invoices file first"}
           >
-            Download Report
+            {reportStatus === "processing" ? "Preparing report…" : "Download Report"}
           </Button>
+          {reportStatus === "failed" && reportErrorDetail ? (
+            <div className="max-w-xs">
+              <BusinessErrorMessage message={reportErrorDetail} />
+            </div>
+          ) : null}
         </div>
       </div>
 
       <div className="mt-6">
-        <WorkflowStepper steps={STEPS} currentStep={STEPS.length - 1} />
+        <WorkflowStepper steps={STEPS} currentStep={currentStep} />
       </div>
 
       <div className="mt-6">
         <UploadPanel
           label="Invoices File"
           requiredColumns={["invoice_id", "customer_name", "invoice_date", "due_date", "invoice_amount"]}
+          sampleFileName="invoices"
+          onFileChange={setInvoicesFile}
+          selectedFileName={invoicesFile?.name ?? null}
         />
       </div>
 
-      <section className="mt-6">
-        <h2 className="text-base font-semibold text-text-primary">Summary</h2>
-        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            label="Total Outstanding"
-            value={formatAmount(summary.total_outstanding_amount)}
-            icon={<DollarSign size={16} />}
-            tone="info"
-          />
-          <MetricCard
-            label="Overdue Amount"
-            value={formatAmount(summary.overdue_amount)}
-            icon={<AlertTriangle size={16} />}
-            tone="warning"
-          />
-          <MetricCard
-            label="High Priority Count"
-            value={formatNumber(summary.high_priority_count)}
-            icon={<AlertCircle size={16} />}
-            tone="danger"
-          />
-          <MetricCard
-            label="90+ Days Amount"
-            value={formatAmount(ninetyPlusDaysAmount(paymentAgingResult))}
-            icon={<Clock size={16} />}
-            tone="danger"
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <Button onClick={handleCalculateAging} disabled={!canSubmit || status === "submitting" || sampleDataLoading}>
+          {status === "submitting" ? "Calculating…" : "Calculate Aging"}
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={handleRunSampleData}
+          disabled={sampleDataLoading || status === "submitting"}
+          title="Fetches the committed sample invoices and calculates aging as of the selected date"
+        >
+          {sampleDataLoading ? "Loading sample data…" : "Run sample data"}
+        </Button>
+        {sampleDataLabel ? <span className="text-xs text-text-muted">{sampleDataLabel}</span> : null}
+      </div>
+
+      {status === "idle" ? (
+        <div className="mt-6">
+          <EmptyState
+            title="Upload an invoice/payment file to generate an aging report."
+            description="An invoices file and an as-of date are required."
           />
         </div>
-      </section>
+      ) : null}
 
-      <section className="mt-6">
-        <h2 className="text-base font-semibold text-text-primary">Aging Bucket Breakdown</h2>
-        <Card className="mt-3">
-          <AgingBucketBars counts={summary.aging_bucket_counts} />
-        </Card>
-      </section>
+      {status === "submitting" ? (
+        <div className="mt-6">
+          <LoadingState label="Calculating outstanding amounts, aging buckets, and follow-up priority…" />
+        </div>
+      ) : null}
 
-      <section className="mt-6">
-        <TableSectionHeading
-          icon={<ReceiptText size={16} />}
-          title="Payment Aging"
-          caption="Outstanding amount → aging bucket → follow-up priority."
-        />
-        <div className="mt-3 flex flex-col gap-3">
-          <FilterToolbar
-            search={{ value: search, onChange: setSearch, placeholder: "Invoice ID or customer…" }}
-            onClear={() => {
-              setBucket("All");
-              setPriority("All");
-              setSearch("");
-            }}
-            hasActiveFilters={agingFiltersActive}
-          >
-            <FilterSelect label="Aging Bucket" value={bucket} options={AGING_BUCKET_OPTIONS} onChange={setBucket} />
-            <FilterSelect
-              label="Follow-up Priority"
-              value={priority}
-              options={FOLLOW_UP_PRIORITY_OPTIONS}
-              onChange={setPriority}
+      {status === "failed" && errorDetail ? (
+        <div className="mt-6">
+          <BusinessErrorMessage message={errorDetail} />
+        </div>
+      ) : null}
+
+      {status === "succeeded" && currentResult ? (
+        <>
+          <section className="mt-6">
+            <h2 className="text-base font-semibold text-text-primary">Summary</h2>
+            <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              <MetricCard
+                label="Total Outstanding"
+                value={formatAmount(currentResult.summary.total_outstanding_amount)}
+                icon={<DollarSign size={16} />}
+                tone="info"
+              />
+              <MetricCard
+                label="Overdue Amount"
+                value={formatAmount(currentResult.summary.overdue_amount)}
+                icon={<AlertTriangle size={16} />}
+                tone="warning"
+              />
+              <MetricCard
+                label="High Priority Count"
+                value={formatNumber(currentResult.summary.high_priority_count)}
+                icon={<AlertCircle size={16} />}
+                tone="danger"
+              />
+              <MetricCard
+                label="90+ Days Amount"
+                value={formatAmount(ninetyPlusDaysAmount(currentResult))}
+                icon={<Clock size={16} />}
+                tone="danger"
+              />
+            </div>
+          </section>
+
+          <section className="mt-6">
+            <h2 className="text-base font-semibold text-text-primary">Aging Bucket Breakdown</h2>
+            <Card className="mt-3">
+              <AgingBucketBars counts={currentResult.summary.aging_bucket_counts} />
+            </Card>
+          </section>
+
+          <section className="mt-6">
+            <TableSectionHeading
+              icon={<ReceiptText size={16} />}
+              title="Payment Aging"
+              caption="Outstanding amount → aging bucket → follow-up priority."
             />
-          </FilterToolbar>
-          <DataTable
-            columns={AGING_ROW_COLUMNS}
-            data={filteredAgingRows}
-            getRowKey={(r) => r.invoice_id}
-            emptyTitle={agingFiltersActive ? "No invoices match the current filter." : "No invoices to age."}
-            emptyDescription={agingFiltersActive ? "Try a different bucket, priority, or search term." : undefined}
-          />
-        </div>
-      </section>
+            <div className="mt-3 flex flex-col gap-3">
+              <FilterToolbar
+                search={{ value: search, onChange: setSearch, placeholder: "Invoice ID or customer…" }}
+                onClear={() => {
+                  setBucket("All");
+                  setPriority("All");
+                  setSearch("");
+                }}
+                hasActiveFilters={agingFiltersActive}
+              >
+                <FilterSelect label="Aging Bucket" value={bucket} options={AGING_BUCKET_OPTIONS} onChange={setBucket} />
+                <FilterSelect
+                  label="Follow-up Priority"
+                  value={priority}
+                  options={FOLLOW_UP_PRIORITY_OPTIONS}
+                  onChange={setPriority}
+                />
+              </FilterToolbar>
+              <DataTable
+                columns={AGING_ROW_COLUMNS}
+                data={filteredAgingRows}
+                getRowKey={(r) => r.invoice_id}
+                emptyTitle={agingFiltersActive ? "No invoices match the current filter." : "No invoices to age."}
+                emptyDescription={agingFiltersActive ? "Try a different bucket, priority, or search term." : undefined}
+              />
+            </div>
+          </section>
 
-      <section className="mt-6">
-        <TableSectionHeading
-          icon={<AlertCircle size={16} />}
-          title="Data Issues"
-          caption="Rows that couldn't be aged due to a missing or invalid due date or amount."
-        />
-        <div className="mt-3 rounded-xl border border-border bg-surface-subtle p-4">
-          <DataTable
-            columns={DATA_ISSUE_COLUMNS}
-            data={data_issues}
-            getRowKey={(r) => `${r.invoice_id ?? "unknown"}-${r.error_code}`}
-            emptyTitle="No data issues."
-            emptyDescription="Every invoice row had a usable due date and amount."
-          />
-        </div>
-      </section>
+          <section className="mt-6">
+            <TableSectionHeading
+              icon={<AlertCircle size={16} />}
+              title="Data Issues"
+              caption="Rows that couldn't be aged due to a missing or invalid due date or amount."
+            />
+            <div className="mt-3 rounded-xl border border-border bg-surface-subtle p-4">
+              <DataTable
+                columns={DATA_ISSUE_COLUMNS}
+                data={dataIssues}
+                getRowKey={(r) => `${r.invoice_id ?? "unknown"}-${r.error_code}`}
+                emptyTitle="No data issues."
+                emptyDescription="Every invoice row had a usable due date and amount."
+              />
+            </div>
+          </section>
 
-      <section className="mt-6">
-        <TableSectionHeading
-          icon={<Mail size={16} />}
-          title="Draft Messages"
-          caption="Ready-to-send reminders for overdue High/Medium/Low priority invoices."
-        />
-        <div className="mt-3">
-          <DraftMessages messages={draft_messages} />
-        </div>
-      </section>
+          <section className="mt-6">
+            <TableSectionHeading
+              icon={<Mail size={16} />}
+              title="Draft Messages"
+              caption="Ready-to-send reminders for overdue High/Medium/Low priority invoices."
+            />
+            <div className="mt-3">
+              <DraftMessages messages={draftMessages} />
+            </div>
+          </section>
+        </>
+      ) : null}
     </div>
   );
 }

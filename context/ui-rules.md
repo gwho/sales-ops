@@ -108,7 +108,7 @@ Upload panels in the future UI should show:
 
 - Accepted file type
 - Required columns
-- Sample template action
+- Sample file action
 - Selected filename
 - Business-readable validation message
 
@@ -158,7 +158,7 @@ KeyError: 'sku'
 Good:
 
 ```text
-The uploaded order file is missing the required column: SKU. Please use the sample template and try again.
+The uploaded order file is missing the required column: SKU. Please use the sample file and try again.
 ```
 
 ## Demo Mode

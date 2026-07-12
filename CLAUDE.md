@@ -4,7 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-Phase 1 (Python Project Foundation) and Phase 2 (Sample Data and Contract Fixtures) are complete: `pyproject.toml`/`uv`, `src/excel_io.py`, `src/contracts.py` (13 output-contract `TypedDict` families), `src/sample_data.py`, committed `sample_data/*.xlsx`, and `tests/` (32 passing). No business-rule logic exists yet — `order_validation.py`, `inventory_allocation.py`, `payment_aging.py`, and `report_export.py` are still unwritten. Next up is Phase 3 (Order Validation Core); Phase 7 (UI planning, docs-only) may also start in parallel now that Phase 2's contract fixtures exist. Check `context/progress-tracker.md` for the authoritative current phase status before starting work.
+Phase 10.2 (Portfolio UI Polish) is complete. The project now includes the tested Python business-rule core, generated fictional Excel sample data, Excel report exports, a polished Next.js dashboard/workflow UI (dark-navy sidebar, compact KPI tiles, paired dashboard sections, dark/light button hierarchy), and a stateless FastAPI backend that live-wires the three workflow pages. Check `context/progress-tracker.md` for the authoritative current status before starting work; this file is operational guidance and should stay aligned with that tracker.
+
+Current implementation summary:
+
+- Python core: `src/order_validation.py`, `src/inventory_allocation.py`, `src/payment_aging.py`, `src/report_export.py`, `src/excel_io.py`, `src/contracts.py`, and `src/sample_data.py`.
+- Sample data: committed fictional `.xlsx` files under `sample_data/`, plus `sample_data/README_sample_data.md`; `sample_customers.xlsx` is reference-only and not used by live workflows.
+- Frontend: Next.js App Router routes for `/dashboard`, `/order-validation`, `/inventory-allocation`, `/payment-aging`, and `/reports`, with reusable components recorded in `context/ui-registry.md`.
+- Backend: `backend/` FastAPI package with stateless workflow/report endpoints and allowlisted sample-file downloads.
+- Data flow: workflow pages process user-uploaded or sample `.xlsx` files through FastAPI; `/dashboard` and `/reports` remain curated sample-data views, not session-based views of the user's latest upload.
+- Last known verification from memory: `uv run pytest` 196 passing; `npm run typecheck`, `npm run lint`, and `npm run build` clean. Re-run checks before relying on this in a new session.
+
+Known local loose ends from the last saved session:
+
+- Re-check live PR merge status before assuming the stacked PR state.
+- `memory.md` may be modified locally and is intentionally not committed.
+- `sample_data/~$sample_invoices.xlsx` may exist as an untracked Excel lock file; delete only if the user asks for cleanup.
+- Some old dev-server processes may still be running on ports `3010`-`3051`.
+- Some context/docs mention the original Phase 10 implementation but not the later bug-fix/recover round; sync them before using them as final public documentation.
 
 **Sales Admin Automation Toolkit** is a portfolio project simulating Excel-based sales administration workflows: order validation, inventory allocation, payment aging, and report export. It is explicitly **not** a full ERP/CRM/WMS/accounting system, and uses fictional data only — never real customer, order, invoice, or product data.
 
@@ -24,65 +41,50 @@ Per `AGENTS.md`, read these in order before writing code:
 
 `CONTEXT.md` at the repo root is the project glossary — business terms (Order, SKU, Allocatable Quantity, Aging Bucket) plus process terms resolved during planning (Output Contract, Contract Fixture, Field Scope Boundary, Scope Gate, V1/V2). Check it before using any of these terms loosely.
 
-## Build sequence — Python core before UI
+## Build sequence — Python core before UI, now completed through Phase 10.2
 
 The active architecture decision (see `docs/adr/0003-python-core-before-polished-ui.md`) is: **build and test the Python business-rule core first, then build the polished Next.js dashboard on top of stable output contracts.** Two earlier ADRs (0001, 0002) proposed UI-first approaches and are superseded — do not follow them.
 
-The reason is sequencing risk, not shape ambiguity: the functional specs in `sales_admin_automation_toolkit_specs/` already define input columns, rules, and output columns in enough detail that output shapes aren't the risk. The risk is spending the first implementation milestone on UI polish before the substantive automation — the actual portfolio payload — exists.
+That sequencing has now been carried out through Phase 10.2:
 
-`context/build-plan.md` defines the full phase sequence (Phase 0 planning reset is done; next is Phase 1: Python project foundation). Check `context/progress-tracker.md` for current phase status before starting work, and update it after completing any phase item.
+- Phases 1-6 built and tested the Python/Excel core.
+- Phase 7 planned UI contracts and page mappings.
+- Phases 8-9.1 built the Next.js foundation, reusable components, static pages, and visual alignment fixes.
+- Phase 10 added the stateless FastAPI layer and live-wired the three workflow pages.
+- Phase 10.2 was a token-only visual/hierarchy polish pass (dark sidebar, compact KPI tiles, paired dashboard sections, chart-card interactivity, button hierarchy) — no backend/API/contract changes.
 
-### Phase 1 scope (current phase)
+`context/build-plan.md` currently ends at Phase 11 (Deployment Baseline) — see that file for the current phase's scope. An earlier "SQL Reporting + Active Sample Dashboard" Phase 11 was planned, approved, and partially implemented, then paused in favor of deploying first; that work is preserved in a git stash (see `context/build-plan.md`'s Phase 11 entry) rather than deleted, and remains a candidate input for a future Postgres-backed dashboard phase. Any new work beyond the active phase's plan is new scope and needs its own planning pass before implementation.
 
-Phase 1 is more than empty scaffolding — it includes the cross-cutting infrastructure every later phase depends on, so Phases 3–5 don't each invent slightly different field names before a UI consumer exists to catch the drift:
+### Current Python and backend shape
 
-- Python project config, `src/`, `tests/`, `sample_data/` folders, pytest config
-- `src/excel_io.py` — load helper, required-column validation, consistent missing-column error shape
-- `src/contracts.py` — `TypedDict` definitions for every output family (dict-shaped, not dataclasses, since the eventual FastAPI/Next.js boundary is JSON)
-
-Phase 1 explicitly excludes all business rules (validation/allocation/aging), sample workbook *generation* (stubs only), report export logic, and any FastAPI/UI work — those come in Phases 2–6.
-
-### Python scaffold — built vs. still planned
-
-```
+```text
 src/
-  __init__.py             # done (Phase 1)
-  excel_io.py             # done (Phase 1) — Excel loading, required-column validation, normalization helpers
-  contracts.py            # done (Phase 1) — TypedDict output contracts
-  sample_data.py          # done (Phase 2) — fictional sample workbook generation
-  order_validation.py     # planned (Phase 3) — order validation rules and output
-  inventory_allocation.py # planned (Phase 4) — allocation ordering, stock depletion, backorder/supplier follow-up
-  payment_aging.py        # planned (Phase 5) — outstanding amount, aging buckets, follow-up priority, draft reminders
-  report_export.py        # planned (Phase 6) — Excel workbook generation from already-computed outputs
-tests/
-  test_excel_io.py         # done (Phase 1)
-  test_contracts.py        # done (Phase 1, extended Phase 2)
-  test_sample_data.py      # done (Phase 2)
-  test_order_validation.py    # planned (Phase 3)
-  test_inventory_allocation.py # planned (Phase 4)
-  test_payment_aging.py       # planned (Phase 5)
-  test_report_export.py       # planned (Phase 6)
-sample_data/
-  sample_orders.xlsx          # done (Phase 2)
-  sample_product_master.xlsx  # done (Phase 2)
-  sample_inventory.xlsx       # done (Phase 2)
-  sample_invoices.xlsx        # done (Phase 2)
+  __init__.py
+  excel_io.py
+  contracts.py
+  sample_data.py
+  order_validation.py
+  inventory_allocation.py
+  payment_aging.py
+  report_export.py
+backend/
+  main.py
+  errors.py
+  uploads.py
+  routers/
+    orders.py
+    inventory.py
+    payments.py
+    templates.py
 ```
 
 Module boundaries are strict — `excel_io.py` never contains workflow-specific rules, `report_export.py` never contains business calculations, and none of `src/` contains UI or FastAPI route logic. Stack: pandas for tabular transforms, openpyxl for `.xlsx` I/O, pytest for tests.
 
-`sample_data/*.xlsx` are **demo fixtures, not test fixtures** — mostly clean with a small number of realistic imperfections (e.g. one duplicate order ID, one inactive SKU, one SKU near reorder point, one high-priority overdue invoice), so they read as a believable sales-ops day rather than a disguised test matrix. Exhaustive rule/edge-case coverage belongs in small pytest DataFrame fixtures instead — that's a distinct concept from a "Contract Fixture" (a realistic example value for an output contract, built in Phase 2 to prove the shape holds real demo data). See `CONTEXT.md` for both terms.
+`sample_data/*.xlsx` are **demo fixtures, not test fixtures** — plausible fictional sample files with intentional imperfections. Exhaustive rule/edge-case coverage belongs in small pytest DataFrame fixtures instead. The committed UI mock JSON is generated from these sample Excel files via `npm run mock-data`, not from `tests/contract_fixtures.py`.
 
-Phase 6 (Excel report export) is a standalone fallback demo milestone: tested Python logic plus professional `.xlsx` reports are interview-ready even if Next.js never gets built.
+### Current frontend shape
 
-### UI has two separate gates — planning vs. implementation
-
-- **Planning gate (Phase 7 — UI contract/wireframe planning):** can start as soon as Phase 2 (contract fixtures) is done, and may run in parallel with Phases 3–6. It's docs/wireframes/TypeScript-interface-planning only — no production frontend code.
-- **Implementation gate (Phase 8 — actual Next.js code):** hard-gated. Cannot start until every test case listed in each spec's "Test cases" table passes (`01_demo_order_validation.md` §12, `02_demo_inventory_allocation.md` §11, `03_demo_payment_aging.md` §12) plus Phase 6's Excel report structure tests.
-
-### Planned Next.js scaffold (build only after the Phase 8 gate is satisfied)
-
-```
+```text
 app/
   dashboard/page.tsx
   order-validation/page.tsx
@@ -97,20 +99,38 @@ types/
   index.ts
 ```
 
-Stack: Next.js App Router, TypeScript strict, Tailwind CSS 3.4 (do **not** upgrade to v4), shadcn/ui, TanStack Table, Recharts. Server Components by default; `"use client"` only for state/effects/browser APIs/event listeners. Route files stay thin — pages compose sections, they don't implement large reusable components.
+Stack: Next.js App Router, TypeScript strict, Tailwind CSS 3.4 (do **not** upgrade to v4), hand-written token-compliant UI primitives, and page-level workflow state. Server Components remain the default, but workflow pages that define `DataTable` column render functions or manage upload/request state are Client Components.
 
-Future API layer (FastAPI) wraps the tested Python modules — thin route handlers that call business modules and never duplicate business rules:
+### Current API contract
 
-```
+FastAPI wraps the tested Python modules — thin route handlers call business modules and never duplicate business rules:
+
+```text
 POST /api/orders/validate
+POST /api/orders/validate/report
+
 POST /api/inventory/allocate
+POST /api/inventory/allocate/report
+
 POST /api/payments/aging
-GET  /api/reports/{report_id}
+POST /api/payments/aging/report
+
+GET  /api/templates/{template_name}
 ```
+
+`GET /api/reports/{report_id}` is intentionally not implemented. The API is stateless per `docs/adr/0006-stateless-fastapi-workflow-and-report-exports.md`: no persisted Workflow Run, no `run_id`, no report artifact store. Report endpoints re-accept source files and recompute server-side.
+
+Current development shape is two independent servers: FastAPI on `127.0.0.1:8000` and Next.js on `localhost:3000`, with explicit CORS. The frontend fallback API base URL is pinned to `http://127.0.0.1:8000` to avoid browser-side IPv6 `localhost` failures on machines where `localhost` resolves to both `127.0.0.1` and `::1`.
+
+### Candidate next scope
+
+Phase 11 (Deployment Baseline) is the active phase — see `context/build-plan.md` and `context/architecture.md`'s "Deployment (Phase 11)" section.
+
+The most likely scope after that is **Phase 12: a Postgres-backed latest-session dashboard** — replacing the paused SQLite sample-dashboard idea with something that stores computed workflow outputs after each run and shows a session's latest results (falling back to sample data when none exist), not yet part of `context/build-plan.md`. Not to be planned or implemented until Phase 11 is deployed and verified.
 
 ## Output contracts
 
-Python modules must return JSON-serializable structures (snake_case keys) that later map to TypeScript. Required output families: `ValidationSummary`, `ValidationErrorRow`, `ValidOrderRow`, `AllocationSummary`, `AllocationResultRow`, `BackorderRow`, `RemainingInventoryRow`, `SupplierFollowUpRow`, `PaymentAgingSummary`, `PaymentAgingRow`, `PaymentDataIssueRow`, `DraftMessageRow`, `ReportManifest`. Every future UI table/KPI/chart must map to one of these — don't invent UI surfaces the Python core can't produce.
+Python modules return JSON-serializable structures (snake_case keys) that map directly to TypeScript. Required output families: `ValidationSummary`, `ValidationErrorRow`, `ValidOrderRow`, `AllocationSummary`, `AllocationResultRow`, `BackorderRow`, `RemainingInventoryRow`, `SupplierFollowUpRow`, `PaymentAgingSummary`, `PaymentAgingRow`, `PaymentDataIssueRow`, `DraftMessageRow`, `ReportManifest`. Every UI table/KPI/chart must map to one of these or to a documented derived display value — don't invent UI surfaces the Python core can't produce.
 
 **Field scope boundary:** a contract may only contain fields its originating spec explicitly defines — contracts are allowed to be asymmetric across output families, and cross-module consistency is not a valid reason to add a field. Example: `PaymentAgingRow` has `suggested_action` because `03_demo_payment_aging.md` §6–7 defines it; `AllocationResultRow` does not, because `02_demo_inventory_allocation.md` never specifies one. Don't add fields for symmetry — only when the corresponding spec is amended via a new ADR.
 
@@ -123,14 +143,16 @@ Only implement rules labeled **V1 or unlabeled** within an in-scope spec file (`
 - Prefer clear, explicit functions over clever abstractions; type hints on public Python functions.
 - Business logic never prints — return structured errors/results. Convert technical exceptions (e.g. `KeyError`) into business-readable messages at module/API boundaries (see "Error Messages" in `context/ui-rules.md` for the bad/good example).
 - No hidden global state; deterministic business-rule functions where practical.
+- FastAPI route handlers stay thin and framework-specific; `src/` remains framework-free.
+- Frontend state stays page-local unless a new planning decision introduces a broader state model.
 - Full standards reference: `context/code-standards.md` (Python, pytest, future TypeScript/Next.js/API conventions all documented there).
 
-## UI design system (for future Next.js work)
+## UI design system
 
 - No hardcoded hex values, no raw Tailwind color classes (`bg-blue-600`, etc.) — always use semantic tokens defined in `context/ui-tokens.md` (`bg-accent`, `text-text-primary`, `bg-success-subtle`, etc.).
 - Status must never rely on color alone — always include a text label. Controlled status vocabularies per workflow are listed in `context/ui-rules.md`.
 - Visual direction: light theme, sidebar nav, white cards on soft gray background, blue accent, dense readable tables. Avoid dark/crypto styling, decorative gradients, ERP-style mega nav.
-- Check `context/ui-registry.md` before building any component — it's the living registry of already-established component styles (currently empty; no components built yet).
+- Check `context/ui-registry.md` before building any component — it's the living registry of established component styles and page-composition notes.
 
 ## Skill-driven workflow
 

@@ -23,24 +23,22 @@ const CHIP_TONE_CLASSES: Record<Tone, string> = {
 };
 
 // Component
-/** Icon chip is optional and decorative only — matches the Figma-approved "label + big number + icon chip" KPI card pattern, never the trend-delta that sits next to it in the same reference (that stays out of scope). */
+/** Icon chip is optional and decorative only — matches the Figma-approved "label + big number + icon chip" KPI card pattern, never the trend-delta that sits next to it in the same reference (that stays out of scope). Phase 10.2: restructured into a compact, roughly square tile (icon top, value centered/prominent, label below) instead of a short wide strip, with a min-height so a row of tiles aligns regardless of value/label length. */
 export function MetricCard({ label, value, icon, tone = "neutral" }: MetricCardProps) {
   return (
-    <Card className="flex flex-col gap-3 p-4">
-      <div className="flex items-start justify-between gap-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-text-secondary">{label}</span>
-        {icon ? (
-          <span
-            className={cn(
-              "flex h-7 w-7 shrink-0 items-center justify-center rounded",
-              CHIP_TONE_CLASSES[tone],
-            )}
-          >
-            {icon}
-          </span>
-        ) : null}
-      </div>
+    <Card className="flex min-h-[104px] flex-col items-center justify-center gap-2 p-4 text-center transition-shadow hover:border-border-strong hover:shadow-md">
+      {icon ? (
+        <span
+          className={cn(
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded",
+            CHIP_TONE_CLASSES[tone],
+          )}
+        >
+          {icon}
+        </span>
+      ) : null}
       <span className="text-2xl font-semibold text-text-primary">{value}</span>
+      <span className="text-xs font-medium uppercase tracking-wide text-text-secondary">{label}</span>
     </Card>
   );
 }

@@ -115,3 +115,33 @@ The rule that only V1 or unlabeled items from in-scope specs may be implemented.
 ### Demo Mode
 
 The portfolio state where all records are fictional and the UI demonstrates workflow behavior without processing real business data.
+
+### Workflow Request
+
+A single API request that submits uploaded source file(s) and parameters for one business workflow (order validation, inventory allocation, or payment aging). It carries no server-side identity — the server processes it against the corresponding tested Python module and forgets it once the response is returned.
+_Avoid_: Workflow Run, Run, Job — these imply a persisted, trackable, or resumable entity, which Phase 10 deliberately does not introduce.
+
+### Workflow Result
+
+The JSON result returned by a Workflow Request, matching the corresponding Python module's Output Contract.
+
+### Current Result
+
+The most recent Workflow Result held in client-side page state. It exists only in the browser and is discarded on navigation or reload — the server retains no copy of it.
+
+### Report Export Request
+
+A request to generate a downloadable Report Artifact for a workflow. It resubmits the same source file(s)/parameters as the corresponding Workflow Request and recomputes the result server-side before building the report — it never accepts a Current Result as authoritative report input, so an artifact can't be produced from client-edited data.
+
+### Report Artifact
+
+The `.xlsx` file returned directly in response to a Report Export Request. It is not stored server-side or retrievable later by an identifier — each request regenerates it fresh.
+
+### Sample File
+
+One of the committed `sample_data/*.xlsx` demo workbooks, made available for download alongside its corresponding upload step. It is realistic fictional demo data carrying the same intentional data-quality issues as the rest of the demo, not a blank or minimal starting template.
+_Avoid_: Sample Template, Template — these imply a clean starting point, which is not what's served.
+
+### Business Error
+
+A business-readable failure describing a known, user-actionable problem with a Workflow Request or Report Export Request (missing columns, invalid data, malformed upload). Distinct from an unexpected technical failure, which the API converts into a generic message rather than exposing directly.
