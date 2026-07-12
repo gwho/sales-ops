@@ -41,8 +41,20 @@ Define tokens in the Tailwind config and map them to CSS variables in `app/globa
   --surface-inverse-hover: 222 39% 20%;
   --text-on-inverse: 0 0% 100%;
   --text-on-inverse-muted: 215 20% 65%;
+
+  --overlay: 222 47% 11%;
 }
 ```
+
+## Overlay (Mobile Nav/Shell Responsiveness)
+
+A single scrim token for dimming the page behind a fixed-position panel. Reuses `--surface-inverse`'s HSL triple so it stays inside the same palette rather than introducing a new hue; applied at reduced opacity via Tailwind's opacity modifier, never at full strength.
+
+| Token | Class | Usage |
+| --- | --- | --- |
+| `--overlay` | `bg-overlay/50` | Mobile navigation drawer backdrop (`AppShell`), dimming the page while the drawer is open |
+
+Scoped to drawer/modal backdrops only — do not use `bg-overlay` for anything else without a new token-change decision.
 
 ## Inverse Surface (Phase 10.2)
 

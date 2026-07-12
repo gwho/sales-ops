@@ -60,6 +60,7 @@ const config: Config = {
         },
         "text-on-inverse": "hsl(var(--text-on-inverse))",
         "text-on-inverse-muted": "hsl(var(--text-on-inverse-muted))",
+        overlay: "hsl(var(--overlay))",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],

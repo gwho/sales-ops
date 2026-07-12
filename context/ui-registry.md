@@ -44,7 +44,7 @@ Hand-written under `components/ui/` in Phase 9 — never generated via `npx shad
 ### AppShell
 
 File: `components/layout/AppShell.tsx`
-Last updated: 2026-07-09
+Last updated: 2026-07-13 (Mobile Nav/Shell Responsiveness)
 
 | Property | Class |
 | --- | --- |
@@ -59,7 +59,9 @@ Last updated: 2026-07-09
 | Accent/status usage | none |
 
 Pattern notes:
-Server Component. Root layout wraps `{children}` in this once (`app/layout.tsx`), not per-route — no route group was introduced, so it also (harmlessly) wraps the `/` redirect page for an instant before it navigates away. Structure: `flex min-h-screen` → `SidebarNav` (fixed width) + a flex-col column of `TopHeader` + `<main className="flex-1 overflow-y-auto">`.
+Client Component (was a Server Component through Phase 10.2 — promoted to hold `isDrawerOpen` state for the mobile nav drawer, see below). Root layout wraps `{children}` in this once (`app/layout.tsx`), not per-route — no route group was introduced, so it also (harmlessly) wraps the `/` redirect page for an instant before it navigates away. Structure: `flex h-screen overflow-hidden` → sidebar region + a flex-col column of `TopHeader` + `<main className="flex-1 overflow-y-auto">`.
+
+**Mobile navigation drawer (below `lg`):** the sidebar region is two separate elements, not one shape-shifting wrapper. A desktop wrapper (`hidden lg:block`) is always mounted and behaves exactly as before this change. A mobile drawer wrapper (`fixed inset-y-0 left-0 z-50 lg:hidden`, `id="mobile-sidebar-drawer"`) plus a backdrop (`fixed inset-0 z-40 bg-overlay/50 lg:hidden`) are **only rendered in the DOM while `isDrawerOpen` is true** — deliberately not a permanently-mounted, `-translate-x-full`-only panel, because that would leave the closed drawer's nav links reachable via Tab even while invisible. Both instances render the same unmodified `SidebarNav`. The drawer closes on: backdrop click, `Escape` (a `keydown` listener added only while open), and automatically on every route change (`usePathname()`-keyed effect) — the toggle button lives in `TopHeader`, which now accepts `isDrawerOpen`/`onToggle` props. No animated slide transition (instant mount/unmount) and no claimed `role="dialog"`/`aria-modal` — see `SidebarNav`'s entry for why. No body-scroll lock is needed: the shell's `h-screen overflow-hidden` root means there's no separate page-level scroll region to leak behind the backdrop.
 
 ### SidebarNav
 
@@ -79,12 +81,14 @@ Last updated: 2026-07-12 (Phase 10.2)
 | Accent/status usage | active route: solid `bg-accent text-text-on-accent` (reuses the same accent as `Button`'s `primary` variant, not a separate "selected-on-dark" token) |
 
 Pattern notes:
-Client Component (`usePathname()` for active-route highlighting via exact match). Fixed 5-item nav — do not add ERP-style extra destinations; the route set is closed per `architecture.md`. Phase 10.2 added a `lucide-react` icon per nav item (`LayoutDashboard`, `ClipboardList`, `PackageCheck`, `Clock`, `FileSpreadsheet`) rendered before the label — decorative only, reusing icons already established elsewhere in the app for the same concepts (e.g. `Clock` for Payment Aging matches its `FlowRow` icon on `/dashboard`). Known limitation, out of scope for Phase 10.2: the sidebar has no responsive collapse/drawer behavior — it stays a fixed `w-60` on every viewport, which squeezes the main content column on narrow mobile widths. This predates Phase 10.2 (only the color/icons changed here, not the width or breakpoints) and would need its own planning decision.
+Client Component (`usePathname()` for active-route highlighting via exact match). Fixed 5-item nav — do not add ERP-style extra destinations; the route set is closed per `architecture.md`. Phase 10.2 added a `lucide-react` icon per nav item (`LayoutDashboard`, `ClipboardList`, `PackageCheck`, `Clock`, `FileSpreadsheet`) rendered before the label — decorative only, reusing icons already established elsewhere in the app for the same concepts (e.g. `Clock` for Payment Aging matches its `FlowRow` icon on `/dashboard`).
+
+**Resolved (Mobile Nav/Shell Responsiveness):** the Phase 10.2 known limitation noted here previously — no responsive collapse/drawer, fixed `w-60` squeezing mobile content — is fixed. `SidebarNav` itself is unchanged (still `w-60`, same styling, same active-link logic); `AppShell` now mounts it twice — once in an always-visible desktop wrapper, once in a conditionally-mounted mobile drawer wrapper — rather than teaching this component anything about responsive behavior itself. Its own `<nav>` landmark is what gives the drawer real accessible semantics; `AppShell`'s drawer wrapper deliberately does not add `role="dialog"`/`aria-modal`, since there's no focus trap to back that claim up.
 
 ### TopHeader
 
 File: `components/layout/TopHeader.tsx`
-Last updated: 2026-07-09
+Last updated: 2026-07-13 (Mobile Nav/Shell Responsiveness)
 
 | Property | Class |
 | --- | --- |
@@ -93,13 +97,13 @@ Last updated: 2026-07-09
 | Border radius | none |
 | Text — primary | `text-sm font-medium text-text-primary` (app name) |
 | Text — secondary | n/a |
-| Spacing | `h-14 px-6` |
-| Hover/focus state | none |
+| Spacing | `h-14 px-6`, toggle button `-ml-2 p-2` |
+| Hover/focus state | toggle button: `hover:bg-surface-muted` |
 | Shadow | none |
 | Accent/status usage | `bg-info-subtle text-info` demo-mode pill (per `ui-rules.md` Demo Mode rule) |
 
 Pattern notes:
-Server Component, static content only — layouts can't read per-page pathname/props (Next 16), so this never shows a dynamic page title. Page titles stay in each page's own `<h1>`.
+Client Component (was a Server Component through Phase 10.2 — promoted because it now owns the mobile nav toggle button and accepts an `onToggle` callback prop from `AppShell`). Still static/pathname-free otherwise — page titles stay in each page's own `<h1>`. New `lg:hidden` icon-only button (before the app name) toggles `AppShell`'s drawer state: `Menu` icon when closed, `X` when open (`lucide-react`, already a dependency elsewhere in `SidebarNav`). `aria-expanded`, `aria-controls="mobile-sidebar-drawer"`, and a state-dependent `aria-label` ("Open navigation menu" / "Close navigation menu") — no visual-only icon swap without an accessible label change to match.
 
 ### EmptyState
 
@@ -502,4 +506,10 @@ Plain CSS bar chart — `div` columns, height as a `%` of a fixed `h-32` contain
 
 **`SidebarNav` gained a `lucide-react` icon per nav item** (see `SidebarNav`'s registry entry above) — purely decorative, reusing icons already established elsewhere in the app for the same concept.
 
-**Known pre-existing limitation, out of scope this phase:** the sidebar has no responsive collapse/drawer — it's a fixed `w-60` on every viewport, so narrow mobile widths get a squeezed main-content column. This predates Phase 10.2 (only `SidebarNav`'s color/icons changed, not `AppShell`'s layout or breakpoints) and would need its own planning pass, not a silent fix folded into a token-polish phase.
+**Known pre-existing limitation, out of scope this phase:** the sidebar has no responsive collapse/drawer — it's a fixed `w-60` on every viewport, so narrow mobile widths get a squeezed main-content column. This predates Phase 10.2 (only `SidebarNav`'s color/icons changed, not `AppShell`'s layout or breakpoints) and would need its own planning pass, not a silent fix folded into a token-polish phase. **Resolved** in the Mobile Nav/Shell Responsiveness pass — see below.
+
+## Page composition notes (Mobile Nav/Shell Responsiveness)
+
+**The sidebar is a fixed column at `lg` (1024px) and above, and a toggleable off-canvas drawer below it.** Breakpoint chosen to match the app's existing `lg`-based responsive convention (workflow-page KPI grids). `AppShell` (now a Client Component) renders two separate wrappers around the unmodified `SidebarNav` — an always-mounted `hidden lg:block` desktop wrapper, and a mobile drawer wrapper + `bg-overlay/50` backdrop that are **only mounted in the DOM while open**, not merely hidden via `-translate-x-full`. This was a deliberate accessibility choice: a permanently-mounted, transform-only drawer leaves its nav links in the keyboard tab order even while visually off-canvas; conditional mounting removes them from the DOM entirely when closed, so Tab can never land on a hidden link. The trade-off, accepted for this narrow pass: no animated slide-in/out transition (the drawer appears/disappears instantly) — a future pass could add one if wanted, at the cost of extra mount/unmount timing logic.
+
+**`TopHeader` (now also a Client Component) owns the toggle button** — `lg:hidden`, `Menu`/`X` icon swap, `aria-expanded`/`aria-controls="mobile-sidebar-drawer"`/state-dependent `aria-label`. The drawer additionally closes on backdrop click, `Escape`, and automatically on every route change. No `role="dialog"`/`aria-modal` is applied to the drawer wrapper — `SidebarNav`'s own `<nav>` landmark already provides real semantics, and claiming modal behavior without an actual focus trap would overstate what this implementation does. New `--overlay` token (see `ui-tokens.md`) backs the backdrop, reusing `--surface-inverse`'s HSL triple at reduced opacity (`bg-overlay/50`) rather than introducing a new hue.

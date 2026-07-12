@@ -41,6 +41,8 @@
   --surface-inverse-hover: 222 39% 20%;
   --text-on-inverse: 0 0% 100%;
   --text-on-inverse-muted: 215 20% 65%;
+
+  --overlay: 222 47% 11%;
 }
 
 @layer base {
