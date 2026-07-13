@@ -3,9 +3,7 @@ import Link from "next/link";
 import {
   ClipboardList,
   CheckCircle2,
-  XCircle,
   AlertCircle,
-  AlertTriangle,
   Clock,
   Truck,
   ReceiptText,
@@ -17,34 +15,10 @@ import {
 } from "lucide-react";
 
 // Internal imports
-import { MetricCard } from "@/components/workflow/MetricCard";
 import { ReportCard } from "@/components/workflow/ReportCard";
-import { TableSectionHeading } from "@/components/tables/TableSectionHeading";
-import { DonutBreakdownChart } from "@/components/charts/DonutBreakdownChart";
-import { VerticalBucketBarChart } from "@/components/charts/VerticalBucketBarChart";
-import {
-  StatusBadge,
-  followUpPriorityTone,
-  agingBucketTone,
-  allocationStatusTone,
-} from "@/components/workflow/StatusBadge";
-import {
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableHeaderCell,
-  TableCell,
-} from "@/components/ui/Table";
 import { Card } from "@/components/ui/Card";
-import {
-  orderValidationResult,
-  inventoryAllocationResult,
-  paymentAgingResult,
-  reportManifests,
-  amountByAgingBucket,
-} from "@/lib/mock-data";
-import { formatAmount, formatNumber } from "@/lib/formatters";
+import { DashboardLiveSections } from "@/components/dashboard/DashboardLiveSections";
+import { reportManifests } from "@/lib/mock-data";
 
 const WORKFLOW_ENTRIES = [
   {
@@ -66,12 +40,6 @@ const WORKFLOW_ENTRIES = [
 
 // Component
 export default function DashboardPage() {
-  const validation = orderValidationResult.summary;
-  const allocation = inventoryAllocationResult.summary;
-  const aging = paymentAgingResult.summary;
-  const { supplier_follow_ups } = inventoryAllocationResult;
-  const followUpItems = paymentAgingResult.aging_rows.filter((row) => row.follow_up_priority !== "None");
-
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
       <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">
@@ -79,209 +47,11 @@ export default function DashboardPage() {
       </p>
       <h1 className="mt-1 text-2xl font-semibold text-text-primary">Dashboard</h1>
       <p className="mt-2 text-sm text-text-secondary">
-        A read-only snapshot of this session&apos;s order validation, inventory allocation, and
-        payment aging results.
+        Your latest saved results for order validation, inventory allocation, and payment aging —
+        falling back to sample data for any workflow you haven&apos;t run yet.
       </p>
 
-      <section className="mt-6">
-        <h2 className="text-base font-semibold text-text-primary">Overview</h2>
-        <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          <MetricCard
-            label="Total Orders"
-            value={formatNumber(validation.total_orders)}
-            icon={<ClipboardList size={16} />}
-            tone="info"
-          />
-          <MetricCard
-            label="Invalid Orders"
-            value={formatNumber(validation.invalid_orders)}
-            icon={<XCircle size={16} />}
-            tone="danger"
-          />
-          <MetricCard
-            label="Fully Allocated"
-            value={formatNumber(allocation.fully_allocated_count)}
-            icon={<CheckCircle2 size={16} />}
-            tone="success"
-          />
-          <MetricCard
-            label="Backordered"
-            value={formatNumber(allocation.backordered_count)}
-            icon={<Truck size={16} />}
-            tone="danger"
-          />
-          <MetricCard
-            label="Overdue Amount"
-            value={formatAmount(aging.overdue_amount)}
-            icon={<AlertTriangle size={16} />}
-            tone="warning"
-          />
-        </div>
-      </section>
-
-      <section className="mt-6 grid gap-4 lg:grid-cols-2">
-        <Card className="transition-shadow hover:border-border-strong hover:shadow-md">
-          <TableSectionHeading
-            icon={<PackageCheck size={16} />}
-            title="Allocation Status"
-            caption="Fully allocated → partially allocated → backordered."
-            action={
-              <Link href="/inventory-allocation" className="text-xs font-medium text-accent hover:text-accent-hover">
-                View all
-              </Link>
-            }
-          />
-          <div className="mt-3 flex min-h-48 flex-col justify-center">
-            <DonutBreakdownChart
-              segments={[
-                {
-                  label: "Fully Allocated",
-                  value: allocation.fully_allocated_count,
-                  tone: allocationStatusTone("Fully Allocated"),
-                },
-                {
-                  label: "Partially Allocated",
-                  value: allocation.partially_allocated_count,
-                  tone: allocationStatusTone("Partially Allocated"),
-                },
-                {
-                  label: "Backordered",
-                  value: allocation.backordered_count,
-                  tone: allocationStatusTone("Backordered"),
-                },
-              ]}
-              totalLabel="Order Lines"
-            />
-          </div>
-        </Card>
-        <Card className="transition-shadow hover:border-border-strong hover:shadow-md">
-          <TableSectionHeading
-            icon={<ReceiptText size={16} />}
-            title="Outstanding by Aging Bucket"
-            caption="Outstanding amount → aging bucket."
-            action={
-              <Link href="/payment-aging" className="text-xs font-medium text-accent hover:text-accent-hover">
-                AR report
-              </Link>
-            }
-          />
-          <div className="mt-3 flex min-h-48 flex-col justify-center">
-            <VerticalBucketBarChart
-              data={amountByAgingBucket(paymentAgingResult).map((bucket) => ({
-                label: bucket.label,
-                value: bucket.value,
-                tone: agingBucketTone(bucket.label),
-              }))}
-              subtitle="Outstanding amount by bucket"
-            />
-          </div>
-        </Card>
-      </section>
-
-      <section className="mt-6 grid gap-4 lg:grid-cols-2">
-        <div>
-          <TableSectionHeading
-            icon={<Truck size={16} />}
-            title="Inventory Shortage Alerts"
-            caption="SKUs below reorder point → gap to reorder point → supplier contact."
-          />
-        <div className="mt-3 rounded-xl border border-border bg-surface-subtle p-4">
-          {supplier_follow_ups.length === 0 ? (
-            <Card className="text-sm text-text-secondary">No SKUs are currently below their reorder point.</Card>
-          ) : (
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableHeaderCell>SKU</TableHeaderCell>
-                  <TableHeaderCell>Warehouse</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Remaining Qty</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Reorder Point</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Gap to Reorder Pt.</TableHeaderCell>
-                  <TableHeaderCell>Supplier</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Lead Time (Days)</TableHeaderCell>
-                  <TableHeaderCell>Alert</TableHeaderCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {supplier_follow_ups.map((row, index) => (
-                  <TableRow key={`${row.sku}-${row.warehouse}`} className={index % 2 === 1 ? "bg-surface-muted" : undefined}>
-                    <TableCell className="whitespace-nowrap font-medium text-text-primary">{row.sku}</TableCell>
-                    <TableCell className="whitespace-nowrap text-text-secondary">{row.warehouse}</TableCell>
-                    <TableCell className="whitespace-nowrap text-right font-medium tabular-nums">
-                      {formatNumber(row.remaining_qty)}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums">{formatNumber(row.reorder_point)}</TableCell>
-                    <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums text-warning">
-                      {formatNumber(row.reorder_point - row.remaining_qty)}
-                    </TableCell>
-                    <TableCell
-                      className="block max-w-[140px] truncate whitespace-nowrap text-text-secondary"
-                      title={row.supplier_name ?? undefined}
-                    >
-                      {row.supplier_name ?? "—"}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-right tabular-nums">
-                      {row.lead_time_days != null ? formatNumber(row.lead_time_days) : "—"}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      <StatusBadge status="Below Reorder Point" tone="warning" />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-        </div>
-
-        <div>
-          <TableSectionHeading
-            icon={<ReceiptText size={16} />}
-            title="Payment Follow-up Items"
-            caption="Outstanding amount → aging bucket → follow-up priority."
-          />
-        <div className="mt-3 rounded-xl border border-border bg-surface-subtle p-4">
-          {followUpItems.length === 0 ? (
-            <Card className="text-sm text-text-secondary">No invoices currently need follow-up.</Card>
-          ) : (
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableHeaderCell>Invoice ID</TableHeaderCell>
-                  <TableHeaderCell>Customer</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Outstanding Amount</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Days Overdue</TableHeaderCell>
-                  <TableHeaderCell>Aging Bucket</TableHeaderCell>
-                  <TableHeaderCell>Follow-up Priority</TableHeaderCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {followUpItems.map((row, index) => (
-                  <TableRow key={row.invoice_id} className={index % 2 === 1 ? "bg-surface-muted" : undefined}>
-                    <TableCell className="whitespace-nowrap font-medium text-text-primary">{row.invoice_id}</TableCell>
-                    <TableCell className="block max-w-[160px] truncate whitespace-nowrap font-medium text-text-primary" title={row.customer_name}>
-                      {row.customer_name}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">
-                      {formatAmount(row.outstanding_amount)}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-right font-medium tabular-nums">
-                      {formatNumber(row.days_overdue)}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      <StatusBadge status={row.aging_bucket} tone={agingBucketTone(row.aging_bucket)} />
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      <StatusBadge status={row.follow_up_priority} tone={followUpPriorityTone(row.follow_up_priority)} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-        </div>
-      </section>
+      <DashboardLiveSections />
 
       <section className="mt-6">
         <h2 className="text-base font-semibold text-text-primary">Reports</h2>
@@ -357,7 +127,13 @@ export default function DashboardPage() {
             a specific, tested Python function.
           </p>
           <p>
-            <span className="font-medium text-text-primary">All data is fictional</span> — sample orders, customers, SKUs, and
+            <span className="font-medium text-text-primary">Your results, saved anonymously:</span> running a workflow saves its
+            result to this browser only (no account, no login) — the dashboard above shows your own latest run for each workflow
+            you&apos;ve tried, and falls back to fictional sample data for any you haven&apos;t. A &quot;Sample data&quot; label
+            marks which sections are showing seeded demo content rather than something you ran.
+          </p>
+          <p>
+            <span className="font-medium text-text-primary">All sample data is fictional</span> — sample orders, customers, SKUs, and
             invoices generated for this demo, refreshed each time the underlying fixtures are regenerated. No real customer,
             order, or financial data is used anywhere.
           </p>

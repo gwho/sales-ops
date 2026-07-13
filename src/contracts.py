@@ -126,3 +126,15 @@ class ReportManifest(TypedDict):
     file_name: str
     generated_at: str
     sheet_names: list[str]
+
+
+# Version of each workflow type's persisted Output Contract shape (see ADR 0007).
+# Bump the relevant entry whenever OrderValidationResult, InventoryAllocationResult,
+# or PaymentAgingResult's field shape changes — this is what lets the dashboard read
+# path detect and discard stale saved rows instead of serving a shape the frontend
+# no longer expects.
+CONTRACT_SCHEMA_VERSIONS: dict[str, int] = {
+    "order_validation": 1,
+    "inventory_allocation": 1,
+    "payment_aging": 1,
+}

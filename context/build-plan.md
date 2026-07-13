@@ -257,7 +257,19 @@ Deploy the current, post-Phase-10.2 app to a stable public URL a hiring manager 
 - No secrets: the only two env vars are the plain config strings above.
 - Accepted trade-off: Render's free tier sleeps after ~15 minutes idle, ~1 minute cold-start on wake — mitigated with a README note, not a keep-alive job or paid tier.
 
-**Note on the prior Phase 11 scope:** an earlier "SQL Reporting and Active Sample Dashboard" phase (a SQLite-backed `Demo Reporting Database` and a live `GET /api/dashboard`) was planned, approved, and partially implemented — see `docs/adr/0007-sql-reporting-seeds-from-tested-workflow-outputs.md` and `docs/grilling/phase-11-sql-reporting-and-active-dashboard/`. It was paused before completion in favor of deploying first; the working code is preserved (not deleted) in a git stash for possible reuse by a future Postgres-backed dashboard phase.
+**Note on the prior Phase 11 scope:** an earlier "SQL Reporting and Active Sample Dashboard" phase (a SQLite-backed `Demo Reporting Database` and a live `GET /api/dashboard`) was planned and partially implemented — see the archived plan at `docs/archive/phase-11-sql-reporting-sqlite-plan.md` and `docs/grilling/phase-11-sql-reporting-and-active-dashboard/`. Its own ADR (originally intended as `0007`) was never actually written before the phase was paused in favor of deploying first; the working code was preserved in a git stash, and the `0007` slot was later filled by a materially different design — see Phase 12 below and `docs/adr/0007-session-scoped-workflow-result-persistence.md`.
+
+## Phase 12 - Postgres-Backed Latest-Session Dashboard
+
+Deploy-baseline-complete, planned via `/grill-with-docs` (13 resolved decisions) — see `docs/adr/0007-session-scoped-workflow-result-persistence.md` for the full design and `context/architecture.md`'s "Persistence" section for a summary. Replaces the paused SQLite "Demo Reporting Database" idea with genuinely session-specific persistence of real visitor results, not a reseeded demo dataset.
+
+- **Anonymous Session ID**: browser-generated UUID in `localStorage`, sent as `X-Session-Id`. No cookies, no accounts.
+- **`workflow_results` table** (Neon Postgres): one JSONB row per `(session_id, workflow_type)`, upserted latest-wins, versioned via `src/contracts.py`'s `CONTRACT_SCHEMA_VERSIONS` and hidden (not deleted) after a 30-day TTL.
+- **Write path**: the three JSON workflow endpoints (not their `.../report` counterparts) make a best-effort save after computing, reported via `X-Persisted` (`true`/`false`/`skipped`) — never fails the request. `POST /api/inventory/allocate` persists only `inventory_allocation`, never its internal validation byproduct.
+- **Read path**: new `GET /api/dashboard`, per-workflow independent sample-data fallback — `200` all-`null` for "nothing saved yet" (including when `DATABASE_URL` is unset), `503` only for a genuine outage.
+- **Frontend**: `components/dashboard/DashboardLiveSections.tsx`, a Client Component fetching on mount (not a Server Component fetch — `localStorage` doesn't exist during Vercel's render); `app/dashboard/page.tsx` stays a Server Component for the static shell. A "Sample data" chip marks any section still showing seeded demo content.
+- **Hosting**: Neon Postgres, three branches (`main`/`dev`/`test`), hand-written SQL migrations run in the FastAPI lifespan hook (no Alembic), `psycopg` 3 (no ORM) — consistent with this project's existing precedents.
+- **Testing**: two layers — mocked-repository route-orchestration tests (fast, offline, always run) plus real-Neon repository/SQL tests marked `@pytest.mark.db` (skip, don't fail, when `TEST_DATABASE_URL` is unset), preserving `uv run pytest`'s zero-configuration hermeticity on a fresh clone.
 
 ## Optional Design Workflow
 

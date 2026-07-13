@@ -20,11 +20,13 @@ import { StatusBadge, agingBucketTone, followUpPriorityTone } from "@/components
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { BusinessErrorMessage } from "@/components/feedback/BusinessErrorMessage";
+import { PersistenceNotice } from "@/components/feedback/PersistenceNotice";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ApiError, downloadBlob, fetchSampleFile, postJSON, postReport } from "@/lib/api-client";
 import { formatAmount, formatDate, formatNumber } from "@/lib/formatters";
 import type { DraftMessageRow, PaymentAgingResult, PaymentAgingRow, PaymentDataIssueRow } from "@/types";
+import type { PersistenceOutcome } from "@/types/dashboard";
 
 const STEPS = ["Upload Invoices", "Calculate Aging", "Review Results"];
 
@@ -165,6 +167,7 @@ export default function PaymentAgingPage() {
   const [status, setStatus] = useState<RequestStatus>("idle");
   const [currentResult, setCurrentResult] = useState<PaymentAgingResult | null>(null);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  const [persisted, setPersisted] = useState<PersistenceOutcome | null>(null);
 
   const [reportStatus, setReportStatus] = useState<ReportRequestState>("idle");
   const [reportErrorDetail, setReportErrorDetail] = useState<string | null>(null);
@@ -185,9 +188,14 @@ export default function PaymentAgingPage() {
   async function runAging(invoices: File, forDate: string) {
     setStatus("submitting");
     setErrorDetail(null);
+    setPersisted(null);
     try {
-      const result = await postJSON<PaymentAgingResult>("/api/payments/aging", buildFormData(invoices, forDate));
+      const { data: result, persisted: persistedOutcome } = await postJSON<PaymentAgingResult>(
+        "/api/payments/aging",
+        buildFormData(invoices, forDate),
+      );
       setCurrentResult(result);
+      setPersisted(persistedOutcome);
       setStatus("succeeded");
     } catch (error) {
       setErrorDetail(error instanceof ApiError ? error.message : "Something went wrong. Please try again.");
@@ -349,6 +357,11 @@ export default function PaymentAgingPage() {
 
       {status === "succeeded" && currentResult ? (
         <>
+          {persisted === "false" ? (
+            <div className="mt-6">
+              <PersistenceNotice />
+            </div>
+          ) : null}
           <section className="mt-6">
             <h2 className="text-base font-semibold text-text-primary">Summary</h2>
             <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

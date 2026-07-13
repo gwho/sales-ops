@@ -4,24 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-Phase 10.2 (Portfolio UI Polish) is complete. The project now includes the tested Python business-rule core, generated fictional Excel sample data, Excel report exports, a polished Next.js dashboard/workflow UI (dark-navy sidebar, compact KPI tiles, paired dashboard sections, dark/light button hierarchy), and a stateless FastAPI backend that live-wires the three workflow pages. Check `context/progress-tracker.md` for the authoritative current status before starting work; this file is operational guidance and should stay aligned with that tracker.
+Phase 12 (Postgres-Backed Latest-Session Dashboard) is complete. The project now includes the tested Python business-rule core, generated fictional Excel sample data, Excel report exports, a polished Next.js dashboard/workflow UI, a stateless-by-default FastAPI backend that live-wires the three workflow pages, and — as of Phase 12 — a narrow, best-effort Postgres persistence layer (Neon) that lets the dashboard reflect each anonymous visitor's own latest saved results, falling back to sample data per workflow when none exist. Check `context/progress-tracker.md` for the authoritative current status before starting work; this file is operational guidance and should stay aligned with that tracker.
 
 Current implementation summary:
 
-- Python core: `src/order_validation.py`, `src/inventory_allocation.py`, `src/payment_aging.py`, `src/report_export.py`, `src/excel_io.py`, `src/contracts.py`, and `src/sample_data.py`.
+- Python core: `src/order_validation.py`, `src/inventory_allocation.py`, `src/payment_aging.py`, `src/report_export.py`, `src/excel_io.py`, `src/contracts.py` (now also holds `CONTRACT_SCHEMA_VERSIONS`), and `src/sample_data.py`.
 - Sample data: committed fictional `.xlsx` files under `sample_data/`, plus `sample_data/README_sample_data.md`; `sample_customers.xlsx` is reference-only and not used by live workflows.
 - Frontend: Next.js App Router routes for `/dashboard`, `/order-validation`, `/inventory-allocation`, `/payment-aging`, and `/reports`, with reusable components recorded in `context/ui-registry.md`.
-- Backend: `backend/` FastAPI package with stateless workflow/report endpoints and allowlisted sample-file downloads.
-- Data flow: workflow pages process user-uploaded or sample `.xlsx` files through FastAPI; `/dashboard` and `/reports` remain curated sample-data views, not session-based views of the user's latest upload.
-- Last known verification from memory: `uv run pytest` 196 passing; `npm run typecheck`, `npm run lint`, and `npm run build` clean. Re-run checks before relying on this in a new session.
+- Backend: `backend/` FastAPI package with the three workflow/report endpoints, allowlisted sample-file downloads, and (Phase 12) a Postgres-backed `workflow_results` store plus `GET /api/dashboard`.
+- Data flow: workflow pages process user-uploaded or sample `.xlsx` files through FastAPI, which also makes a best-effort save (`X-Persisted` header) keyed by a browser-local Anonymous Session ID. `/dashboard` now shows that session's latest saved result per workflow, falling back to sample data independently for any workflow not yet run; `/reports` remains a curated sample-data view.
+- Last known verification from memory: `uv run pytest` 212 passing / 7 skipped (skips are `@pytest.mark.db` tests requiring `TEST_DATABASE_URL`, fully hermetic without it); `npm run typecheck`, `npm run lint`, and `npm run build` clean. Re-run checks before relying on this in a new session.
 
 Known local loose ends from the last saved session:
 
 - Re-check live PR merge status before assuming the stacked PR state.
 - `memory.md` may be modified locally and is intentionally not committed.
-- `sample_data/~$sample_invoices.xlsx` may exist as an untracked Excel lock file; delete only if the user asks for cleanup.
-- Some old dev-server processes may still be running on ports `3010`-`3051`.
-- Some context/docs mention the original Phase 10 implementation but not the later bug-fix/recover round; sync them before using them as final public documentation.
+- Local dev servers were left running against the Neon `dev` branch at the end of the Phase 12 session (FastAPI `:8000`, Next.js `:3000`) — safe to leave running or restart.
+- `git stash@{0}` still holds the paused SQLite reporting work, unaffected by and superseded (for dashboard purposes) by Phase 12 — its fate (delete vs. keep as historical reference) is still an open question.
+- Whether/when to merge the stacked PR chain remains the user's call, unchanged across every phase since Phase 4.
 
 **Sales Admin Automation Toolkit** is a portfolio project simulating Excel-based sales administration workflows: order validation, inventory allocation, payment aging, and report export. It is explicitly **not** a full ERP/CRM/WMS/accounting system, and uses fictional data only — never real customer, order, invoice, or product data.
 
@@ -41,19 +41,21 @@ Per `AGENTS.md`, read these in order before writing code:
 
 `CONTEXT.md` at the repo root is the project glossary — business terms (Order, SKU, Allocatable Quantity, Aging Bucket) plus process terms resolved during planning (Output Contract, Contract Fixture, Field Scope Boundary, Scope Gate, V1/V2). Check it before using any of these terms loosely.
 
-## Build sequence — Python core before UI, now completed through Phase 10.2
+## Build sequence — Python core before UI, now completed through Phase 12
 
 The active architecture decision (see `docs/adr/0003-python-core-before-polished-ui.md`) is: **build and test the Python business-rule core first, then build the polished Next.js dashboard on top of stable output contracts.** Two earlier ADRs (0001, 0002) proposed UI-first approaches and are superseded — do not follow them.
 
-That sequencing has now been carried out through Phase 10.2:
+That sequencing has now been carried out through Phase 12:
 
 - Phases 1-6 built and tested the Python/Excel core.
 - Phase 7 planned UI contracts and page mappings.
 - Phases 8-9.1 built the Next.js foundation, reusable components, static pages, and visual alignment fixes.
 - Phase 10 added the stateless FastAPI layer and live-wired the three workflow pages.
 - Phase 10.2 was a token-only visual/hierarchy polish pass (dark sidebar, compact KPI tiles, paired dashboard sections, chart-card interactivity, button hierarchy) — no backend/API/contract changes.
+- Phase 11 deployed the app to a public URL (Vercel + Render), plus a later, non-phase-numbered mobile nav/shell responsiveness fix.
+- Phase 12 added a narrow, best-effort Postgres persistence layer (Neon) — see `docs/adr/0007-session-scoped-workflow-result-persistence.md` — so `/dashboard` reflects each anonymous visitor's own latest saved results, per workflow, falling back to sample data independently for anything not yet run. This amends ADR 0006's statelessness for the three JSON workflow endpoints only; report endpoints remain fully stateless and unaffected.
 
-`context/build-plan.md` currently ends at Phase 11 (Deployment Baseline) — see that file for the current phase's scope. An earlier "SQL Reporting + Active Sample Dashboard" Phase 11 was planned, approved, and partially implemented, then paused in favor of deploying first; that work is preserved in a git stash (see `context/build-plan.md`'s Phase 11 entry) rather than deleted, and remains a candidate input for a future Postgres-backed dashboard phase. Any new work beyond the active phase's plan is new scope and needs its own planning pass before implementation.
+`context/build-plan.md` currently ends at Phase 12 — see that file for full scope of every phase. An earlier "SQL Reporting + Active Sample Dashboard" Phase 11 (SQLite-based) was planned and partially implemented, then paused in favor of deploying first; that work is preserved in a git stash and archived at `docs/archive/phase-11-sql-reporting-sqlite-plan.md` (see `context/build-plan.md`'s Phase 11 entry) — it was formally superseded, not completed, by Phase 12's materially different Postgres design. No phase is currently planned beyond Phase 12. Any new work needs its own planning pass before implementation.
 
 ### Current Python and backend shape
 
@@ -71,14 +73,22 @@ backend/
   main.py
   errors.py
   uploads.py
+  db.py
+  session.py
+  persistence.py
+  migrations/
+    0001_create_workflow_results.sql
+  repositories/
+    workflow_results.py
   routers/
     orders.py
     inventory.py
     payments.py
     templates.py
+    dashboard.py
 ```
 
-Module boundaries are strict — `excel_io.py` never contains workflow-specific rules, `report_export.py` never contains business calculations, and none of `src/` contains UI or FastAPI route logic. Stack: pandas for tabular transforms, openpyxl for `.xlsx` I/O, pytest for tests.
+Module boundaries are strict — `excel_io.py` never contains workflow-specific rules, `report_export.py` never contains business calculations, and none of `src/` contains UI or FastAPI route logic. Stack: pandas for tabular transforms, openpyxl for `.xlsx` I/O, pytest for tests, `psycopg` 3 (Phase 12) for the Postgres persistence layer — hand-written SQL, no ORM.
 
 `sample_data/*.xlsx` are **demo fixtures, not test fixtures** — plausible fictional sample files with intentional imperfections. Exhaustive rule/edge-case coverage belongs in small pytest DataFrame fixtures instead. The committed UI mock JSON is generated from these sample Excel files via `npm run mock-data`, not from `tests/contract_fixtures.py`.
 
@@ -92,12 +102,14 @@ app/
   payment-aging/page.tsx
   reports/page.tsx
 components/
-  layout/  workflow/  tables/  feedback/  ui/
+  layout/  workflow/  tables/  feedback/  ui/  dashboard/
 lib/
-  api-client.ts  mock-data.ts  formatters.ts
+  api-client.ts  mock-data.ts  formatters.ts  session-id.ts
 types/
-  index.ts
+  index.ts  dashboard.ts
 ```
+
+`components/dashboard/DashboardLiveSections.tsx` (Phase 12) is a Client Component — the only place in the app that reads the Anonymous Session ID (`lib/session-id.ts`) and fetches `GET /api/dashboard`. `app/dashboard/page.tsx` itself stays a Server Component for the static shell; a Server Component render has no access to `localStorage`, so the session-aware fetch cannot happen there.
 
 Stack: Next.js App Router, TypeScript strict, Tailwind CSS 3.4 (do **not** upgrade to v4), hand-written token-compliant UI primitives, and page-level workflow state. Server Components remain the default, but workflow pages that define `DataTable` column render functions or manage upload/request state are Client Components.
 
@@ -116,17 +128,17 @@ POST /api/payments/aging
 POST /api/payments/aging/report
 
 GET  /api/templates/{template_name}
+GET  /api/dashboard
+GET  /health
 ```
 
-`GET /api/reports/{report_id}` is intentionally not implemented. The API is stateless per `docs/adr/0006-stateless-fastapi-workflow-and-report-exports.md`: no persisted Workflow Run, no `run_id`, no report artifact store. Report endpoints re-accept source files and recompute server-side.
+`GET /api/reports/{report_id}` is intentionally not implemented. The three JSON workflow endpoints and their `.../report` counterparts are stateless per `docs/adr/0006-stateless-fastapi-workflow-and-report-exports.md`: no persisted Workflow Run, no `run_id`, no report artifact store, and report endpoints always re-accept source files and recompute server-side. As of Phase 12 (`docs/adr/0007-session-scoped-workflow-result-persistence.md`), the three JSON workflow endpoints *also* make a best-effort attempt to save their result — reported via `X-Persisted` (`true`/`false`/`skipped`), never failing the request — when a valid `X-Session-Id` header is supplied. This does not extend to the `.../report` endpoints, which remain entirely stateless and session-unaware. `GET /api/dashboard` returns that session's latest saved result per workflow (`null` per workflow if none/stale/unsaved), independently falling back to sample data on the frontend.
 
-Current development shape is two independent servers: FastAPI on `127.0.0.1:8000` and Next.js on `localhost:3000`, with explicit CORS. The frontend fallback API base URL is pinned to `http://127.0.0.1:8000` to avoid browser-side IPv6 `localhost` failures on machines where `localhost` resolves to both `127.0.0.1` and `::1`.
+Current development shape is two independent servers: FastAPI on `127.0.0.1:8000` and Next.js on `localhost:3000`, with explicit CORS (`X-Persisted` is in `expose_headers`). The frontend fallback API base URL is pinned to `http://127.0.0.1:8000` to avoid browser-side IPv6 `localhost` failures on machines where `localhost` resolves to both `127.0.0.1` and `::1`. Persistence needs a Postgres connection: `DATABASE_URL` (app) and `TEST_DATABASE_URL` (pytest's `@pytest.mark.db` tests only) point at separate Neon branches (`dev`/`test`; `main` is Render's, a secret) — both are optional locally, since the app and the full non-`db` test suite run cleanly with neither set.
 
 ### Candidate next scope
 
-Phase 11 (Deployment Baseline) is the active phase — see `context/build-plan.md` and `context/architecture.md`'s "Deployment (Phase 11)" section.
-
-The most likely scope after that is **Phase 12: a Postgres-backed latest-session dashboard** — replacing the paused SQLite sample-dashboard idea with something that stores computed workflow outputs after each run and shows a session's latest results (falling back to sample data when none exist), not yet part of `context/build-plan.md`. Not to be planned or implemented until Phase 11 is deployed and verified.
+No phase is currently planned. Phase 12 was the last-scoped item in `context/build-plan.md`; anything beyond it (e.g. real cross-session history, authenticated accounts, physical deletion of expired rows) is new scope requiring its own planning pass, not an assumed next phase.
 
 ## Output contracts
 

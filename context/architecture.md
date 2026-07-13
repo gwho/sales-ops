@@ -14,7 +14,8 @@ The repo is currently a planning/spec workspace. The next implementation should 
 | Tabular data | pandas | Spreadsheet-like transformations and calculations |
 | Excel I/O | openpyxl | Read/write `.xlsx` reports where pandas alone is insufficient |
 | Tests | pytest | Business-rule regression coverage |
-| Future API | FastAPI | Thin HTTP wrapper around tested Python modules |
+| API | FastAPI | Thin HTTP wrapper around tested Python modules |
+| Persistence (Phase 12) | Postgres (Neon) via `psycopg` 3 | Session-scoped latest-workflow-result store — see "Persistence" section below |
 | Future frontend | Next.js App Router | Polished portfolio dashboard |
 | Future UI language | TypeScript strict | Typed UI contracts and components |
 | Future styling | Tailwind CSS 3.4 | Token-based styling |
@@ -129,10 +130,11 @@ POST /api/payments/aging
 POST /api/payments/aging/report
 
 GET  /api/templates/{template_name}
+GET  /api/dashboard
 GET  /health
 ```
 
-`GET /api/reports/{report_id}` was never implemented — it implied persisted report artifacts, which contradicts the stateless architecture below. Each `.../report` endpoint re-accepts its workflow's source file(s) and recomputes server-side rather than trusting a client-supplied result. `GET /health` (Phase 11) is a minimal liveness check (`{"status": "ok"}`, no database query) added for the deployed backend host's health-check config.
+`GET /api/reports/{report_id}` was never implemented — it implied persisted report artifacts, which contradicts the stateless architecture below. Each `.../report` endpoint re-accepts its workflow's source file(s) and recomputes server-side rather than trusting a client-supplied result. `GET /health` (Phase 11) is a minimal liveness check (`{"status": "ok"}`, no database query) added for the deployed backend host's health-check config. `GET /api/dashboard` (Phase 12) is described in the "Persistence" section below.
 
 Backend behavior:
 
@@ -140,6 +142,19 @@ Backend behavior:
 - Call the tested Python modules in `src/`, never duplicating business rules in route handlers.
 - Return JSON matching the stable output contracts for the three workflow endpoints; return `.xlsx` bytes directly for the three report endpoints.
 - Convert technical exceptions into business-readable `{"detail": "string"}` responses at the `backend/` boundary — `src/` itself stays framework-free.
+- As of Phase 12, the three workflow endpoints (not the `.../report` endpoints) also make a best-effort attempt to persist their result — see "Persistence" below. This is layered on top of the stateless request/response model, not a replacement for it.
+
+## Persistence (Phase 12)
+
+Full design: `docs/adr/0007-session-scoped-workflow-result-persistence.md`. Summary:
+
+- **Anonymous Session ID**: a UUID generated client-side (`crypto.randomUUID()`), stored in `localStorage`, sent as `X-Session-Id` on workflow/report requests (`lib/session-id.ts`, `lib/api-client.ts`). No cookies, no authentication.
+- **`workflow_results` table** (Postgres, via `backend/migrations/0001_create_workflow_results.sql`): one JSONB row per `(session_id, workflow_type)`, upserted latest-wins. Holds the verbatim Output Contract JSON, not a parallel SQL schema — `src/contracts.py`'s `CONTRACT_SCHEMA_VERSIONS` guards against stale-shape rows on read.
+- **Write path**: `POST /api/orders/validate`, `POST /api/inventory/allocate`, `POST /api/payments/aging` each make a best-effort save after computing their result, reported via the `X-Persisted` response header (`true`/`false`/`skipped`) — never fails the request. `POST /api/inventory/allocate` persists only `inventory_allocation`, never the internal `validate_orders()` byproduct. Report endpoints (`.../report`) are entirely unaffected.
+- **Read path**: `GET /api/dashboard` returns the session's latest saved result per workflow type (`null` if none, TTL-expired, or schema-version-stale) — `200` for "nothing saved yet," `503` only for a genuine database outage.
+- **Access layer**: `backend/db.py` (migration runner + `psycopg_pool.ConnectionPool`, both skipped cleanly if `DATABASE_URL` is unset), `backend/repositories/workflow_results.py` (the `WorkflowResultsRepository`, injected as a FastAPI dependency), `backend/session.py` (`get_session_id` dependency), `backend/persistence.py` (shared write-path glue).
+- **Hosting**: Neon Postgres, three branches — `main` (Render's `DATABASE_URL`, secret), `dev` (local `.env`), `test` (local `.env`'s `TEST_DATABASE_URL`, used only by `@pytest.mark.db` tests, which skip — not fail — when unset).
+- **Frontend**: the dashboard's session-aware sections (`components/dashboard/DashboardLiveSections.tsx`) are a Client Component fetching on mount — not a Server Component fetch — since `localStorage` doesn't exist during a Vercel-side render. `app/dashboard/page.tsx` itself stays a Server Component for the static shell.
 
 ## Deployment (Phase 11)
 
@@ -156,6 +171,7 @@ Env vars, both plain config strings, no secrets involved:
 
 - `NEXT_PUBLIC_API_BASE_URL` (Vercel) — the deployed Render URL. Falls back to `http://127.0.0.1:8000` locally if unset (`lib/api-client.ts`).
 - `CORS_ALLOWED_ORIGINS` (Render) — the deployed Vercel URL, comma-separated if more than one origin is ever needed. Falls back to `http://localhost:3000` locally if unset (`backend/main.py`). Read once at app construction (`CORSMiddleware` is configured at `add_middleware()` time, not per-request) — changing this env var on Render requires a redeploy, not just a dashboard save.
+- `DATABASE_URL` (Render, Phase 12) — a Neon Postgres connection string, set as a **secret**, not a plain config string like the two above. Unset locally by default; persistence is then cleanly disabled rather than erroring (see "Persistence" section). Render production is expected to always set this.
 
 Deploy sequencing resolves the circular URL dependency: Render first (get its URL) → Vercel with `NEXT_PUBLIC_API_BASE_URL` set to it (get its URL) → `CORS_ALLOWED_ORIGINS` on Render set to the Vercel URL → redeploy Render.
 
@@ -204,7 +220,7 @@ V1/V2 labels are still necessary because the specs intentionally contain future 
 ## Non-Goals for V1
 
 - Authentication or user accounts
-- Database persistence
+- Database persistence beyond the narrow, anonymous, latest-result-only Workflow Results Store added in Phase 12 (see "Persistence" above) — no history, no cross-session analytics, no accounts
 - Role-based permissions
 - Production file storage
 - Realtime collaboration
