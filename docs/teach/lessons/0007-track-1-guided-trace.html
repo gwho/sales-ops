@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 7 — Track 1 Guided Trace</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 1 · Lesson 7 of 7</span>
+    <a href="../../tutorials/01-python-foundation/README.md">Next: Tutorial 01 →</a>
+  </div>
+
+  <p class="kicker">Track 1 — Python, Data-as-Tables, and Contracts</p>
+  <h1>Guided Trace: One Row, Start to Finish</h1>
+  <p class="lede">
+    No new concepts. This lesson is rehearsal — one real row from this repo's generated sample data,
+    walked through every idea Lessons 1–6 gave you, in the same order a real tutorial trace would use.
+    Do each step before revealing the answer; that struggle is the point.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">What you're rehearsing</p>
+    <p>No new external resource this time — this lesson exercises Lessons 2 through 6 together.
+    If any step feels impossible, that's a signal to revisit that lesson, not push through.</p>
+  </div>
+
+  <h2>The row</h2>
+  <p>Open <span class="filelink">src/sample_data.py</span> and find this line inside
+  <code>generate_orders()</code> (search for <code>SO-2026-030</code>):</p>
+
+  <pre><code>{"order_id": "SO-2026-030", "order_date": date(2026, 7, 10), "customer_name": "Zhuhai Cross-Border Medical Center",
+ "customer_region": "Guangdong", "sku": "VIS-SCOPE-099", "product_name": "Portable Slit Lamp (New Model)",
+ "quantity": 2, "requested_delivery_date": date(2026, 7, 28), "priority": "Normal",
+ "payment_terms": "30 days", "sales_owner": "Wendy"}</code></pre>
+
+  <p>The comment directly above it in the real file says: <em>"Unknown SKU not present in product
+  master — the required invalid-SKU imperfection."</em></p>
+
+  <h2>Step 1 — Name its table shape</h2>
+  <p>This dict is one row out of the DataFrame <code>generate_orders()</code> returns (Lesson 5).
+  Before revealing: what are the column names of this table, in the order they appear in the row
+  above?</p>
+
+  <details>
+    <summary>Reveal: the column list</summary>
+    <p><code>order_id</code>, <code>order_date</code>, <code>customer_name</code>,
+    <code>customer_region</code>, <code>sku</code>, <code>product_name</code>,
+    <code>quantity</code>, <code>requested_delivery_date</code>, <code>priority</code>,
+    <code>payment_terms</code>, <code>sales_owner</code> — eleven columns, one per key in the row
+    dict. Every other row in <code>generate_orders()</code> shares this exact same column set;
+    only the values differ.</p>
+  </details>
+
+  <h2>Step 2 — Name the contract it will eventually become</h2>
+  <p>This row's <code>sku</code>, <code>"VIS-SCOPE-099"</code>, doesn't exist in
+  <code>generate_product_master()</code>'s output — it's fictional, on purpose. Order validation
+  (Phase 3, not yet built as of Track 1) will eventually look at this row and produce a result. Two
+  contracts from <span class="filelink">src/contracts.py</span> are candidates:
+  <code>ValidOrderRow</code> and <code>ValidationErrorRow</code> (Lesson 4). Which one, and why?</p>
+
+  <details>
+    <summary>Reveal: which contract, and why</summary>
+    <p><code>ValidationErrorRow</code>. An unknown SKU is exactly the kind of problem that contract
+    exists to describe — recall its shape from Lesson 4:</p>
+    <pre><code>class ValidationErrorRow(TypedDict):
+    row_number: int
+    order_id: NotRequired[str]
+    sku: NotRequired[str]
+    error_code: str
+    error_message: str
+    severity: str</code></pre>
+    <p>This row has a real <code>order_id</code> (<code>"SO-2026-030"</code>) and a real
+    <code>sku</code> (the invalid one), so a future validation result for it would likely populate
+    both optional fields, plus an <code>error_code</code>, a human-readable
+    <code>error_message</code>, and a <code>severity</code>. It would <em>not</em> become a
+    <code>ValidOrderRow</code> — that contract is for orders that passed validation, and this one's
+    whole reason for existing is that it shouldn't pass.</p>
+  </details>
+
+  <h2>Step 3 — Predict the test assertion</h2>
+  <p>Recall Lesson 6: this repo's sample-data tests check <em>properties</em> of generated data,
+  never a not-yet-built rule's output. Given that this is "the required invalid-SKU imperfection"
+  (per the code comment) — meaning exactly one row in the whole file is supposed to have this
+  problem — write, in your own words, what a test named something like
+  <code>test_generate_orders_has_exactly_one_unknown_sku</code> would need to check to prove that.</p>
+
+  <details>
+    <summary>Reveal: the real test</summary>
+    <pre><code>def test_generate_orders_has_exactly_one_unknown_sku():
+    product_master_df = generate_product_master()
+    orders_df = generate_orders(product_master_df)
+
+    known_skus = set(product_master_df["sku"])
+    unknown_sku_rows = orders_df[orders_df["sku"].notna() & ~orders_df["sku"].isin(known_skus)]
+
+    assert len(unknown_sku_rows) == 1
+    assert unknown_sku_rows.iloc[0]["order_id"] == "SO-2026-030"</code></pre>
+    <p>Notice the shape: build the set of <code>known_skus</code> from the product master
+    (Lesson 5's column-access skill), filter <code>orders_df</code> down to rows whose
+    <code>sku</code> both exists and isn't in that known set (Lesson 5's filtering skill), then
+    assert two things — exactly one such row exists, <em>and</em> it's specifically
+    <code>SO-2026-030</code> (Lesson 6's "count and name it, don't just detect it" pattern). Nothing
+    here computes a validation error message or severity — this test only proves the input data has
+    the shape a future rule will need, exactly as Lesson 6 predicted.</p>
+  </details>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does the real test assert an exact order_id, not just that one unknown-SKU row exists?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">pandas requires naming a row directly</button>
+        <button class="quiz-option" data-correct="true">to catch an accidental second bad row</button>
+        <button class="quiz-option" data-correct="false">order_id values must sort alphabetically</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (5 minutes) — do this one before Tutorial 01</p>
+    <p>Pick a <em>different</em> row from <span class="filelink">src/sample_data.py</span>'s
+    <code>generate_orders()</code> — search for the comment <em>"Inactive SKU referenced"</em>
+    (order <code>SO-2026-031</code>). Run this lesson's three steps yourself, from scratch, on that
+    row: name its columns, name the contract it will become, predict the test that proves it's the
+    one-and-only example of its kind. Then open
+    <span class="filelink">tests/test_sample_data.py</span> and find
+    <code>test_generate_orders_has_exactly_one_inactive_sku_reference</code> to check yourself.</p>
+  </div>
+
+  <h2>You're ready</h2>
+  <p>Every move in this lesson — reading a row as a dict, naming its table's columns, matching it
+  to a <code>TypedDict</code> contract, predicting a property-based test — is exactly what
+  <a href="../../tutorials/01-python-foundation/README.md">Tutorial 01</a> and
+  <a href="../../tutorials/02-sample-data/README.md">Tutorial 02</a> will ask of you, just applied
+  to new rows and new contracts you haven't seen yet. Start with Tutorial 01's own "How to use an
+  LLM before this tutorial" section, then work Part by Part — you now have every prerequisite piece
+  the tutorials assume.</p>
+
+  <div class="ask-teacher">
+    If Step 2 or Step 3 above felt like a guess rather than a derivation, say so before starting
+    Tutorial 01 — it's worth another rehearsal row together first.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0006-demo-data-vs-test-data.html">← Back: Demo data vs. test data</a>
+    <a href="../../tutorials/01-python-foundation/README.md">Next: Tutorial 01 →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

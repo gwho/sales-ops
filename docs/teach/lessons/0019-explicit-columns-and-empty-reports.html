@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 19 — Explicit Columns &amp; Empty Reports</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 3 · Lesson 5 of 7</span>
+    <a href="0020-allow-lists-hidden-state-and-safe-defaults.html">Next: Allow-lists, hidden state &amp; safe defaults →</a>
+  </div>
+
+  <p class="kicker">Track 3 — Presentation Without Leakage</p>
+  <h1>Explicit Columns &amp; Empty Reports</h1>
+  <p class="lede">
+    A tempting shortcut for writing a sheet's header row is to just read whatever keys the first
+    row of data happens to have. It works — right up until the data doesn't cooperate. This lesson
+    is about two real ways it stops working, and why a report a human reads needs to survive both.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p>No dedicated external resource — like Lesson 15, this is a repo-specific design decision,
+    best learned from <span class="filelink">docs/plan/phase-6-excel-report-export/explanation.md</span>
+    §5. It builds directly on <span class="filelink">docs/teach/lessons/0004-contracts-typeddict-and-json-shapes.html</span>'s
+    <code>NotRequired</code> discussion — revisit that lesson first if "a field that's sometimes
+    just absent from the dict" doesn't feel familiar.</p>
+  </div>
+
+  <h2>The tempting shortcut</h2>
+  <p>An early instinct for writing a detail sheet's header row: derive it from whatever the first
+  row's keys happen to be — <code>list(rows[0].keys())</code>. Less code, and for a non-empty list
+  of uniform rows, it produces the exact same output as an explicit list of column names. Two real
+  scenarios break it.</p>
+
+  <h2>Scenario 1: there is no first row</h2>
+  <p>Open <span class="filelink">tests/test_report_export.py</span> and find:</p>
+
+  <pre><code>def test_order_validation_report_empty_errors_sheet_has_header_only():
+    workbook_bytes, _ = export_order_validation_report(
+        _order_validation_result(errors=[]), pd.DataFrame(), generated_at=GENERATED_AT
+    )
+    wb = _load(workbook_bytes)
+    ws = wb["Validation Errors"]
+    assert ws.max_row == 1
+    assert _headers(ws) == VALIDATION_ERROR_COLUMNS</code></pre>
+
+  <p>A validation run that found zero errors still needs a real, correctly-labeled
+  <code>Validation Errors</code> sheet — <code>ws.max_row == 1</code> means exactly one row exists,
+  and it's the header. <code>rows[0].keys()</code> has nothing to read here at all; it would need a
+  special case just for "the list happens to be empty," or the sheet would render with zero header
+  cells — arguably worse than a header with zero data rows.</p>
+
+  <h2>Scenario 2: two rows of the same type, different keys present</h2>
+  <p>Recall <code>NotRequired</code> fields (Lesson 4): a key can be legitimately absent from one
+  row's dict and present in another's, even though both rows are the same <code>TypedDict</code>.
+  Open the same test file and find:</p>
+
+  <pre><code>def test_order_validation_report_missing_notrequired_field_renders_blank():
+    error_without_sku = {
+        "row_number": 3,
+        "error_code": "OV-001",
+        "error_message": "Customer name is missing",
+        "severity": "Error",
+    }
+    # ... exported, then:
+    row = dict(zip(VALIDATION_ERROR_COLUMNS, [c.value for c in ws[2]]))
+    assert row["sku"] is None</code></pre>
+
+  <p>If headers were derived from "whichever row happens to be at index 0," the rendered column
+  <em>set</em> would depend on which row a report happened to put first — not a property a report a
+  human reads and files away should ever have.</p>
+
+  <h2>The fix: headers as a property of the contract, not the data</h2>
+  <p>Open <span class="filelink">src/report_export.py</span> and find:</p>
+
+  <pre><code>VALIDATION_ERROR_COLUMNS = ["row_number", "order_id", "sku", "error_code", "error_message", "severity"]</code></pre>
+
+  <pre><code>def _write_detail_sheet(wb, sheet_name, rows, columns):
+    ws = wb.create_sheet(sheet_name)
+    ws.append(columns)
+    for row in rows:
+        ws.append([_safe_cell_value(row.get(col, "")) for col in columns])
+    ...</code></pre>
+
+  <p>The header row comes from a plain Python list, declared once, that exists whether or not
+  <code>rows</code> has anything in it. <code>row.get(col, "")</code> — for every column, on every
+  row — is what makes this indifferent to which fields any individual row happens to omit.</p>
+
+  <div class="box primer">
+    <p class="box-label">Human-facing stability</p>
+    <p>A report's structure — its column set, in a fixed order — is part of what makes it readable
+    across many runs. A sales admin opening this month's report and last month's shouldn't see
+    different columns just because this month happened to have zero errors, or because one row was
+    missing a field another row had. Humans read <em>structure</em> as much as they read data — a
+    header row that survives an empty result is not a wasted formality, it's what makes the report
+    recognizable as the same report every time.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Under this module's design, what happens to a Validation Errors sheet when there are zero errors?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">The sheet is not created at all</button>
+        <button class="quiz-option" data-correct="true">A header row is written, zero data rows</button>
+        <button class="quiz-option" data-correct="false">One blank placeholder row is written</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">With a rows[0].keys() approach, what happens when the rows list is empty?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Nothing — sensible defaults are used</button>
+        <button class="quiz-option" data-correct="true">There's no row to read keys from at all</button>
+        <button class="quiz-option" data-correct="false">openpyxl fills in generic headers</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">If a TypedDict field's declaration order changed in contracts.py, with no other edit, what happens to a report's column order?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">It updates automatically to match</button>
+        <button class="quiz-option" data-correct="true">Nothing — the column constant is separate</button>
+        <button class="quiz-option" data-correct="false">The export function raises an error</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (6 minutes)</p>
+    <p>Run <code>uv run pytest tests/test_report_export.py -k "empty_errors_sheet or missing_notrequired_field" -v</code>.
+    Before reading either test body, predict: for the empty-errors case, how many rows will
+    <code>ws.max_row</code> report? For the missing-field case, what will
+    <code>row["sku"]</code> equal after the save/reload round trip (Lesson 18)? Write both
+    predictions down, then check them against the actual test bodies.</p>
+  </div>
+
+  <p>This is the same discipline <a href="../../tutorials/06-excel-report-export/README.md#part-5--explicit-sheetheader-constants-instead-of-deriving-from-row-data">Tutorial 06 Part 5</a>
+  applies to every other detail sheet this module writes, not just <code>Validation Errors</code>.
+  Next: two different safety defaults this module uses when it's genuinely uncertain what a value
+  might be.</p>
+
+  <div class="ask-teacher">
+    If "a header row is a property of the contract, not the data" still sounds abstract, pick one
+    real column constant and explain out loud what would visibly break if it were deleted and
+    replaced with <code>rows[0].keys()</code> — ask now if you get stuck.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0018-serialization-boundaries-and-safe-cell-values.html">← Back: Serialization boundaries &amp; safe cell values</a>
+    <a href="0020-allow-lists-hidden-state-and-safe-defaults.html">Next: Allow-lists, hidden state &amp; safe defaults →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

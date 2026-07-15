@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 2 — Python Files, Functions, and Data</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 1 · Lesson 2 of 7</span>
+    <a href="0003-uv-pytest-and-test-reading.html">Next: uv, pytest &amp; test reading →</a>
+  </div>
+
+  <p class="kicker">Track 1 — Python, Data-as-Tables, and Contracts</p>
+  <h1>Python Files, Functions, and Data</h1>
+  <p class="lede">
+    Just enough Python to read <code>src/contracts.py</code> and <code>src/excel_io.py</code>
+    without flinching: what a file is, what a function is, the two data containers you'll see
+    constantly (list, dict), and what those colons and arrows in a function signature mean.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p><a href="https://docs.python.org/3/tutorial/">The Python Tutorial (official)</a> —
+    written by the language's own maintainers, safe for absolute beginners. This lesson only
+    covers the slice you need right now; the tutorial's
+    <a href="https://docs.python.org/3/tutorial/controlflow.html#defining-functions">"Defining Functions"</a>
+    and
+    <a href="https://docs.python.org/3/tutorial/datastructures.html">"Data Structures"</a> chapters
+    are good next reads once this lesson feels solid.</p>
+  </div>
+
+  <h2>A file is a module</h2>
+  <p>A <code>.py</code> file is called a <strong>module</strong>. It's just a text file Python can
+  run top to bottom. Other files pull code out of it with <code>import</code>:</p>
+
+  <pre><code>from src.excel_io import load_excel, validate_required_columns</code></pre>
+
+  <p>Read this left to right: "from the module <code>src.excel_io</code>, bring in the two names
+  <code>load_excel</code> and <code>validate_required_columns</code>." After this line, this file
+  can call those two functions as if they were written locally. This exact line appears in
+  <span class="filelink">tests/test_excel_io.py</span> — you'll meet it again in Lesson 3.</p>
+
+  <h2>A function is a named, reusable recipe</h2>
+  <p>Here's a function, deliberately unrelated to this repo, to isolate the shape:</p>
+
+  <pre><code>def greet(name: str, excited: bool = False) -> str:
+    if excited:
+        return f"HELLO, {name}!"
+    return f"Hello, {name}."</code></pre>
+
+  <p>Break that first line apart:</p>
+  <ul>
+    <li><code>def</code> — "I'm defining a function." <code>greet</code> is its name.</li>
+    <li><code>name: str</code> — a parameter called <code>name</code>, and a <strong>type hint</strong>
+    saying it should be a string. Python won't stop you from breaking this promise, but it tells
+    you (and any tool reading the code) what's expected.</li>
+    <li><code>excited: bool = False</code> — a second parameter with a <strong>default value</strong>.
+    Callers can omit it entirely; if they do, it's <code>False</code>.</li>
+    <li><code>-&gt; str</code> — another type hint, this time for what the function <code>return</code>s.</li>
+  </ul>
+
+  <p>Calling <code>greet("Ada")</code> returns <code>"Hello, Ada."</code>. Calling
+  <code>greet("Ada", excited=True)</code> returns <code>"HELLO, Ada!"</code>. Nothing runs until
+  you call it — a <code>def</code> block on its own just teaches Python the recipe.</p>
+
+  <p>Now look at a real signature from <span class="filelink">src/excel_io.py</span>:</p>
+
+  <pre><code>def load_excel(file, sheet_name: int | str = 0) -> pd.DataFrame:
+    """Load an Excel file (path or file-like object) into a DataFrame."""
+    return pd.read_excel(file, sheet_name=sheet_name)</code></pre>
+
+  <p><code>int | str</code> is a type hint meaning "an integer <em>or</em> a string" — you'll see this
+  exact shape again in Lesson 4. The triple-quoted line right under <code>def</code> is a
+  <strong>docstring</strong>: a description of what the function does, readable by humans and by
+  tools, that runs as documentation, not as logic.</p>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">In <code>def load_excel(file, sheet_name: int | str = 0) -&gt; pd.DataFrame:</code>, what does <code>-&gt; pd.DataFrame</code> describe?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">the type of the file parameter</button>
+        <button class="quiz-option" data-correct="true">the type of the return value</button>
+        <button class="quiz-option" data-correct="false">the default sheet_name value</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <h2>Two containers you'll see everywhere: list and dict</h2>
+  <p>A <strong>list</strong> is an ordered sequence, written with square brackets:</p>
+  <pre><code>required_columns = ["order_id", "sku", "quantity"]</code></pre>
+  <p>A <strong>dict</strong> (dictionary) maps names to values, written with curly braces and colons:</p>
+  <pre><code>order = {"order_id": "SO-2026-001", "quantity": 3, "priority": "High"}</code></pre>
+  <p>You read a value back out by its key: <code>order["quantity"]</code> gives you <code>3</code>.
+  A dict is how this repo represents "one record with named fields" — an order, a row, a result —
+  everywhere before it's written to disk or sent over the network. Lesson 4 builds directly on this:
+  <code>TypedDict</code> is nothing more than a dict with its expected keys and types written down
+  in advance.</p>
+
+  <p>Both containers nest freely. A list of dicts — <code>[{"sku": "A"}, {"sku": "B"}]</code> — is
+  exactly the shape <span class="filelink">src/sample_data.py</span> uses to build a table's worth
+  of rows, one dict per row, before Lesson 5 turns that into a real table.</p>
+
+  <h2>A class, just enough to recognize one</h2>
+  <p>You'll see <code>class</code> exactly once in Track 1, in
+  <span class="filelink">src/excel_io.py</span>:</p>
+  <pre><code>class MissingColumnsError(Exception):
+    ...</code></pre>
+  <p>Read this as: "<code>MissingColumnsError</code> is a new, custom kind of error, built out of
+  Python's built-in <code>Exception</code>." You don't need to know how to write a class yet — just
+  recognize that this line is defining a specific, nameable failure (missing spreadsheet columns)
+  instead of leaving the code to fail with a generic, unhelpful error. That's the whole idea for now;
+  the tutorial revisits this specific class in depth.</p>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (3 minutes)</p>
+    <p>Open a Python shell — run <code>uv run python</code> in the repo root if you have it set up,
+    or any Python REPL — and type this function, then call it twice with different arguments:</p>
+    <pre><code>def describe_order(order_id: str, quantity: int = 1) -> str:
+    return f"{order_id}: {quantity} unit(s)"
+
+print(describe_order("SO-2026-001"))
+print(describe_order("SO-2026-002", quantity=5))</code></pre>
+    <p>Predict both outputs before you run it. If you don't have Python available right now, just
+    write the two predicted output strings down — that's the exercise.</p>
+  </div>
+
+  <div class="ask-teacher">
+    If <code>int | str</code>, default arguments, or the list/dict distinction feel shaky, ask your
+    teacher for more examples before Lesson 3 — <code>pytest</code> assertions will lean on all
+    three.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0001-how-to-read-this-repo-and-tutorials.html">← Back: Reading this repo</a>
+    <a href="0003-uv-pytest-and-test-reading.html">Next: uv, pytest &amp; test reading →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

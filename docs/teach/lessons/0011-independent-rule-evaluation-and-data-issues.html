@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 11 — Independent Rule Evaluation and Data Issues</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 2 · Lesson 4 of 7</span>
+    <a href="0012-priority-ordered-processing-and-mutable-state.html">Next: Priority-ordered processing →</a>
+  </div>
+
+  <p class="kicker">Track 2 — Business Rules &amp; Testing Discipline</p>
+  <h1>Independent Rule Evaluation and Data Issues</h1>
+  <p class="lede">
+    Two shapes a "check several things about one item" loop can take: collect <em>every</em>
+    finding, or stop at the <em>first</em> match and commit to one answer. Both are correct designs
+    — for different questions. This lesson teaches you to tell them apart on sight.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Building on</p>
+    <p>No new external source — this lesson contrasts real code from two modules you'll meet in
+    Tutorials 03 and 05. Lesson 8's business-rule/programming-error distinction is the foundation
+    underneath both shapes below.</p>
+  </div>
+
+  <h2>Shape 1: collect every finding</h2>
+  <p>Open <span class="filelink">src/order_validation.py</span> and find the OV-001 loop:</p>
+  <pre><code>for field, label in OV001_REQUIRED_FIELDS:
+    if _is_blank(row.get(field)):
+        errors.append(
+            _make_error(row_number, "OV-001", f"{label} is missing.", "Error", order_id, sku)
+        )</code></pre>
+  <p>This loop never stops early. A row missing both <code>customer_name</code> <em>and</em>
+  <code>priority</code> gets <strong>two</strong> separate error entries, not one combined message —
+  the loop checks all eight required fields every time, regardless of how many already failed.</p>
+
+  <p>The same shape reappears in a completely different module. Open
+  <span class="filelink">src/payment_aging.py</span>:</p>
+  <pre><code># PA-006 / PA-007 — evaluated independently; a row can have both issues.
+row_issues: list[PaymentDataIssueRow] = []
+if due_date_parsed is None:
+    row_issues.append(_build_data_issue(invoice_id_value, customer_name_value, "PA-006", "Due date is missing."))
+if invoice_amount is None or invoice_amount < 0:
+    row_issues.append(_build_data_issue(invoice_id_value, customer_name_value, "PA-007", "Invoice amount is missing or invalid."))</code></pre>
+  <p>Same idea, different rule numbers: a missing due date and an invalid amount are two
+  <em>independent</em> facts about the same invoice row, and both checks run regardless of what the
+  other one found. <span class="filelink">tests/test_payment_aging.py</span> proves a row can carry
+  both at once:</p>
+  <pre><code>def test_row_with_missing_due_date_and_invalid_amount_produces_two_data_issues():
+    result = calculate_payment_aging(
+        _invoices_df(_invoice_row(due_date=None, invoice_amount=-10.0)), as_of_date=AS_OF
+    )
+    assert result["aging_rows"] == []
+    codes = {issue["error_code"] for issue in result["data_issues"]}
+    assert codes == {"PA-006", "PA-007"}
+    assert len(result["data_issues"]) == 2</code></pre>
+
+  <p>Both examples share the same reasoning: a row genuinely <em>can</em> have several unrelated
+  problems simultaneously, and collapsing them into "the first one found" would throw away real,
+  actionable information — a person fixing the spreadsheet wants to know about every problem in one
+  pass, not one round of fixing per re-upload.</p>
+
+  <h2>Shape 2: first match wins</h2>
+  <p>Now open <span class="filelink">src/payment_aging.py</span> again, a different function:</p>
+  <pre><code>def _follow_up_priority(outstanding_amount: float, days_overdue: int) -> str:
+    if outstanding_amount <= 0:
+        return "None"
+    if days_overdue > 60 or outstanding_amount >= 50000:
+        return "High"
+    if 31 <= days_overdue <= 60:
+        return "Medium"
+    if 1 <= days_overdue <= 30:
+        return "Low"
+    if -7 <= days_overdue <= 0:
+        return "Watch"
+    return "None"</code></pre>
+  <p>This is the opposite shape: the <strong>first</strong> condition that matches returns
+  immediately, and nothing after it ever runs for that invoice. An invoice can't be both "High" and
+  "Medium" — <code>follow_up_priority</code> is fundamentally one label, not a list, so there's
+  exactly one correct final answer, and the order of the checks is a real design decision (Paid is
+  checked first, so nothing can override "nothing to follow up on").</p>
+
+  <div class="box primer">
+    <p class="box-label">The question each shape answers</p>
+    <p>Shape 1 answers "what are <em>all</em> the true facts about this item?" — a list, possibly
+    empty, possibly long. Shape 2 answers "what is <em>the</em> single label for this item?" — always
+    exactly one value. Before reading a loop or a chain of <code>if</code>s, ask which question it's
+    trying to answer — that tells you whether "stops at the first match" is a bug or the entire
+    point.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Can a single order row in order_validation.py end up with two separate OV-001 errors?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="true">Yes — one per missing field</button>
+        <button class="quiz-option" data-correct="false">No — only the first field is checked</button>
+        <button class="quiz-option" data-correct="false">Only if the SKU is also invalid</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does _follow_up_priority stop at the first matching condition instead of collecting every match?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">stopping early runs measurably faster</button>
+        <button class="quiz-option" data-correct="true">an invoice has exactly one priority</button>
+        <button class="quiz-option" data-correct="false">Python forbids multiple return values</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">In _follow_up_priority, why is the outstanding_amount <= 0 check placed first, before every other condition?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">it happens to be alphabetically first</button>
+        <button class="quiz-option" data-correct="true">so Paid can never be overridden later</button>
+        <button class="quiz-option" data-correct="false">Python requires the shortest check first</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (4 minutes)</p>
+    <p>Open <span class="filelink">src/payment_aging.py</span> and find <code>_aging_bucket()</code>.
+    Is it Shape 1 or Shape 2? Justify your answer in one sentence using this lesson's "what question
+    is it answering" test — don't just pattern-match on <code>if</code> statements alone.</p>
+  </div>
+
+  <p><a href="../../tutorials/03-order-validation-core/README.md#part-4--one-row-can-produce-multiple-errors">Tutorial 03 Part 4</a>
+  covers Shape 1 in full depth for order validation;
+  <a href="../../tutorials/05-payment-aging-core/README.md#part-6--bucket-calculation-vs-priority-calculation-including-amount-driven-high-priority">Tutorial 05 Part 6</a>
+  covers Shape 2 and names this exact contrast explicitly, with a case where the "obvious" reading
+  of Shape 2's output can surprise a domain expert.
+  <a href="../reference/business-rule-testing-glossary.html">The Business Rule &amp; Testing
+  Glossary reference</a> has both shapes defined side by side, plus every other term this lesson used.</p>
+
+  <div class="ask-teacher">
+    If you couldn't confidently classify <code>_aging_bucket()</code> above, ask now with your
+    reasoning — Lesson 14's capstone assumes you can sort a new function into one shape or the other
+    on sight.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0010-reading-tests-as-specifications.html">← Back: Reading tests as specifications</a>
+    <a href="0012-priority-ordered-processing-and-mutable-state.html">Next: Priority-ordered processing →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

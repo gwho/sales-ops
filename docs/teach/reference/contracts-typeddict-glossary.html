@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Contracts &amp; TypedDict Glossary</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 1</p>
+  <h1>Contracts &amp; TypedDict Glossary</h1>
+  <p class="lede">The terms Lesson 4 introduces, compressed for lookup. Companion to
+  <a href="../lessons/0004-contracts-typeddict-and-json-shapes.html">Lesson 4</a>.</p>
+
+  <div class="box primer">
+    <p class="box-label">A note on this document's status</p>
+    <p>This is a <em>pre-study</em> glossary — terms defined so you can start using them, not yet
+    evidence that you've internalized them. Per this workspace's teaching conventions, a term only
+    gets promoted into the workspace's permanent, evidence-gated glossary once you've actually
+    demonstrated understanding of it in conversation or an exercise. Treat this page as scaffolding
+    you'll eventually outgrow, not the final authority.</p>
+  </div>
+
+  <h2>Terms</h2>
+
+  <p><strong>dict</strong> (dictionary):<br>
+  A Python container mapping keys to values, written <code>{"key": "value"}</code>. Carries no
+  built-in promise about which keys must be present or what type each value is.</p>
+
+  <p><strong>Type hint</strong>:<br>
+  An annotation on a variable, parameter, or return value (e.g. <code>quantity: int</code>) stating
+  the expected type. Checked by external tools and readers, not enforced by Python itself at
+  runtime.<br>
+  <em>Avoid</em>: type annotation used loosely to mean "runtime validation" — it isn't one.</p>
+
+  <p><strong>TypedDict</strong>:<br>
+  A Python construct (from the <code>typing</code> module) that declares the expected keys and value
+  types of a dict, for type-checking purposes only. At runtime, a <code>TypedDict</code>-typed value
+  is an ordinary <code>dict</code> — indistinguishable from any other, with no extra validation or
+  wrapper object.<br>
+  <em>Avoid</em>: "TypedDict class" implying it's a distinct runtime object type — it produces plain
+  dicts.</p>
+
+  <p><strong>NotRequired</strong>:<br>
+  A wrapper inside a <code>TypedDict</code> field's type hint (e.g. <code>sku:
+  NotRequired[str]</code>) marking that key as allowed to be absent from a given instance, rather
+  than merely allowed to hold <code>None</code>.</p>
+
+  <p><strong>JSON</strong> (JavaScript Object Notation):<br>
+  A plain-text data format built from the same two shapes as Python's dict and list — objects with
+  named keys, and ordered arrays — readable by nearly every programming language and web browser. A
+  plain Python dict converts to JSON with no extra code.</p>
+
+  <p><strong>Output contract</strong> (this repo's term):<br>
+  A <code>TypedDict</code> in <span class="filelink">src/contracts.py</span> that's shared as a
+  stable handoff shape across modules — built by Python business logic, and (in later phases)
+  carried across a JSON boundary to a web layer and UI. Named for the same reason a legal contract
+  is: a promise about shape every consumer can rely on without re-verifying it themselves.<br>
+  <em>Avoid</em>: "schema" as a casual synonym in this workspace — this repo's own docs
+  (<code>CONTEXT.md</code>) reserve "Output Contract" as the specific term; use it.</p>
+
+  <p><strong>Field Scope Boundary</strong> (this repo's term, forward reference):<br>
+  The rule that an output contract may only contain fields its originating spec explicitly defines —
+  contracts are allowed to be asymmetric across modules; matching another contract's fields "for
+  symmetry" is not a valid reason to add one. Not covered in depth until later tracks — noted here
+  because it's the direct consequence of taking "contract" seriously as a promise.</p>
+
+  <p><strong>Contract Fixture</strong> (this repo's term):<br>
+  A hand-authored, believable example value for one output contract, kept in
+  <span class="filelink">tests/contract_fixtures.py</span>. Proves the contract's shape can hold
+  realistic data; deliberately <em>not</em> computed from real business-rule code, so it can't
+  silently inherit that code's bugs. See <a href="../lessons/0006-demo-data-vs-test-data.html">Lesson 6</a>.</p>
+
+  <h2>Quick contrast table</h2>
+  <table>
+    <tr><th>Term</th><th>Enforced at runtime?</th><th>Lives in</th></tr>
+    <tr><td>dict</td><td>No shape promise at all</td><td>anywhere</td></tr>
+    <tr><td>TypedDict</td><td>No — type-check-time only</td><td><span class="filelink">src/contracts.py</span></td></tr>
+    <tr><td>Output contract</td><td>No — same as TypedDict, plus a naming convention</td><td><span class="filelink">src/contracts.py</span></td></tr>
+    <tr><td>Contract Fixture</td><td>N/A — it's a value, not a type</td><td><span class="filelink">tests/contract_fixtures.py</span></td></tr>
+  </table>
+
+  <hr>
+  <p><a href="../lessons/0004-contracts-typeddict-and-json-shapes.html">← Back to Lesson 4</a></p>
+
+</div>
+</body>
+</html>

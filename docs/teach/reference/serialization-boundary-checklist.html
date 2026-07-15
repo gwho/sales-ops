@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Serialization Boundary Checklist</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 3</p>
+  <h1>Serialization Boundary Checklist</h1>
+  <p class="lede">A reusable checklist for any place Python data is about to become some other
+  format's data — not just Excel. Companion to
+  <a href="../lessons/0018-serialization-boundaries-and-safe-cell-values.html">Lesson 18</a>.</p>
+
+  <div class="box primer">
+    <p class="box-label">The general question</p>
+    <p>Any serialization boundary — a spreadsheet cell, a JSON field, a database column — should
+    force one question, asked once, in one place: <strong>what values are legal here, and what
+    happens to every value that isn't one of them?</strong> This repo's answer for Excel cells is
+    <code>_safe_cell_value</code>. A future Track's answer for JSON API responses, or Postgres
+    columns, will be a different function — but the question is identical.</p>
+  </div>
+
+  <h2>This repo's four "nothing" values</h2>
+  <table>
+    <tr><th>Value</th><th>Where it comes from</th><th>_safe_cell_value's check</th></tr>
+    <tr><td><code>None</code></td><td>Python's own null — e.g. a <code>NotRequired</code> field's
+    default</td><td><code>value is None</code></td></tr>
+    <tr><td><code>float('nan')</code></td><td>A mixed-type pandas column upcast to
+    <code>float64</code></td><td><code>isinstance(value, float) and math.isnan(value)</code></td></tr>
+    <tr><td><code>pd.NaT</code></td><td>The same upcasting, for a blank datetime cell</td>
+    <td>caught by the <code>pd.isna(value)</code> fallback</td></tr>
+    <tr><td><code>pd.NA</code></td><td>pandas's own type-agnostic missing marker</td>
+    <td>caught by the same <code>pd.isna(value)</code> fallback</td></tr>
+  </table>
+
+  <h2>Checklist for a new serialization boundary</h2>
+  <ol>
+    <li><strong>List every "nothing" representation that can actually reach this boundary</strong> —
+    not just the ones you'd guess. This repo's list came from actually tracing where each value
+    type is produced (<code>TypedDict</code> defaults vs. pandas upcasting), not from guessing in
+    advance.</li>
+    <li><strong>Write one function, in one place, that every value passes through</strong> before
+    crossing the boundary — never let two different call sites each write their own "is this blank"
+    check.</li>
+    <li><strong>Narrow exception handling to exactly what the boundary can raise</strong> — this
+    repo's <code>pd.isna(value)</code> call is wrapped in <code>try/except (TypeError, ValueError)</code>,
+    because it genuinely raises on some non-scalar inputs, never a bare <code>except:</code> that
+    would also hide an unrelated bug.</li>
+    <li><strong>Test the artifact after it actually crosses the boundary</strong> — round-trip
+    testing (Lesson 18). Never trust an in-memory object's state as proof of what the real,
+    serialized artifact contains.</li>
+  </ol>
+
+  <h2>Round-trip testing, defined</h2>
+  <p><strong>Round-trip test</strong>: a test that exercises an artifact's real save/load path — not
+  just the in-memory object still sitting in the process that created it. This repo's version:
+  <code>load_workbook(io.BytesIO(workbook_bytes))</code>, never inspecting an unsaved
+  <code>Workbook</code> directly. The concrete reason it matters here: a written empty string
+  <code>""</code> and a genuinely absent value both come back as <code>None</code> after an
+  <code>.xlsx</code> save/reload — a fact no amount of staring at the in-memory object would ever
+  reveal.</p>
+
+  <hr>
+  <p><a href="../lessons/0018-serialization-boundaries-and-safe-cell-values.html">← Back to Lesson 18</a></p>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 21 — Track 3 Guided Report Trace</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 3 · Lesson 7 of 7</span>
+    <a href="../../tutorials/06-excel-report-export/README.md">Next: Tutorial 06 →</a>
+  </div>
+
+  <p class="kicker">Track 3 — Presentation Without Leakage</p>
+  <h1>Guided Trace: One Result, Into a Saved Workbook</h1>
+  <p class="lede">
+    No new concepts — this is rehearsal, exactly like Tracks 1 and 2's own capstones. One real
+    <code>PaymentAgingRow</code>, traced through every stage of
+    <code>export_payment_aging_report</code>, ending in the exact assertions a saved-and-reloaded
+    workbook has to satisfy. Predict each answer yourself before revealing it; skipping straight to
+    the reveal defeats the point.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">What you're rehearsing</p>
+    <p>No new external resource — this lesson exercises Lessons 15 through 20 together, one stage
+    at a time. If any single step feels impossible, that's a signal to revisit the specific lesson
+    it depends on, not to push through.</p>
+  </div>
+
+  <h2>The row you're tracing</h2>
+  <p>Open <span class="filelink">tests/contract_fixtures.py</span> and find:</p>
+
+  <pre><code>PAYMENT_AGING_ROW_FIXTURE: PaymentAgingRow = {
+    "invoice_id": "INV-2026-001",
+    "customer_name": "Bright Medical Trading Ltd",
+    "invoice_date": "2026-03-31",
+    "due_date": "2026-04-30",
+    "invoice_amount": 58000.00,
+    "paid_amount": 0.0,
+    "outstanding_amount": 58000.00,
+    "days_overdue": 70,
+    "aging_bucket": "61-90 Days",
+    "follow_up_priority": "High",
+    "suggested_action": "Call or email customer urgently",
+}</code></pre>
+
+  <p>This one row is already a finished, trusted fact — Lesson 15's rule means nothing you're about
+  to trace will ever recompute <code>"High"</code>, <code>70</code>, or any other field here. Every
+  step below only asks what <em>happens to</em> this already-decided data.</p>
+
+  <h2>Step 1 — Does this row survive the Follow-up List filter?</h2>
+  <p>Recall Lesson 20's allow-list: <code>FOLLOW_UP_PRIORITIES = {"High", "Medium", "Low", "Watch"}</code>.
+  Predict: does <code>PAYMENT_AGING_ROW_FIXTURE</code> appear in the <code>Follow-up List</code>
+  sheet?</p>
+
+  <details>
+    <summary>Reveal</summary>
+    <p>Yes. <code>"High" in {"High", "Medium", "Low", "Watch"}</code> is <code>True</code>, so this
+    row is included in <code>follow_up_rows</code> and written to both <code>Follow-up List</code>
+    <em>and</em> <code>All Invoices with Aging</code> — the second sheet is unfiltered, per Lesson
+    15's "pass everything through unchanged" rule.</p>
+  </details>
+
+  <h2>Step 2 — Which sheets exist, and in what order?</h2>
+  <p>Before checking, write down your own predicted list of sheet names for a payment aging report,
+  in order — then open <span class="filelink">tests/contract_fixtures.py</span> and find
+  <code>REPORT_MANIFEST_FIXTURES</code>'s <code>payment_aging</code> entry.</p>
+
+  <details>
+    <summary>Reveal</summary>
+    <p><code>["Aging Summary", "Follow-up List", "All Invoices with Aging", "Data Issues", "Draft Messages"]</code>
+    — five sheets, in this exact order, because that's the exact order
+    <code>export_payment_aging_report</code> calls <code>wb.create_sheet(...)</code> (via
+    <code>_write_summary_sheet</code>/<code>_write_detail_sheet</code>), and Lesson 17 taught that
+    openpyxl preserves creation order, never alphabetizes.</p>
+  </details>
+
+  <h2>Step 3 — Where does the manifest's sheet list actually come from?</h2>
+  <p>Predict: if a future edit deleted the <code>Data Issues</code> sheet-writing call but
+  <em>forgot</em> to update anything else, would the manifest still claim five sheets, or would it
+  correctly shrink to four?</p>
+
+  <details>
+    <summary>Reveal</summary>
+    <p>It would correctly shrink to four. <code>sheet_names = wb.sheetnames</code> (Lesson 17) reads
+    the real workbook's actual sheets, <em>after</em> every sheet-writing call has run — there is no
+    separate, hand-maintained list anywhere for a developer to forget to update. Deleting a sheet
+    call automatically and correctly changes what the manifest reports, with nothing left in an
+    inconsistent state.</p>
+  </details>
+
+  <h2>Step 4 — What happens to the draft message's long text?</h2>
+  <p>Open <span class="filelink">tests/contract_fixtures.py</span> and find
+  <code>DRAFT_MESSAGE_ROW_FIXTURE</code> — its <code>message_text</code> field is several sentences
+  long, with embedded blank lines. Predict: after this value passes through
+  <code>_safe_cell_value</code> (Lesson 18) and gets written to the <code>Draft Messages</code>
+  sheet, does the text itself change in any way?</p>
+
+  <details>
+    <summary>Reveal</summary>
+    <p>No — <code>_safe_cell_value</code> only intercepts <code>None</code>/<code>NaN</code>/<code>NaT</code>/<code>pd.NA</code>
+    (Lesson 18). A real, non-blank string like this one passes through completely unmodified. What
+    <em>does</em> change is presentation-only formatting applied afterward — the cell's column gets
+    widened and wrapped so the multi-paragraph text is actually readable, a targeted step covered in
+    Tutorial 06 Part 10, not this lesson's scope.</p>
+  </details>
+
+  <h2>Step 5 — What if this row's priority had been something nobody anticipated?</h2>
+  <p>Predict: if <code>follow_up_priority</code> were <code>"Unexpected"</code> instead of
+  <code>"High"</code>, would this row still appear in <code>All Invoices with Aging</code>? In
+  <code>Follow-up List</code>?</p>
+
+  <details>
+    <summary>Reveal</summary>
+    <p><code>All Invoices with Aging</code>: yes, unchanged — that sheet is never filtered, only
+    formatted (Lesson 15). <code>Follow-up List</code>: no — <code>"Unexpected"</code> is not a
+    member of <code>FOLLOW_UP_PRIORITIES</code>, so Lesson 20's allow-list excludes it by default,
+    the safer of the two possible failure directions.</p>
+  </details>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">After the whole export finishes, which single value does manifest["sheet_names"] and wb.sheetnames both trace back to?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Two separately maintained lists</button>
+        <button class="quiz-option" data-correct="true">The same list, read from the real workbook</button>
+        <button class="quiz-option" data-correct="false">REPORT_MANIFEST_FIXTURES directly</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">A test asserts a cell's value right after _write_detail_sheet runs, without saving or reloading. Per Lesson 18, is that assertion fully trustworthy?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Yes, the object already holds the final value</button>
+        <button class="quiz-option" data-correct="true">No, only a save/reload shows the real result</button>
+        <button class="quiz-option" data-correct="false">Yes, but only for numeric cells</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (8 minutes) — do this one before Tutorial 06</p>
+    <p>Open <span class="filelink">tests/test_report_export.py</span> and find
+    <code>test_payment_aging_report_follow_up_list_includes_watch_high_medium_low</code>. Run this
+    lesson's five steps against it yourself, from scratch, in writing — no reveal blocks this time.
+    It constructs five rows, one per priority tier including <code>"None"</code>; before reading
+    the assertions, predict which invoice IDs end up in <code>Follow-up List</code> and which end up
+    in <code>All Invoices with Aging</code>, and why those two lists are different lengths.</p>
+  </div>
+
+  <h2>You're ready</h2>
+  <p>Every move in this lesson — reading a fixture as already-trusted truth, predicting which sheets
+  and filters apply, and reasoning about a save/reload round trip before running one — is what
+  <a href="../../tutorials/06-excel-report-export/README.md">Tutorial 06</a> will ask of you
+  throughout, across all three report types and all ten of its own Parts. Start with Tutorial 06's
+  own "How to use an LLM before this tutorial" section, then work Part by Part.</p>
+
+  <div class="ask-teacher">
+    If the exercise above felt like a guess rather than something you derived from Lessons 15–20,
+    say so before starting Tutorial 06 — it's worth rehearsing one more trace together first.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0020-allow-lists-hidden-state-and-safe-defaults.html">← Back: Allow-lists, hidden state &amp; safe defaults</a>
+    <a href="../../tutorials/06-excel-report-export/README.md">Next: Tutorial 06 →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

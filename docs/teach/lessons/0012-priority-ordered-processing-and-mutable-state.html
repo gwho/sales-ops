@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 12 — Priority-Ordered Processing and Mutable State</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 2 · Lesson 5 of 7</span>
+    <a href="0013-date-arithmetic-boundaries-and-signed-values.html">Next: Date arithmetic &amp; boundaries →</a>
+  </div>
+
+  <p class="kicker">Track 2 — Business Rules &amp; Testing Discipline</p>
+  <h1>Priority-Ordered Processing and Mutable State</h1>
+  <p class="lede">
+    Your direct preparation for Tutorial 04. Inventory allocation is the first module in this repo
+    where <em>order matters</em> — filling one order line changes what the next line sees. This
+    lesson teaches the plain-language idea before you meet the code.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Building on</p>
+    <p>No dedicated external resource — this is best taught directly against
+    <span class="filelink">sales_admin_automation_toolkit_specs/02_demo_inventory_allocation.md</span>
+    (Rule IA-001), which is already the primary source. Lesson 2's material on dicts is extended
+    here with something Track 1 never covered: <em>changing</em> a dict after it's built.</p>
+  </div>
+
+  <h2>A limited-stock problem</h2>
+  <p>Picture 10 units of a SKU in stock, and two orders wanting it: a High-priority order for 8
+  units, and a Normal-priority order for 8 units. There are two very different ways to "fairly"
+  split this:</p>
+  <ul>
+    <li><strong>Share proportionally</strong> — both orders get some fraction of what's left.</li>
+    <li><strong>Serve by priority, in full</strong> — the High order gets everything it asked for
+    (8 of 10) first; the Normal order gets only what's left (2 of 10).</li>
+  </ul>
+  <p>Rule IA-001 picks the second one, explicitly: sort every order by priority (then delivery date,
+  then order date, then order ID) <em>before</em> allocating anything, and process strictly in that
+  order. This is not a detail — it's the entire meaning of "priority" in this module. Sharing
+  proportionally would make the High order wait its turn like everyone else, which defeats the
+  point of calling it High at all.</p>
+
+  <h2>One line at a time, never revisited</h2>
+  <p>Open <span class="filelink">src/inventory_allocation.py</span> and find
+  <code>_allocate_order_line</code>:</p>
+  <pre><code>chosen["allocatable_qty"] -= allocated_qty
+chosen["allocated_qty"] += allocated_qty</code></pre>
+  <p>These two lines are the whole mechanism. <code>chosen</code> is a dict representing one
+  SKU/warehouse's stock. <code>-=</code> and <code>+=</code> don't build a new dict — they
+  <strong>mutate</strong> (change in place) the exact dict object that's already sitting in this
+  module's shared inventory tracking. The very next order line that wants the same SKU looks up
+  that same dict again and sees the <em>already-reduced</em> number — nobody has to remember to
+  "write the update back" anywhere, because there was only ever one dict, not a copy.</p>
+
+  <div class="box primer">
+    <p class="box-label">Mutating vs. rebinding — the distinction Track 1 skipped</p>
+    <p>Track 1 taught you to <em>read</em> a dict (<code>row["sku"]</code>) but never to change one.
+    There are two different things "changing a dict" could mean: <code>chosen = {"allocatable_qty": 5}</code>
+    (rebinding — <code>chosen</code> now points at a brand-new, different dict; anyone else still
+    holding the old dict sees nothing change) versus <code>chosen["allocatable_qty"] = 5</code>
+    (mutating — the <em>same</em> dict object is edited, so everyone holding a reference to it sees
+    the new value). <code>-=</code>/<code>+=</code> on a dict key are mutation, not rebinding — that
+    difference is exactly what makes the second order line automatically see the first line's effect.</p>
+  </div>
+
+  <h2>Watching it happen in a real test</h2>
+  <p><span class="filelink">tests/test_inventory_allocation.py</span> proves this directly:</p>
+  <pre><code>def test_warehouse_choice_switches_as_stock_depletes():
+    orders = _orders_df(
+        _order_row(order_id="SO-2026-001", quantity=15),
+        _order_row(order_id="SO-2026-002", quantity=15, requested_delivery_date=date(2026, 7, 16)),
+    )
+    inventory = _inventory_df(
+        _inventory_row(warehouse="HK Warehouse", available_qty=20),
+        _inventory_row(warehouse="SG Warehouse", available_qty=10),
+    )
+    result = allocate_inventory(orders, inventory)
+    first = _result_by_order_id(result, "SO-2026-001")
+    second = _result_by_order_id(result, "SO-2026-002")
+    assert first["warehouse"] == "HK Warehouse"
+    assert second["warehouse"] == "SG Warehouse"</code></pre>
+  <p>Both orders want the same SKU. The first order picks HK Warehouse — it starts with more stock.
+  Filling it drops HK's remaining stock low enough that, by the time the <em>second</em> order runs,
+  SG Warehouse is now the better choice — a genuinely different answer than if you asked "which
+  warehouse has more stock" once, up front, for both orders at the same time. That's only possible
+  because the first order's allocation actually changed the shared numbers before the second order
+  looked at them.</p>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">If 100 units exist and three High-priority orders each want 40 units, arriving in file order, how many are fully filled under IA-001's rule?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">All three, each partially filled</button>
+        <button class="quiz-option" data-correct="true">Two — the third backorders</button>
+        <button class="quiz-option" data-correct="false">Only one, chosen at random</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">chosen["allocatable_qty"] -= allocated_qty mutates a dict in place. What does that make visible to the next order line?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">nothing — each line sees a fresh copy</button>
+        <button class="quiz-option" data-correct="true">the already-reduced stock number</button>
+        <button class="quiz-option" data-correct="false">only the warehouse's original starting stock</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (4 minutes)</p>
+    <p>Open <span class="filelink">tests/test_inventory_allocation.py</span> and find
+    <code>test_high_priority_allocated_before_normal</code>. Without reading past the test's own
+    <code>_orders_df(...)</code> call: which order appears <em>first</em> in the file, and which
+    order does IA-001's sort actually process first? Write both order IDs down, then check your
+    answer against the assertions below them.</p>
+  </div>
+
+  <p><a href="../../tutorials/04-inventory-allocation-core/README.md#part-3--ia-001-order-sorting-as-the-hidden-precondition-for-every-later-result">Tutorial 04 Part 3</a>
+  covers the sort itself in full;
+  <a href="../../tutorials/04-inventory-allocation-core/README.md#part-5--stateful-per-line-depletion-and-why-batch-by-sku-allocation-fails">Part 5</a>
+  goes deeper on the mutation mechanism this lesson just introduced, including exactly <em>why</em>
+  two separate tracking structures end up pointing at the same dict objects on purpose.</p>
+
+  <div class="ask-teacher">
+    If "mutating the same dict" vs. "building a new one" still feels like a technicality rather than
+    something you could predict the output of, ask now with a small made-up example — Tutorial 04
+    Part 5 assumes you can already picture this before it shows you the real, larger version.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0011-independent-rule-evaluation-and-data-issues.html">← Back: Independent rules &amp; data issues</a>
+    <a href="0013-date-arithmetic-boundaries-and-signed-values.html">Next: Date arithmetic &amp; boundaries →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 20 — Allow-Lists, Hidden State &amp; Safe Defaults</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 3 · Lesson 6 of 7</span>
+    <a href="0021-track-3-guided-report-trace.html">Next: Guided report trace (capstone) →</a>
+  </div>
+
+  <p class="kicker">Track 3 — Presentation Without Leakage</p>
+  <h1>Allow-Lists, Hidden State &amp; Safe Defaults</h1>
+  <p class="lede">
+    Two small, unrelated-looking decisions in <span class="filelink">report_export.py</span> turn
+    out to share one instinct: when this module is uncertain, it should fail in the direction that's
+    easiest for a human to notice and hardest for a human to be misled by.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p>No dedicated external resource — a repo-specific design decision, best learned from
+    <span class="filelink">docs/plan/phase-6-excel-report-export/explanation.md</span> §6–7 and
+    <span class="filelink">docs/plan/phase-6-excel-report-export/plan.md</span>'s Key Invariants 6
+    and 7.</p>
+  </div>
+
+  <h2>Safety default 1: an allow-list, not an exclusion</h2>
+  <p>Open <span class="filelink">src/report_export.py</span> and find:</p>
+
+  <pre><code>FOLLOW_UP_PRIORITIES = {"High", "Medium", "Low", "Watch"}
+
+follow_up_rows = [
+    row for row in result["aging_rows"] if row["follow_up_priority"] in FOLLOW_UP_PRIORITIES
+]</code></pre>
+
+  <p>Every priority <span class="filelink">payment_aging.py</span> actually produces today is
+  covered by this set. The rejected alternative — <code>row["follow_up_priority"] != "None"</code>
+  — would produce the exact same output for every row this repo's tests have ever seen. The
+  difference only shows up for a value <em>neither</em> side has actually anticipated. Open
+  <span class="filelink">tests/test_report_export.py</span> and find:</p>
+
+  <pre><code>def test_payment_aging_report_follow_up_list_excludes_unexpected_priority_string():
+    aging_rows = [{**PAYMENT_AGING_ROW_FIXTURE, "follow_up_priority": "Unexpected"}]
+    workbook_bytes, _ = export_payment_aging_report(
+        _payment_aging_result(aging_rows=aging_rows), generated_at=GENERATED_AT
+    )
+    wb = _load(workbook_bytes)
+    ws = wb["Follow-up List"]
+    assert ws.max_row == 1</code></pre>
+
+  <p>A row with a priority string this module never expected does <strong>not</strong> appear on
+  the "needs attention" sheet. Notice: this is still not revalidation, the rule Lesson 15 taught —
+  the row's <code>follow_up_priority</code> value is never touched or second-guessed anywhere. Only
+  its <em>membership in a filtered view</em> is decided.</p>
+
+  <div class="box primer">
+    <p class="box-label">Allow-list vs. deny-list, generically</p>
+    <p>An allow-list only accepts values it explicitly recognizes; everything else is excluded by
+    default. A deny-list only rejects values it explicitly recognizes; everything else is accepted
+    by default. For a report a salesperson acts on, the two fail in genuinely different directions:
+    an allow-list's failure mode is a <em>missing</em> row — a human cross-checking totals might
+    eventually notice. A deny-list's failure mode is a <em>wrong-looking, unvetted</em> row quietly
+    included as if it belonged there. Given a choice, this module always picks the direction where
+    the mistake is more likely to be noticed, not the direction where it's silently acted on.</p>
+  </div>
+
+  <h2>Safety default 2: no hidden global state</h2>
+  <p>Open <span class="filelink">src/report_export.py</span> and find:</p>
+
+  <pre><code>report_id = f"rpt-{report_type}-{generated_at:%Y%m%d%H%M%S}"</code></pre>
+
+  <p>This is the entire ID-generation logic. No module-level counter, no database lookup, nothing
+  that remembers how many reports of a given type have been generated before. The hand-authored
+  test fixtures happen to end their example IDs in <code>-001</code>, which <em>reads</em> like a
+  sequential counter — but nothing in this project actually counts anything. A counter would mean a
+  variable living outside any function, remembered between calls — exactly the "hidden global
+  state" this repo's own coding standards rule out everywhere, not just here. It would also make
+  this module's output depend on <em>call order</em>: two identical calls, run in a different
+  sequence relative to other report generation elsewhere in the process, would produce different
+  IDs — a much harder kind of bug to reproduce than anything a pure function like this one can
+  produce.</p>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">A row's follow_up_priority is "Unexpected" — a string payment_aging.py has never produced. What does the allow-list do?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Includes it, since it isn't "None"</button>
+        <button class="quiz-option" data-correct="true">Excludes it by default</button>
+        <button class="quiz-option" data-correct="false">Raises an exception immediately</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">For a report a person acts on, which failure mode is generally safer?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">A wrong-looking row quietly included</button>
+        <button class="quiz-option" data-correct="true">A row quietly missing</button>
+        <button class="quiz-option" data-correct="false">Neither is preferable to the other</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why doesn't report_id use a module-level counter to guarantee uniqueness?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Counters run slower than timestamps</button>
+        <button class="quiz-option" data-correct="true">A counter is hidden global state</button>
+        <button class="quiz-option" data-correct="false">openpyxl doesn't allow module state</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (5 minutes)</p>
+    <p>Run <code>uv run pytest tests/test_report_export.py -k report_id_format -v</code> and read
+    <code>test_payment_aging_report_report_id_format</code>. Without running any other test first,
+    and without any prior calls to <code>export_payment_aging_report</code> anywhere, write down
+    why you can predict the exact <code>report_id</code> this test asserts just from its two
+    inputs (<code>report_type</code>, <code>generated_at</code>) — no memory of "how many reports
+    ran before this one" required.</p>
+  </div>
+
+  <p><a href="../reference/presentation-layer-glossary.html">The Presentation Layer Glossary
+  reference</a> now has terms from every lesson so far — allow-list, hidden global state, and the
+  rest — collected in one place. One lesson left: tracing one real result all the way into a saved,
+  reloaded workbook.</p>
+
+  <div class="ask-teacher">
+    If "allow-list" and "deny-list" still feel like the same idea phrased two ways, pick a made-up
+    example outside this repo (a username filter, a file-upload type check) and argue out loud which
+    one you'd want — ask now if the two directions don't feel genuinely different yet.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0019-explicit-columns-and-empty-reports.html">← Back: Explicit columns &amp; empty reports</a>
+    <a href="0021-track-3-guided-report-trace.html">Next: Guided report trace (capstone) →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

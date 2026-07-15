@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 8 — Business Rules vs. Code Rules</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 2 · Lesson 1 of 7</span>
+    <a href="0009-structured-errors-and-result-envelopes.html">Next: Structured errors &amp; result envelopes →</a>
+  </div>
+
+  <p class="kicker">Track 2 — Business Rules &amp; Testing Discipline</p>
+  <h1>Business Rules vs. Code Rules</h1>
+  <p class="lede">
+    You've finished Track 1 and (per <span class="filelink">docs/teach/ROADMAP.md</span>) Tutorials
+    01 and 02 — you can read a contract, a DataFrame, and a test file. Track 2 is about a different
+    skill: reading a whole <em>module</em> as a set of real-world policies, each one proven by a
+    test. This lesson teaches the one distinction everything else in Track 2 builds on.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p><a href="https://docs.pytest.org/en/stable/how-to/assert.html">pytest — How to write and
+    report assertions</a> (official docs) — the mechanism this lesson keeps coming back to:
+    an <code>assert</code> is how a business rule gets turned into a checkable fact.</p>
+  </div>
+
+  <h2>Two kinds of "wrong"</h2>
+  <p>Open <span class="filelink">src/order_validation.py</span> and
+  <span class="filelink">tests/test_order_validation.py</span> side by side. Somewhere in there,
+  something can go wrong in two completely different senses:</p>
+
+  <table>
+    <tr><th></th><th>A business rule violation</th><th>A programming error</th></tr>
+    <tr><td>What it means</td><td>The <em>data</em> breaks a real-world policy — a customer name is
+    blank, a quantity is negative.</td><td>The <em>code</em> is wrong, regardless of what data it
+    receives — a typo'd variable name, an off-by-one.</td></tr>
+    <tr><td>Who fixes it</td><td>Whoever owns the data — a sales admin correcting a spreadsheet
+    cell.</td><td>A developer — the code itself needs to change.</td></tr>
+    <tr><td>How this repo reports it</td><td>A structured, business-readable result — see Lesson 9.
+    </td><td>A crash — a traceback, on purpose, so it gets noticed and fixed.</td></tr>
+  </table>
+
+  <p>The whole reason <span class="filelink">order_validation.py</span> exists is to turn the first
+  kind of "wrong" — a real spreadsheet problem — into something a non-programmer can read and act
+  on, instead of into a crash. Confusing the two is a real design mistake: a module that crashes on
+  a blank cell is treating a routine data problem like a bug in itself; a module that silently
+  swallows an actual code bug as "just bad data" hides something a developer needed to know about.</p>
+
+  <h2>A test proves a rule on one known example</h2>
+  <p>Open <span class="filelink">tests/test_order_validation.py</span> and find this:</p>
+
+  <pre><code>def test_missing_customer_name_raises_ov001():
+    result = validate_orders(_orders_df(_order_row(customer_name="")), _product_master_df())
+    errors = _errors_by_code(result, "OV-001")
+    assert len(errors) == 1
+    assert errors[0]["error_message"] == "Customer name is missing."
+    assert errors[0]["severity"] == "Error"
+    assert result["valid_orders"] == []</code></pre>
+
+  <p>The business rule here — "a customer name must not be blank" — is a sentence a sales admin
+  would recognize instantly, with no Python knowledge at all. This test doesn't prove the rule
+  <em>in general</em>; it proves it on <strong>one concrete, known example</strong>: build an order
+  row with <code>customer_name=""</code>, run it through <code>validate_orders</code>, and check
+  that the result says exactly what the rule promises — one error, the right message, the right
+  severity, and the row excluded from <code>valid_orders</code>. Four separate <code>assert</code>
+  lines, four separate facts, all about the <em>same</em> one example.</p>
+
+  <div class="box primer">
+    <p class="box-label">Why "on one known example" is the whole point</p>
+    <p>A rule stated only in English ("names can't be blank") is not yet checkable by a computer.
+    A rule expressed as "given <em>this exact input</em>, the output must be <em>exactly this</em>"
+    is. The gap between those two is what a test closes — and it's why every rule in this repo's
+    three Track 2 specs eventually gets at least one test built the same way this one is: a
+    concrete input, a concrete expected output, an <code>assert</code> connecting them.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">If a quantity cell contains the text "ten" instead of a number, is that a business rule violation or a programming error?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="true">A business rule violation</button>
+        <button class="quiz-option" data-correct="false">A Python programming error</button>
+        <button class="quiz-option" data-correct="false">Neither — pytest cannot see it</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">In test_missing_customer_name_raises_ov001, what single concrete input is the whole test built around?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">every row in sample_orders.xlsx</button>
+        <button class="quiz-option" data-correct="true">one order row with a blank name</button>
+        <button class="quiz-option" data-correct="false">a randomly generated order batch</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does order_validation.py convert a malformed quantity into a structured result instead of letting Python crash?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">crashing is slower than returning</button>
+        <button class="quiz-option" data-correct="true">bad data isn't a code bug to hide</button>
+        <button class="quiz-option" data-correct="false">pytest cannot catch real crashes</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (4 minutes)</p>
+    <p>Open <span class="filelink">tests/test_order_validation.py</span> and find
+    <code>test_negative_quantity_raises_ov004</code>. In one sentence each: (1) what's the exact
+    business rule this test proves, in plain English a sales admin would recognize, and (2) what's
+    the one concrete input row that proves it? Don't read <span class="filelink">src/order_validation.py</span>
+    yet — answer from the test alone.</p>
+  </div>
+
+  <p>This distinction is exactly what
+  <a href="../../tutorials/03-order-validation-core/README.md#part-2--loader-boundary-vs-row-rule-boundary">Tutorial 03's Part 2</a>
+  builds on — it goes further into <em>where</em> in the code this line gets drawn (a missing
+  column vs. a blank cell), using the same module this lesson just introduced.
+  <a href="../reference/business-rule-testing-glossary.html">The Business Rule &amp; Testing
+  Glossary reference</a> collects this lesson's terms (plus Lesson 11's) for quick lookup.</p>
+
+  <div class="ask-teacher">
+    If the business-rule/programming-error line still feels blurry for a specific example, ask now
+    with that example — Lesson 9 assumes you can sort a new case into one bucket or the other
+    without hesitating.
+  </div>
+
+  <div class="nav nav-bottom">
+    <span>← You are here</span>
+    <a href="0009-structured-errors-and-result-envelopes.html">Next: Structured errors &amp; result envelopes →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 14 — Track 2 Guided Test Trace</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 2 · Lesson 7 of 7</span>
+    <a href="../../tutorials/03-order-validation-core/README.md">Next: Tutorial 03 →</a>
+  </div>
+
+  <p class="kicker">Track 2 — Business Rules &amp; Testing Discipline</p>
+  <h1>Guided Trace: One Test Per Module, Start to Finish</h1>
+  <p class="lede">
+    No new concepts — this is rehearsal, exactly like Track 1's Lesson 7. Three real tests, one from
+    each of the three Track 2 modules, each walked through the same four questions. Predict each
+    answer yourself before revealing it; skipping straight to the reveal defeats the point.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">What you're rehearsing</p>
+    <p>No new external resource — this lesson exercises Lessons 8 through 13 together, plus Track
+    1's contract and DataFrame material. If any single question feels impossible, that's a signal to
+    revisit the specific lesson it depends on, not to push through.</p>
+  </div>
+
+  <h2>The four questions, every time</h2>
+  <p>For each test below, you'll answer the same four things, in this order:</p>
+  <ol>
+    <li><strong>What input row(s)</strong> is the test constructing?</li>
+    <li><strong>What business rule</strong> (Lesson 8) is actually under test?</li>
+    <li><strong>What output contract</strong> (Lesson 9) should change as a result?</li>
+    <li><strong>What assertion</strong> proves the behavior actually happened?</li>
+  </ol>
+
+  <h2>Test 1 — Order Validation</h2>
+  <p>Open <span class="filelink">tests/test_order_validation.py</span> and find:</p>
+  <pre><code>def test_invalid_sku_not_in_master_raises_ov003_unknown_sku():
+    result = validate_orders(_orders_df(_order_row(sku="MED-LENS-999")), _product_master_df())
+    errors = _errors_by_code(result, "OV-003-UNKNOWN_SKU")
+    assert len(errors) == 1
+    assert errors[0]["error_message"] == "SKU does not exist in product master."
+    assert result["summary"]["invalid_skus"] == 1</code></pre>
+
+  <details>
+    <summary>1. Reveal: the input row</summary>
+    <p>One order row, built from <code>_order_row(**overrides)</code>'s defaults (Lesson 10) with a
+    single override: <code>sku="MED-LENS-999"</code> — a SKU that doesn't appear anywhere in
+    <code>_product_master_df()</code>'s rows. Every other field (customer name, quantity, dates,
+    priority) is left at its normal, valid default.</p>
+  </details>
+
+  <details>
+    <summary>2. Reveal: the business rule</summary>
+    <p>OV-003 — a SKU on an order must actually exist in the product master. This is the "unknown
+    SKU" sub-case specifically (as opposed to "inactive SKU," a different OV-003 sub-case for a SKU
+    that exists but is flagged inactive).</p>
+  </details>
+
+  <details>
+    <summary>3. Reveal: the output contract</summary>
+    <p><code>ValidationErrorRow</code> — one new entry, <code>error_code="OV-003-UNKNOWN_SKU"</code>.
+    Also <code>ValidationSummary.invalid_skus</code>, incremented by one. This row does
+    <strong>not</strong> become a <code>ValidOrderRow</code> — an unknown SKU is Error severity
+    (Lesson 8's business-rule-violation category), which excludes the row from
+    <code>valid_orders</code> entirely.</p>
+  </details>
+
+  <details>
+    <summary>4. Reveal: the assertions</summary>
+    <p>Three facts, about the one row: exactly one <code>OV-003-UNKNOWN_SKU</code> error exists
+    (not zero, not two); its message is the exact business-readable sentence a sales admin would
+    read; and the summary's <code>invalid_skus</code> count reflects it. Same "collect every fact
+    about one known example" shape Lesson 8 introduced.</p>
+  </details>
+
+  <h2>Test 2 — Inventory Allocation</h2>
+  <p>Open <span class="filelink">tests/test_inventory_allocation.py</span> and find:</p>
+  <pre><code>def test_high_priority_allocated_before_normal():
+    orders = _orders_df(
+        _order_row(order_id="SO-2026-002", priority="Normal", quantity=10),
+        _order_row(order_id="SO-2026-001", priority="High", quantity=10),
+    )
+    result = allocate_inventory(orders, _inventory_df(_inventory_row(available_qty=10)))
+    assert [r["order_id"] for r in result["allocation_results"]] == ["SO-2026-001", "SO-2026-002"]
+    assert _result_by_order_id(result, "SO-2026-001")["status"] == "Fully Allocated"
+    assert _result_by_order_id(result, "SO-2026-002")["status"] == "Backordered"</code></pre>
+
+  <details>
+    <summary>1. Reveal: the input rows</summary>
+    <p>Two order rows — notice the <em>file order</em>: <code>SO-2026-002</code> (Normal priority)
+    is listed <strong>first</strong>, <code>SO-2026-001</code> (High priority) <strong>second</strong>.
+    Only one inventory row, with just enough stock (10 units) to fully cover exactly one of the two
+    10-unit orders.</p>
+  </details>
+
+  <details>
+    <summary>2. Reveal: the business rule</summary>
+    <p>IA-001's sort order (Lesson 12) — priority beats upload/file order entirely. Even though the
+    Normal order was typed first in the spreadsheet, the High order must be processed first.</p>
+  </details>
+
+  <details>
+    <summary>3. Reveal: the output contract</summary>
+    <p><code>AllocationResultRow</code> — both orders get one row each, but with different
+    <code>status</code> values: <code>"Fully Allocated"</code> for the High order,
+    <code>"Backordered"</code> for the Normal one — a direct consequence of only one of them being
+    able to claim the single available warehouse's 10 units first.</p>
+  </details>
+
+  <details>
+    <summary>4. Reveal: the assertions</summary>
+    <p>The first assertion checks <em>order</em> itself: <code>result["allocation_results"]</code>
+    lists <code>SO-2026-001</code> before <code>SO-2026-002</code>, proving the output reflects
+    IA-001's sort, not file order. The next two check each order's individual <code>status</code> —
+    together, they prove both the sort <em>and</em> its consequence (who actually got the stock).</p>
+  </details>
+
+  <h2>Test 3 — Payment Aging</h2>
+  <p>Open <span class="filelink">tests/test_payment_aging.py</span> and find:</p>
+  <pre><code>def test_large_outstanding_amount_forces_high_priority_at_low_day_count():
+    result = calculate_payment_aging(
+        _invoices_df(_invoice_row(due_date=_due(5), invoice_amount=60000.0)), as_of_date=AS_OF
+    )
+    row = result["aging_rows"][0]
+    assert row["aging_bucket"] == "1-30 Days"
+    assert row["follow_up_priority"] == "High"</code></pre>
+
+  <details>
+    <summary>1. Reveal: the input row</summary>
+    <p>One invoice row, due 5 days ago (<code>_due(5)</code>) with an unusually large
+    <code>invoice_amount</code> of <code>60000.0</code> — well above the 50,000 threshold PA-005
+    names — and the default <code>paid_amount=0.0</code>, so nothing is paid off yet.</p>
+  </details>
+
+  <details>
+    <summary>2. Reveal: the business rule</summary>
+    <p>PA-005's High-priority condition: <code>days_overdue &gt; 60 <strong>or</strong>
+    outstanding_amount &gt;= 50000</code> — an unconditional <em>or</em>, so a large enough amount
+    can force High priority completely independent of how few days overdue the invoice actually is.</p>
+  </details>
+
+  <details>
+    <summary>3. Reveal: the output contract</summary>
+    <p><code>PaymentAgingRow</code> — specifically, two of its fields computed <em>independently</em>
+    of each other (Lesson 11's Shape 2 idea, applied twice in one row): <code>aging_bucket</code>
+    (purely duration-based) and <code>follow_up_priority</code> (which this rule lets the amount
+    override).</p>
+  </details>
+
+  <details>
+    <summary>4. Reveal: the assertions</summary>
+    <p><code>aging_bucket == "1-30 Days"</code> — only 5 days overdue, so the purely duration-based
+    bucket rule places it in the earliest overdue bucket, completely unsurprising on its own. But
+    <code>follow_up_priority == "High"</code> — the two fields <em>disagree</em>, on the same row,
+    proving the amount-driven override this test exists specifically to lock in.</p>
+  </details>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">In Test 2, why does SO-2026-001 get processed first even though SO-2026-002 was typed first in the file?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">order_id strings sort alphabetically first</button>
+        <button class="quiz-option" data-correct="true">IA-001 sorts by priority before file order</button>
+        <button class="quiz-option" data-correct="false">pytest reorders rows before running</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">In Test 3, could aging_bucket and follow_up_priority ever disagree if follow_up_priority were computed strictly from the bucket instead of independently?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Yes, still just as easily</button>
+        <button class="quiz-option" data-correct="true">No — one would always determine the other</button>
+        <button class="quiz-option" data-correct="false">Only for Watch-priority rows</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (6 minutes) — do this one before Tutorial 03</p>
+    <p>Open <span class="filelink">tests/test_payment_aging.py</span> and find
+    <code>test_missing_due_date_flagged_as_data_issue</code>. Run this lesson's four questions on it
+    yourself, from scratch, in writing — no reveal blocks this time. Pay particular attention to
+    question 3: this test's row never reaches <code>aging_rows</code> at all, so which envelope
+    field (Lesson 9) does it actually land in instead, and which summary field (Lesson 9 again)
+    still counts it despite that?</p>
+  </div>
+
+  <h2>You're ready</h2>
+  <p>Every move in this lesson — reading a builder-helper's overrides, naming the rule under test,
+  predicting which contract changes, and reading the exact assertions that prove it — is what
+  <a href="../../tutorials/03-order-validation-core/README.md">Tutorial 03</a>,
+  <a href="../../tutorials/04-inventory-allocation-core/README.md">Tutorial 04</a>, and
+  <a href="../../tutorials/05-payment-aging-core/README.md">Tutorial 05</a> will ask of you
+  throughout, at real code you haven't seen yet. Start with Tutorial 03's own "How to use an LLM
+  before this tutorial" section, then work Part by Part.</p>
+
+  <div class="ask-teacher">
+    If the exercise above felt like a guess rather than something you derived from the code, say so
+    before starting Tutorial 03 — it's worth rehearsing one more test together first.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0013-date-arithmetic-boundaries-and-signed-values.html">← Back: Date arithmetic &amp; boundaries</a>
+    <a href="../../tutorials/03-order-validation-core/README.md">Next: Tutorial 03 →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

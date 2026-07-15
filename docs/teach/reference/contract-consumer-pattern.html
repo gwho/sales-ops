@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Contract Consumer Pattern</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 3</p>
+  <h1>Contract Consumer Pattern</h1>
+  <p class="lede">The producer side of a contract, and the consumer side, side by side. Companion to
+  <a href="../lessons/0016-consuming-contracts-without-changing-them.html">Lesson 16</a>; extends
+  Track 2's <a href="result-envelope-pattern.html">Result Envelope Pattern</a> from the producer's
+  point of view to the consumer's.</p>
+
+  <h2>Two roles, one contract</h2>
+  <table>
+    <tr><th>Role</th><th>What it does</th><th>Example in this repo</th></tr>
+    <tr><td>Producer</td><td>Builds an envelope, owns its shape, defines its type locally in its
+    own module.</td><td><span class="filelink">order_validation.py</span> defines and returns
+    <code>OrderValidationResult</code>.</td></tr>
+    <tr><td>Consumer</td><td>Receives an envelope as a parameter, reads from it, never redefines or
+    extends its shape.</td><td><span class="filelink">report_export.py</span> imports and reads
+    <code>OrderValidationResult</code>, never modifies it.</td></tr>
+  </table>
+
+  <h2>What a consumer is allowed to do</h2>
+  <ul>
+    <li><strong>Read any field the contract already defines.</strong> <code>result["valid_orders"]</code>,
+    <code>result["errors"]</code> — straightforward.</li>
+    <li><strong>Import the producer's type from the producer's module.</strong> Never from
+    <span class="filelink">contracts.py</span> unless the type actually lives there (see Track 2's
+    Result Envelope Pattern reference — envelopes live with their producing module).</li>
+    <li><strong>Filter or derive a <em>view</em> over already-trusted data</strong> — e.g.
+    <code>Follow-up List</code>'s allow-list filter (Lesson 20) — without ever changing what a field
+    means or recomputing its value.</li>
+    <li><strong>Accept extra parameters the contract doesn't carry</strong>, kept entirely separate
+    from the envelope, when a consumer needs data the producer never had reason to include — e.g.
+    <code>original_orders_df</code> alongside <code>result</code>.</li>
+  </ul>
+
+  <h2>What a consumer is never allowed to do</h2>
+  <ul>
+    <li><strong>Add a field to the producer's contract</strong> just because one consumer would find
+    it convenient — every other caller of the producer would carry a payload it never asked for.</li>
+    <li><strong>Recompute a value the contract already provides</strong> (Lesson 15) — that's a
+    recalculation leak, not consumption.</li>
+    <li><strong>Redefine the producer's type inside the consumer's own module</strong> — the type has
+    exactly one home, the module that produces it.</li>
+  </ul>
+
+  <div class="box primer">
+    <p class="box-label">The "separate parameter" escape hatch</p>
+    <p>When a consumer genuinely needs data the contract doesn't carry, the fix is a second,
+    independent function parameter — never a new field bolted onto the existing envelope.
+    <code>export_order_validation_report(result, original_orders_df=None, ...)</code> is the
+    concrete example: <code>OrderValidationResult</code> stays exactly what Tutorial 03 defined,
+    and the report-specific need is satisfied by a parameter no other caller of
+    <code>validate_orders()</code> is ever forced to carry.</p>
+  </div>
+
+  <h2>When would a type actually move?</h2>
+  <p>The tell, per <a href="../lessons/0016-consuming-contracts-without-changing-them.html">Lesson
+  16</a>'s checkpoint: a producer's envelope type is worth promoting into
+  <span class="filelink">contracts.py</span> only if it turns out to be structurally identical to
+  another module's envelope (duplication worth collapsing), or if a consumer module starts needing
+  to treat multiple envelopes <em>polymorphically</em> — one generic function operating on "any
+  envelope" rather than one hand-written function per producer. Neither has happened in this repo
+  yet: all three envelopes have different field counts, and
+  <span class="filelink">report_export.py</span> still has one explicit
+  <code>export_*_report</code> function per producer.</p>
+
+  <hr>
+  <p><a href="../lessons/0016-consuming-contracts-without-changing-them.html">← Back to Lesson 16</a></p>
+
+</div>
+</body>
+</html>
