@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Presentation Layer Glossary</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 3</p>
+  <h1>Presentation Layer Glossary</h1>
+  <p class="lede">The terms Lessons 15, 16, and 20 introduce, compressed for lookup. Companion to
+  <a href="../lessons/0015-presentation-layer-vs-business-logic.html">Lesson 15</a>,
+  <a href="../lessons/0016-consuming-contracts-without-changing-them.html">Lesson 16</a>, and
+  <a href="../lessons/0020-allow-lists-hidden-state-and-safe-defaults.html">Lesson 20</a>.</p>
+
+  <div class="box primer">
+    <p class="box-label">A note on this document's status</p>
+    <p>This is a <em>pre-study</em> glossary, same status as Track 1's and Track 2's — terms
+    defined so you can start using them, not yet evidence you've internalized them. A term only
+    gets promoted into this workspace's permanent, evidence-gated glossary once you've demonstrated
+    understanding of it in conversation or an exercise.</p>
+  </div>
+
+  <h2>Terms</h2>
+
+  <p><strong>Business logic layer</strong>:<br>
+  The part of a system that decides what a result <em>is</em> — computes, classifies, validates a
+  real-world fact. In this repo: <span class="filelink">order_validation.py</span>,
+  <span class="filelink">inventory_allocation.py</span>, <span class="filelink">payment_aging.py</span>.
+  Can be "wrong" in a business sense — a bug in a rule produces a wrong business fact.</p>
+
+  <p><strong>Presentation layer</strong>:<br>
+  The part of a system that formats an already-decided result for a human to read. In this repo:
+  <span class="filelink">report_export.py</span>. Cannot be wrong in a business sense — it has no
+  rules of its own to break, only formatting to get right or wrong.<br>
+  <em>Avoid</em>: treating "presentation layer" as a synonym for "UI code" — any module whose job is
+  formatting an already-computed result, including a backend Excel exporter, is playing this role.</p>
+
+  <p><strong>Recalculation leak</strong>:<br>
+  The failure mode a presentation layer exists to prevent — quietly recomputing a business fact
+  instead of trusting the value it was handed, risking disagreement with whatever else in the
+  system computed the same fact (a dashboard, an earlier report). Named directly in
+  <a href="../lessons/0015-presentation-layer-vs-business-logic.html">Lesson 15</a>.</p>
+
+  <p><strong>Producer module</strong>:<br>
+  A module that builds and owns the shape of its own output — <span class="filelink">order_validation.py</span>,
+  <span class="filelink">inventory_allocation.py</span>, and <span class="filelink">payment_aging.py</span>
+  are this repo's three producers.</p>
+
+  <p><strong>Consumer module</strong>:<br>
+  A module that only ever receives another module's output as a parameter and reads from it, never
+  building an envelope of its own. <span class="filelink">report_export.py</span> is this repo's
+  first consumer module.</p>
+
+  <p><strong>Allow-list</strong>:<br>
+  A filter that only accepts values it explicitly recognizes; everything else is excluded by
+  default. This repo's <code>FOLLOW_UP_PRIORITIES</code> set is the running example — fails safer
+  than its alternative, because an unrecognized value goes missing rather than being silently
+  included.</p>
+
+  <p><strong>Deny-list / exclusion-list</strong>:<br>
+  The opposite filter shape — only rejects values it explicitly recognizes; everything else is
+  accepted by default. The rejected alternative for <code>Follow-up List</code>
+  (<code>!= "None"</code>) is this repo's own concrete near-miss example — it would have behaved
+  identically for every value the code has ever actually produced, and differently only for a value
+  nobody anticipated.</p>
+
+  <p><strong>Presentation-safe filtering</strong> (contrast with revalidation):<br>
+  Deciding whether an already-trusted value belongs in a derived, filtered view — without ever
+  touching or second-guessing the value itself. Different in kind from revalidation, which would
+  mean recomputing whether the value is even correct. A presentation layer may do the first; never
+  the second.</p>
+
+  <p><strong>Hidden global state</strong>:<br>
+  A value that lives outside any function and is remembered between calls — a module-level counter
+  is the classic shape. This repo's coding standards rule it out everywhere: it makes a pure
+  function's output depend on call order, and makes bugs far harder to reproduce than anything a
+  side-effect-free function can produce.</p>
+
+  <h2>Quick contrast table</h2>
+  <table>
+    <tr><th>Term</th><th>Can it be "wrong" in a business sense?</th><th>Example</th></tr>
+    <tr><td>Business logic layer</td><td>Yes</td><td><span class="filelink">payment_aging.py</span></td></tr>
+    <tr><td>Presentation layer</td><td>No — only formatting mistakes</td><td><span class="filelink">report_export.py</span></td></tr>
+    <tr><td>Allow-list</td><td>Fails by omission (safer)</td><td><code>FOLLOW_UP_PRIORITIES</code></td></tr>
+    <tr><td>Deny-list</td><td>Fails by silent inclusion</td><td><code>!= "None"</code> (rejected)</td></tr>
+  </table>
+
+  <hr>
+  <p>
+    <a href="../lessons/0015-presentation-layer-vs-business-logic.html">← Back to Lesson 15</a> ·
+    <a href="../lessons/0016-consuming-contracts-without-changing-them.html">← Back to Lesson 16</a> ·
+    <a href="../lessons/0020-allow-lists-hidden-state-and-safe-defaults.html">← Back to Lesson 20</a>
+  </p>
+
+</div>
+</body>
+</html>

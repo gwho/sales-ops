@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 10 — Reading Tests as Specifications</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 2 · Lesson 3 of 7</span>
+    <a href="0011-independent-rule-evaluation-and-data-issues.html">Next: Independent rules &amp; data issues →</a>
+  </div>
+
+  <p class="kicker">Track 2 — Business Rules &amp; Testing Discipline</p>
+  <h1>Reading Tests as Specifications</h1>
+  <p class="lede">
+    The practical "how to read the proof" lesson before Tutorial 03. Track 1's Lesson 3 covered
+    <code>assert</code> and <code>pytest.raises</code> — this lesson covers three things it didn't:
+    builder-style helper functions, <code>@pytest.mark.parametrize</code>, and reading a test file's
+    own section comments as a table of contents.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Building on</p>
+    <p><a href="../reference/pytest-reading-cheat-sheet.html">Track 1's pytest reading cheat sheet</a>
+    already covers <code>assert</code>, <code>pytest.raises</code>, and property-style assertions —
+    this lesson doesn't repeat them. If those feel shaky, revisit that reference first.</p>
+  </div>
+
+  <h2>Arrange, act, assert</h2>
+  <p>Nearly every test in <span class="filelink">tests/test_order_validation.py</span>,
+  <span class="filelink">tests/test_inventory_allocation.py</span>, and
+  <span class="filelink">tests/test_payment_aging.py</span> has the same three-beat shape. Here's
+  one, labeled:</p>
+
+  <pre><code>def test_overpayment_clamps_outstanding_to_zero():
+    # ARRANGE — build the one input this test is about
+    result = calculate_payment_aging(
+        _invoices_df(_invoice_row(invoice_amount=100.0, paid_amount=150.0, due_date=_due(20))),
+        as_of_date=AS_OF,
+    )
+    # ACT already happened above — calculate_payment_aging() IS the act
+    row = result["aging_rows"][0]
+    # ASSERT — check the facts this test exists to prove
+    assert row["outstanding_amount"] == 0.0
+    assert row["follow_up_priority"] == "None"</code></pre>
+
+  <p>In this repo's style, <strong>arrange</strong> and <strong>act</strong> are usually one
+  expression — building the input and calling the function happen together, since the function call
+  itself is what's being tested. <strong>Assert</strong> is always separate, at the end, checking
+  every fact this specific test cares about.</p>
+
+  <h2>Builder helpers with overrides</h2>
+  <p>Every test file starts with small helper functions like this one, from
+  <span class="filelink">tests/test_order_validation.py</span>:</p>
+
+  <pre><code>def _order_row(**overrides) -> dict:
+    row = {
+        "order_id": "SO-2026-001",
+        "order_date": date(2026, 7, 1),
+        "customer_name": "Bright Medical Trading Ltd",
+        ...
+        "priority": "High",
+        "payment_terms": "30 days",
+    }
+    row.update(overrides)
+    return row</code></pre>
+
+  <p><code>**overrides</code> is new syntax: it captures <em>any</em> keyword arguments a caller
+  passes — <code>_order_row(customer_name="")</code> captures
+  <code>{"customer_name": ""}</code> as <code>overrides</code> — as a plain dict. Line 2 builds a
+  complete, valid-looking default row; <code>row.update(overrides)</code> (a dict method — Lesson 2's
+  material, extended) overlays whatever the caller specified on top of those defaults, leaving
+  everything else untouched. The payoff: every test can construct "a normal row, except for the one
+  field I'm testing," in one short line, instead of retyping all eleven fields every time.</p>
+
+  <div class="box primer">
+    <p class="box-label">Not a pytest fixture — a plain helper function</p>
+    <p>pytest has its own, separate mechanism for shared test setup, called a <em>fixture</em>
+    (a function decorated <code>@pytest.fixture</code>). None of the three Track 2 test files use
+    that mechanism — <code>_order_row</code>, <code>_invoices_df</code>, and their siblings are
+    ordinary functions this repo's own test authors wrote, called directly. Worth knowing the real
+    pytest feature exists (see the
+    <a href="https://docs.pytest.org/en/stable/how-to/fixtures.html">pytest fixtures docs</a> if you
+    want to go deeper later), but don't call these "fixtures" when describing this repo's tests —
+    that would misname what's actually happening.</p>
+  </div>
+
+  <h2>Running one test body many times: parametrize</h2>
+  <p>Open <span class="filelink">tests/test_payment_aging.py</span> and find this:</p>
+
+  <pre><code>@pytest.mark.parametrize(
+    "days_overdue,expected_bucket,expected_priority",
+    [
+        (30, "1-30 Days", "Low"),
+        (31, "31-60 Days", "Medium"),
+        (60, "31-60 Days", "Medium"),
+        (61, "61-90 Days", "High"),
+        (90, "61-90 Days", "High"),
+        (91, "90+ Days", "High"),
+    ],
+)
+def test_aging_bucket_and_priority_boundaries(days_overdue, expected_bucket, expected_priority):
+    result = calculate_payment_aging(
+        _invoices_df(_invoice_row(due_date=_due(days_overdue))), as_of_date=AS_OF
+    )
+    row = result["aging_rows"][0]
+    assert row["aging_bucket"] == expected_bucket
+    assert row["follow_up_priority"] == expected_priority</code></pre>
+
+  <p>Read the decorator as a table: the first string names the three parameters
+  (<code>days_overdue</code>, <code>expected_bucket</code>, <code>expected_priority</code>); each
+  tuple below is one row of that table, run through the <em>same</em> test body once per row —
+  pytest reports six separate pass/fail results, not one. This is how you get six boundary cases
+  checked without writing six nearly-identical functions.</p>
+
+  <h2>Section comments are a table of contents</h2>
+  <p>Open any of the three Track 2 test files and scroll — you'll hit lines like this, over and
+  over:</p>
+  <pre><code># --- Spec section 12 test cases -------------------------------------------
+...
+# --- IA-001 sort order edge cases ----------------------------------------
+...
+# --- Malformed / missing required valid order data ------------------------</code></pre>
+  <p>These aren't decoration. Before reading a single test body, scroll through just the section
+  comments — you'll get an accurate outline of everything the module handles: the spec's own
+  required cases, then every edge case someone decided was worth a dedicated section. This is the
+  fastest way to answer "what does this module actually cover" without reading 300+ lines top to
+  bottom.</p>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">In _order_row(**overrides), what does row.update(overrides) actually do?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">deletes every default field at once</button>
+        <button class="quiz-option" data-correct="true">overlays overrides onto the defaults</button>
+        <button class="quiz-option" data-correct="false">renames row to match overrides</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">How many separate pass/fail results does pytest report for a test with 6 parametrize tuples?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">exactly one, combined together</button>
+        <button class="quiz-option" data-correct="true">six, one per tuple</button>
+        <button class="quiz-option" data-correct="false">zero until manually re-run</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Are _order_row and _invoices_df real pytest @pytest.fixture functions?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">yes, decorated exactly that way</button>
+        <button class="quiz-option" data-correct="true">no, plain helper functions instead</button>
+        <button class="quiz-option" data-correct="false">yes, but only in payment_aging tests</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (4 minutes)</p>
+    <p>Open <span class="filelink">tests/test_inventory_allocation.py</span> and scroll through
+    <em>only</em> the <code># ---</code> section comments, top to bottom — don't read any test
+    bodies. Write down the section names in order. Then find the one test in that file decorated
+    with <code>@pytest.mark.parametrize</code> and name the two values being varied across its
+    cases.</p>
+  </div>
+
+  <p>You now have every reading skill Tutorial 03 assumes.
+  <a href="../reference/test-reading-patterns.html">The Test Reading Patterns reference</a> collects
+  everything from this lesson plus Track 1's cheat sheet in one place, for quick lookup while you
+  read the real tutorials.</p>
+
+  <div class="ask-teacher">
+    If parametrize's table-shape or the <code>**overrides</code> mechanism still feels unfamiliar,
+    ask now with a test you're stuck on — Lesson 11 reads several more tests without re-explaining
+    either pattern.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0009-structured-errors-and-result-envelopes.html">← Back: Structured errors &amp; result envelopes</a>
+    <a href="0011-independent-rule-evaluation-and-data-issues.html">Next: Independent rules &amp; data issues →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

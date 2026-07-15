@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — DataFrame / Table Mental Model</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 1</p>
+  <h1>DataFrame / Table Mental Model</h1>
+  <p class="lede">The minimum pandas vocabulary this repo actually uses. Companion to
+  <a href="../lessons/0005-excel-boundaries-and-table-shaped-data.html">Lesson 5</a>.</p>
+
+  <h2>The core equivalence</h2>
+  <table>
+    <tr><th>Excel</th><th>Python (Lesson 2)</th><th>pandas</th></tr>
+    <tr><td>A whole worksheet</td><td>A list of same-shaped dicts</td><td>A <code>DataFrame</code></td></tr>
+    <tr><td>One row</td><td>One dict, e.g. <code>{"sku": "A", "quantity": 3}</code></td><td>One row of the DataFrame</td></tr>
+    <tr><td>One column header</td><td>A dict key, shared across every row's dict</td><td>One entry in <code>df.columns</code></td></tr>
+    <tr><td>An empty cell</td><td>—</td><td><code>None</code> (often shown as <code>NaN</code> for numbers)</td></tr>
+  </table>
+
+  <h2>Reading a file in</h2>
+  <pre><code>df = pd.read_excel(path)          # returns a DataFrame
+df.columns                        # -> Index(['order_id', 'sku', 'quantity', ...])
+df["sku"]                         # -> the sku column, top to bottom
+df.iloc[0]                        # -> the first row, as a Series (dict-like)</code></pre>
+
+  <h2>Building a DataFrame from rows you already have</h2>
+  <pre><code>rows = [
+    {"sku": "VIS-SLIT-001", "product_name": "Slit Lamp Examination Unit", "active": True},
+    {"sku": "VIS-LOUPE-004", "product_name": "Surgical Loupe Set (Legacy)", "active": False},
+]
+df = pd.DataFrame(rows)</code></pre>
+  <p>This is exactly the pattern <span class="filelink">src/sample_data.py</span>'s
+  <code>generate_*()</code> functions use — build a plain list of dicts, then hand the whole list to
+  <code>pd.DataFrame(...)</code> once at the end.</p>
+
+  <h2>Checking for a required column</h2>
+  <pre><code>missing = [column for column in required_columns if column not in df.columns]</code></pre>
+  <p><code>df.columns</code> behaves like a list of names — <code>in</code> / <code>not in</code>
+  checks membership exactly like it would on a plain Python list.</p>
+
+  <h2>Filtering: read the inner part first</h2>
+  <pre><code>df[df["quantity"] == 0]</code></pre>
+  <table>
+    <tr><th>Piece</th><th>Meaning</th></tr>
+    <tr><td><code>df["quantity"] == 0</code></td><td>A yes/no answer, computed per row (a "boolean mask").</td></tr>
+    <tr><td><code>df[ ... ]</code></td><td>"Keep only the rows where the inner expression said yes."</td></tr>
+  </table>
+  <p>Combine conditions with <code>&amp;</code> (and) / <code>|</code> (or), each side in its own
+  parentheses:</p>
+  <pre><code>orders_df[orders_df["sku"].notna() & ~orders_df["sku"].isin(known_skus)]</code></pre>
+  <p>Read as: "rows where <code>sku</code> is not blank, <strong>and</strong> (<code>~</code> = not)
+  <code>sku</code> is not among the known SKUs."</p>
+
+  <h2>Checking for blank cells</h2>
+  <pre><code>df["sku"].isna()      # True where the cell is blank/None, per row
+df["sku"].notna()     # the opposite — True where a real value is present</code></pre>
+
+  <h2>Counting and naming, not just detecting</h2>
+  <pre><code>duplicate_mask = df["order_id"].duplicated(keep=False)
+duplicated_ids = set(df.loc[duplicate_mask, "order_id"])
+# duplicated_ids might be: {"SO-2026-010"}
+# duplicate_mask.sum() counts how many rows the mask marked True</code></pre>
+  <p><code>df.loc[mask, "column"]</code> is "give me just that column, but only for the rows the
+  mask kept" — combines filtering and column-selection in one step.</p>
+
+  <hr>
+  <p><a href="../lessons/0005-excel-boundaries-and-table-shaped-data.html">← Back to Lesson 5</a></p>
+
+</div>
+</body>
+</html>

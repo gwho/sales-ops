@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 18 — Serialization Boundaries &amp; Safe Cell Values</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 3 · Lesson 4 of 7</span>
+    <a href="0019-explicit-columns-and-empty-reports.html">Next: Explicit columns &amp; empty reports →</a>
+  </div>
+
+  <p class="kicker">Track 3 — Presentation Without Leakage</p>
+  <h1>Serialization Boundaries &amp; Safe Cell Values</h1>
+  <p class="lede">
+    Python has several different ways to represent "nothing." Excel's <code>.xlsx</code> format
+    doesn't. This lesson is about the function that reconciles the two — and about a genuinely
+    surprising fact you have to actually observe to believe, not just read about.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary sources</p>
+    <p><a href="https://openpyxl.readthedocs.io/en/stable/">openpyxl documentation</a> (official) —
+    for how a workbook is actually written and reloaded. <a href="https://docs.python.org/3/library/io.html#io.BytesIO">Python — <code>io.BytesIO</code></a>
+    (official docs) — the in-memory buffer that makes an entirely disk-free save possible, and the
+    thing standing between "an object in memory" and "a file a real person could open."</p>
+  </div>
+
+  <h2>Four ways to mean "nothing"</h2>
+  <p>Before this lesson's code, notice how many different values can mean "there's no real data
+  here," depending on where a value came from:</p>
+  <table>
+    <tr><th>Value</th><th>Where it comes from</th></tr>
+    <tr><td><code>None</code></td><td>Python's own null — e.g. a <code>NotRequired</code> field's
+    default.</td></tr>
+    <tr><td><code>float('nan')</code></td><td>A pandas <code>DataFrame</code> column with mixed
+    numbers and blanks, upcast to <code>float64</code>.</td></tr>
+    <tr><td><code>pd.NaT</code></td><td>The same upcasting, but for a blank cell in a datetime
+    column.</td></tr>
+    <tr><td><code>pd.NA</code></td><td>pandas's own newer, type-agnostic missing-value marker.</td></tr>
+  </table>
+  <p>Four different runtime representations, all meaning the same business fact: "this cell has
+  nothing in it." A serialization boundary — any place Python data is about to become some other
+  format's data (a spreadsheet cell, a JSON field, a database column) — is exactly where this kind
+  of mismatch has to get resolved, once, in one place.</p>
+
+  <h2>One function, one place</h2>
+  <p>Open <span class="filelink">src/report_export.py</span> and find:</p>
+
+  <pre><code>def _safe_cell_value(value: Any) -> Any:
+    if value is None:
+        return ""
+    if isinstance(value, float) and math.isnan(value):
+        return ""
+    try:
+        if pd.isna(value):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    return value</code></pre>
+
+  <p>Three checks, each catching one of this lesson's "nothing" shapes, all converging on the same
+  output: an empty string. Every single cell this module writes passes through this function first
+  — no sheet-writing code anywhere else in this file re-implements its own "is this blank" check.</p>
+
+  <h2>The surprise: a saved workbook is not the same as the object in memory</h2>
+  <p>Here's the part you have to actually run to believe. Open
+  <span class="filelink">tests/test_report_export.py</span> and find a comment sitting right above
+  an assertion:</p>
+
+  <pre><code># openpyxl round-trips a written "" as a genuinely blank cell -> None on reload.
+    assert row["sku"] is None</code></pre>
+
+  <p><code>_safe_cell_value</code> wrote the literal empty string <code>""</code>. This assertion
+  checks for <code>None</code>. That is not a contradiction — it's a real, documented fact about
+  the <code>.xlsx</code> format: an empty-string cell has no distinct representation from "no value
+  here at all," so once a workbook is saved and reloaded, a written <code>""</code> genuinely comes
+  back as <code>None</code>. The in-memory <code>Workbook</code> object, before it's ever saved,
+  would still show <code>""</code> — it's only after the save/reload round trip that the difference
+  disappears.</p>
+
+  <div class="box primer">
+    <p class="box-label">Round-trip testing, as a general principle</p>
+    <p>This is why every test in <span class="filelink">tests/test_report_export.py</span> calls
+    <code>load_workbook(io.BytesIO(workbook_bytes))</code> before asserting anything about a cell —
+    never inspecting the in-memory <code>Workbook</code> object directly. A test against the
+    unsaved object only proves "Python assigned the value I expected," which is true but
+    uninteresting. A test against the saved-and-reloaded object proves what a real person opening
+    the downloaded file in Excel would actually see — the only version of the question worth
+    asking. The general rule extends past this one project: whenever code produces an artifact
+    (a file, an API response, a database row), test the artifact after it's been through its real
+    save/load path, not just the object still sitting in memory.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">After writing "" to a cell, saving to bytes, and reloading, what does cell.value show?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">The empty string, ""</button>
+        <button class="quiz-option" data-correct="true">None</button>
+        <button class="quiz-option" data-correct="false">A cell-format error</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does _safe_cell_value convert None, NaN, NaT, and pd.NA all to the same output?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Excel allows only one type per column</button>
+        <button class="quiz-option" data-correct="true">So one shared definition of "blank" is used everywhere</button>
+        <button class="quiz-option" data-correct="false">pandas requires values to be unified first</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why do this project's tests always save() and load_workbook() before checking a cell's value?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">It's required to trigger cell formatting</button>
+        <button class="quiz-option" data-correct="true">The in-memory object hides what a real file shows</button>
+        <button class="quiz-option" data-correct="false">pytest cannot read unsaved objects</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (5 minutes)</p>
+    <p>Run this four-line reproduction yourself:</p>
+    <pre><code>uv run python -c "import io; from openpyxl import Workbook, load_workbook; wb = Workbook(); wb.active['A1'] = ''; buf = io.BytesIO(); wb.save(buf); print(load_workbook(buf).active['A1'].value)"</code></pre>
+    <p>Confirm it prints <code>None</code>, not an empty string. Then, without changing the
+    command, explain in one sentence why <code>io.BytesIO()</code> is the piece of this line that
+    makes "save" possible without ever touching a real file on disk.</p>
+  </div>
+
+  <p><a href="../reference/serialization-boundary-checklist.html">The Serialization Boundary
+  Checklist reference</a> turns this lesson's four "nothing" values into a reusable checklist —
+  worth revisiting any time a future track has you serialize Python data into JSON or a database
+  row, not just Excel. Next: why this module never derives a sheet's column headers from whatever
+  data happens to be in the first row.</p>
+
+  <div class="ask-teacher">
+    If the save/reload distinction still feels like a technicality rather than something worth
+    designing tests around, ask now with the four-line script's output in front of you — Lesson 21's
+    guided trace assumes you already trust this, not just remember it.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0017-excel-workbooks-sheets-and-manifests.html">← Back: Excel workbooks, sheets &amp; manifests</a>
+    <a href="0019-explicit-columns-and-empty-reports.html">Next: Explicit columns &amp; empty reports →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

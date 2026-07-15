@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Boundary Case Checklist</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 2</p>
+  <h1>Boundary Case Checklist</h1>
+  <p class="lede">Every boundary this repo's three Track 2 modules actually test, in one table —
+  plus the general pattern for spotting a boundary before you go looking for its test. Companion to
+  <a href="../lessons/0013-date-arithmetic-boundaries-and-signed-values.html">Lesson 13</a>.</p>
+
+  <h2>The general pattern</h2>
+  <p>Any rule shaped like "if <code>value &lt;= N</code>, do X; otherwise, do Y" has exactly one
+  input where the answer flips: <code>N</code> itself. A thorough test of that rule checks at least
+  two points, not one:</p>
+  <table>
+    <tr><th>Position</th><th>Why it matters</th></tr>
+    <tr><td>Exactly at the edge (<code>N</code>)</td><td>Catches <code>&lt;</code> written where <code>&lt;=</code> was meant, or vice versa.</td></tr>
+    <tr><td>One step past the edge (<code>N + 1</code> or <code>N - 1</code>)</td><td>Confirms the answer genuinely flips right where it should, not one step early or late.</td></tr>
+  </table>
+  <p>A test using a value comfortably inside a range (e.g. "45 days overdue" to prove the "31-60
+  Days" bucket) proves the bucket exists — it proves nothing about where its edges actually are.</p>
+
+  <h2>Every boundary tested in Track 2</h2>
+  <table>
+    <tr><th>Module</th><th>Rule</th><th>The edge</th><th>Values tested</th><th>Test name</th></tr>
+    <tr>
+      <td>Order Validation</td>
+      <td>OV-004</td>
+      <td>quantity must be <code>&gt; 0</code></td>
+      <td><code>0</code>, <code>-3</code></td>
+      <td><code>test_zero_quantity_raises_ov004</code>,<br><code>test_negative_quantity_raises_ov004</code></td>
+    </tr>
+    <tr>
+      <td>Inventory Allocation</td>
+      <td>Reorder alert</td>
+      <td><code>remaining_qty &lt; reorder_point</code> (strict)</td>
+      <td><code>remaining_qty == reorder_point</code> → no alert</td>
+      <td><code>test_remaining_qty_equal_to_reorder_point_does_not_alert</code></td>
+    </tr>
+    <tr>
+      <td>Inventory Allocation</td>
+      <td>IA-001 sort</td>
+      <td>tie at equal priority + delivery date</td>
+      <td>order_date, then order_id, as tie-breakers</td>
+      <td><code>test_sort_tie_breaks_by_order_date_then_order_id</code></td>
+    </tr>
+    <tr>
+      <td>Payment Aging</td>
+      <td>PA-004 / PA-005</td>
+      <td>bucket &amp; priority thresholds</td>
+      <td><code>30, 31, 60, 61, 90, 91</code> (parametrized, one test per day count)</td>
+      <td><code>test_aging_bucket_and_priority_boundaries</code></td>
+    </tr>
+    <tr>
+      <td>Payment Aging</td>
+      <td>PA-005 Watch</td>
+      <td><code>-7 &lt;= days_overdue &lt;= 0</code></td>
+      <td><code>-5</code> and <code>0</code> tested directly</td>
+      <td><code>test_watch_priority_due_within_seven_days</code>,<br><code>test_due_today_is_current_and_watch</code></td>
+    </tr>
+  </table>
+
+  <div class="box primer">
+    <p class="box-label">A real gap, left visible on purpose</p>
+    <p>Watch's <em>other</em> edge, <code>days_overdue == -7</code> exactly, has no dedicated test in
+    the current suite — only <code>-5</code> (comfortably inside) and <code>0</code> (the near edge)
+    are directly tested. This table doesn't paper over that; if you're looking for practice writing a
+    new boundary test from scratch, this is a real, honest place to start.</p>
+  </div>
+
+  <h2>Reading a boundary straight from the code</h2>
+  <pre><code>if -7 <= days_overdue <= 0:
+    return "Watch"</code></pre>
+  <p>A range check written as <code>LOW &lt;= value &lt;= HIGH</code> has <em>two</em> edges to
+  test, not one — both <code>LOW</code> and <code>HIGH</code> are candidates for an off-by-one
+  mistake, independently of each other.</p>
+
+  <hr>
+  <p><a href="../lessons/0013-date-arithmetic-boundaries-and-signed-values.html">← Back to Lesson 13</a></p>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 3 — uv, pytest, and Reading a Test File</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 1 · Lesson 3 of 7</span>
+    <a href="0004-contracts-typeddict-and-json-shapes.html">Next: Contracts &amp; TypedDict →</a>
+  </div>
+
+  <p class="kicker">Track 1 — Python, Data-as-Tables, and Contracts</p>
+  <h1>uv, pytest, and Reading a Test File</h1>
+  <p class="lede">
+    Two tools, one skill: what <code>uv</code> and <code>pytest</code> each do, and how to read a
+    test file as a plain-English description of behavior — not scary code, just claims with
+    proof attached.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p><a href="https://docs.pytest.org/en/stable/getting-started.html">pytest — Get Started</a>
+    (official docs). Once this lesson feels solid, also skim
+    <a href="https://docs.astral.sh/uv/getting-started/">uv — Getting Started</a> — the tool this
+    repo's <span class="filelink">pyproject.toml</span> and <span class="filelink">uv.lock</span> are
+    built around.</p>
+  </div>
+
+  <h2>What uv does</h2>
+  <p>Python projects need a specific, reproducible set of installed libraries. <code>uv</code> is
+  the tool that reads <span class="filelink">pyproject.toml</span> (which library <em>ranges</em>
+  are needed) and <span class="filelink">uv.lock</span> (the exact versions that were actually
+  tested), and sets up an isolated environment matching that lock file exactly. Two commands cover
+  everything Track 1 needs:</p>
+
+  <ul>
+    <li><code>uv sync</code> — install everything <span class="filelink">uv.lock</span> specifies.</li>
+    <li><code>uv run pytest</code> — run the test suite <em>inside</em> that environment, without
+    you manually "activating" anything first.</li>
+  </ul>
+
+  <p>You don't need to memorize more than that for now — <code>uv</code>'s job is "make sure the
+  right libraries are installed and used," full stop.</p>
+
+  <h2>What pytest does</h2>
+  <p><code>pytest</code> is a test runner. Point it at the repo and it will:</p>
+  <ol>
+    <li>Find every file named <code>test_*.py</code> under <span class="filelink">tests/</span>
+    (this repo's <span class="filelink">pyproject.toml</span> says exactly that:
+    <code>testpaths = ["tests"]</code>).</li>
+    <li>Inside each file, find every function named <code>test_*</code>.</li>
+    <li>Run each one. If it completes with no error, that's a <strong>pass</strong>. If it hits a
+    failed <code>assert</code> or an unexpected exception, that's a <strong>failure</strong>.</li>
+    <li>Print a summary — how many passed, how many failed, and exactly which line broke for any
+    failure.</li>
+  </ol>
+
+  <h2>Reading an assert statement</h2>
+  <p><code>assert</code> is the whole mechanism. It's one word, and it does one thing:</p>
+  <pre><code>assert 2 + 2 == 4        # true — nothing happens, execution continues
+assert 2 + 2 == 5        # false — raises AssertionError, the test fails here</code></pre>
+
+  <p>A test function is just a sequence of setup followed by one or more <code>assert</code>
+  statements — each one is a claim the author is making about the code, backed by a real example.
+  Here's a real one, from <span class="filelink">tests/test_excel_io.py</span>:</p>
+
+  <pre><code>def test_validate_required_columns_passes_when_all_present():
+    df = pd.DataFrame({"order_id": ["SO-1"], "sku": ["MED-LENS-001"]})
+
+    validate_required_columns(df, ["order_id", "sku"], "orders file")</code></pre>
+
+  <p>Notice: no <code>assert</code> at all. The claim here is "this call does not raise an error" —
+  if <code>validate_required_columns</code> raised anything, the test would fail right there,
+  without needing an explicit assertion. Compare it to the very next test in the same file, which
+  <em>does</em> expect an error:</p>
+
+  <pre><code>def test_validate_required_columns_raises_business_readable_message():
+    df = pd.DataFrame({"order_id": ["SO-1"]})
+
+    with pytest.raises(MissingColumnsError) as excinfo:
+        validate_required_columns(df, ["order_id", "sku"], "orders file")
+
+    assert "orders file" in str(excinfo.value)
+    assert "sku" in str(excinfo.value)</code></pre>
+
+  <p>Read <code>with pytest.raises(MissingColumnsError) as excinfo:</code> as: "I expect the
+  indented code below to raise a <code>MissingColumnsError</code>. If it doesn't, <em>that's</em>
+  the test failure. If it does, capture the error as <code>excinfo</code> so I can inspect it
+  afterward." The two <code>assert</code> lines after it check the error's <em>message</em> actually
+  names the file and the missing column — not just that some error happened.</p>
+
+  <div class="box primer">
+    <p class="box-label">Why this matters</p>
+    <p>A test function's name is usually a full sentence once you read the underscores as
+    spaces: <em>"test validate required columns raises business readable message."</em> You can
+    often understand what a module does by reading only the test function names in its test file,
+    top to bottom, before reading a single line of the module itself. Try this in
+    <span class="filelink">tests/test_excel_io.py</span> right now — three names, three
+    behaviors.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What happens the instant an assert statement's condition evaluates to False?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">pytest skips silently ahead</button>
+        <button class="quiz-option" data-correct="true">an AssertionError stops that test</button>
+        <button class="quiz-option" data-correct="false">the whole test file exits early</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Which file-naming pattern does pytest search for, per this repo's testpaths setting?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="true">files named test_*.py</button>
+        <button class="quiz-option" data-correct="false">files named *_test.pyc</button>
+        <button class="quiz-option" data-correct="false">files named check_*.py</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (3 minutes)</p>
+    <p>If you have the repo set up locally, run:</p>
+    <pre><code>uv run pytest tests/test_excel_io.py -v</code></pre>
+    <p>Read the three test names in the output before scrolling. Predict, from the name alone,
+    whether each one is checking a success case or a failure case — then check yourself against
+    what you just read above. If you don't have a local setup yet, do the same prediction exercise
+    by opening <span class="filelink">tests/test_excel_io.py</span> and reading just the three
+    <code>def test_...</code> lines, ignoring their bodies.</p>
+  </div>
+
+  <p>Tutorial 01's Part 3 and Part 4 checkpoints (in
+  <a href="../../tutorials/01-python-foundation/README.md">docs/tutorials/01-python-foundation/README.md</a>)
+  ask you to reason about exactly these two tests — you're now equipped to actually answer them,
+  not just read past them.</p>
+
+  <div class="ask-teacher">
+    If <code>pytest.raises</code> or the pass/fail mechanics feel unclear, ask now — Lesson 6 leans
+    on reading several more test names fluently, without re-explaining <code>assert</code> from
+    scratch.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0002-python-files-functions-and-data.html">← Back: Python files &amp; functions</a>
+    <a href="0004-contracts-typeddict-and-json-shapes.html">Next: Contracts &amp; TypedDict →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

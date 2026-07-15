@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Test Reading Patterns</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 2</p>
+  <h1>Test Reading Patterns</h1>
+  <p class="lede">Everything needed to read the three Track 2 test files fluently. Extends
+  <a href="pytest-reading-cheat-sheet.html">Track 1's pytest reading cheat sheet</a> — that page's
+  <code>assert</code>, <code>pytest.raises</code>, and property-style-assertion material isn't
+  repeated here. Companion to
+  <a href="../lessons/0010-reading-tests-as-specifications.html">Lesson 10</a>.</p>
+
+  <h2>Arrange / Act / Assert</h2>
+  <pre><code>def test_overpayment_clamps_outstanding_to_zero():
+    # ARRANGE + ACT (usually one expression in this repo's style)
+    result = calculate_payment_aging(
+        _invoices_df(_invoice_row(invoice_amount=100.0, paid_amount=150.0, due_date=_due(20))),
+        as_of_date=AS_OF,
+    )
+    row = result["aging_rows"][0]
+    # ASSERT
+    assert row["outstanding_amount"] == 0.0
+    assert row["follow_up_priority"] == "None"</code></pre>
+  <table>
+    <tr><th>Beat</th><th>What it does</th></tr>
+    <tr><td>Arrange</td><td>Build the one input this test is about — usually via a builder helper (below).</td></tr>
+    <tr><td>Act</td><td>Call the function under test. In this repo, arrange and act are almost always the same line.</td></tr>
+    <tr><td>Assert</td><td>Check every fact this specific test exists to prove — always separate, always last.</td></tr>
+  </table>
+
+  <h2>Builder helpers with <code>**overrides</code></h2>
+  <pre><code>def _order_row(**overrides) -> dict:
+    row = {"order_id": "SO-2026-001", ..., "priority": "High", ...}
+    row.update(overrides)
+    return row
+
+# usage:
+_order_row(customer_name="")        # everything normal, except a blank name
+_order_row(priority="Urgent")       # everything normal, except an invalid priority</code></pre>
+  <p><code>**overrides</code> captures any keyword arguments as a dict; <code>row.update(overrides)</code>
+  overlays them on top of a complete set of valid defaults. Every test file in this repo has its own
+  builder(s) — <code>_order_row</code>/<code>_orders_df</code>, <code>_inventory_row</code>/
+  <code>_inventory_df</code>, <code>_invoice_row</code>/<code>_invoices_df</code> — always in pairs:
+  one row builder, one function turning a list of rows into a DataFrame.</p>
+  <p><strong>Not a pytest fixture.</strong> None of these are decorated <code>@pytest.fixture</code> —
+  they're plain functions this repo's authors wrote. See the
+  <a href="https://docs.pytest.org/en/stable/how-to/fixtures.html">real pytest fixture docs</a> if
+  you want the actual mechanism later; don't conflate the two when describing this repo's tests.</p>
+
+  <h2><code>@pytest.mark.parametrize</code></h2>
+  <pre><code>@pytest.mark.parametrize(
+    "days_overdue,expected_bucket,expected_priority",
+    [
+        (30, "1-30 Days", "Low"),
+        (31, "31-60 Days", "Medium"),
+        ...
+    ],
+)
+def test_aging_bucket_and_priority_boundaries(days_overdue, expected_bucket, expected_priority):
+    ...</code></pre>
+  <p>The decorator's first argument names the parameters as a comma-separated string; each tuple in
+  the list is one row of that table, run through the same test body once per row. Pytest reports one
+  pass/fail per tuple, not one combined result — six tuples means six separately-named test results.</p>
+
+  <h2>Reading section comments as a table of contents</h2>
+  <pre><code># --- Spec section 12 test cases -------------------------------------------
+...
+# --- IA-001 sort order edge cases ----------------------------------------
+...
+# --- Malformed / missing required valid order data ------------------------</code></pre>
+  <p>Scroll a test file reading <em>only</em> these comments before reading any test body — you get
+  an accurate outline of every rule and edge case the module handles, in the order the test author
+  organized them. Fastest way to answer "what does this module cover" without reading top to bottom.</p>
+
+  <h2>Reading a test name as a sentence</h2>
+  <p><code>test_large_outstanding_amount_forces_high_priority_at_low_day_count</code> → "test: large
+  outstanding amount forces high priority at low day count." Every test name in this repo is written
+  to be read this way.</p>
+
+  <h2>Where each pattern is proven live</h2>
+  <table>
+    <tr><th>Pattern</th><th>See it in</th></tr>
+    <tr><td>Builder helper, <code>**overrides</code></td><td><span class="filelink">tests/test_order_validation.py</span> — <code>_order_row</code></td></tr>
+    <tr><td><code>@pytest.mark.parametrize</code></td><td><span class="filelink">tests/test_payment_aging.py</span> — <code>test_aging_bucket_and_priority_boundaries</code></td></tr>
+    <tr><td>Section-comment table of contents</td><td>All three Track 2 test files, top to bottom</td></tr>
+  </table>
+
+  <hr>
+  <p><a href="../lessons/0010-reading-tests-as-specifications.html">← Back to Lesson 10</a></p>
+
+</div>
+</body>
+</html>
