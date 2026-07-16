@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Statelessness &amp; Trust Boundary Checklist</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 4</p>
+  <h1>Statelessness &amp; Trust Boundary Checklist</h1>
+  <p class="lede">A reusable checklist compressed from Lesson 30 and Lesson 31 — applies to any API
+  design, not just this repo's. Companion to
+  <a href="../lessons/0023-statelessness-and-trust-boundaries.html">Lesson 30</a> and
+  <a href="../lessons/0024-api-endpoint-map-and-route-boundaries.html">Lesson 31</a>.</p>
+
+  <div class="box primer">
+    <p class="box-label">A note on this document's status</p>
+    <p>Pre-study, same status as this workspace's other reference docs — a lookup tool, not yet
+    evidence of internalized understanding.</p>
+  </div>
+
+  <h2>The statelessness test</h2>
+  <p>Ask one question about any endpoint: <strong>does completing this request require the server to
+  remember something about an earlier request?</strong> Not "does the word 'state' appear in the
+  code" — an actual dependency on server-side memory of the past.</p>
+
+  <table>
+    <tr><th>Design</th><th>Passes the test?</th><th>Why</th></tr>
+    <tr><td><code>POST /api/orders/validate</code></td><td>Yes</td><td>Every input arrives in this one request; nothing is looked up from an earlier call</td></tr>
+    <tr><td><code>POST /api/orders/validate/report</code></td><td>Yes</td><td>Re-accepts the same raw files; recomputes from scratch, never reads a prior result</td></tr>
+    <tr><td><code>GET /api/reports/{report_id}</code> (rejected design)</td><td>No</td><td>Requires something stored between the generating request and this fetch — a job store or file store, full stop</td></tr>
+  </table>
+
+  <h2>What a two-phase "generate → fetch by ID" design always requires</h2>
+  <p>Before accepting any endpoint shaped like this, name all five, concretely — not in the
+  abstract:</p>
+  <ol>
+    <li><strong>Storage:</strong> where do the bytes (or enough to regenerate them) live between the two calls?</li>
+    <li><strong>Identity:</strong> what generates the ID, and what guarantees it's unique?</li>
+    <li><strong>Expiry:</strong> how long does a stored artifact stay available before it's cleaned up, and who owns that job?</li>
+    <li><strong>Miss handling:</strong> what does a <code>GET</code> for an expired or nonexistent ID actually return?</li>
+    <li><strong>Authorization:</strong> should any client holding the ID be able to fetch it, or only the client that generated it?</li>
+  </ol>
+  <p>All five are restatements of the same underlying problem — persistence, identity, and lifecycle
+  — asked five different ways. That repetition is itself the evidence: it's one real architectural
+  commitment, not five small ones.</p>
+
+  <h2>The trust-boundary test</h2>
+  <p>A <strong>trust boundary</strong> is the line between data a system produced and verified itself,
+  and data that arrived from outside and could say anything. Apply this test to any endpoint that
+  produces an "official" artifact from a previously-computed result:</p>
+  <p><strong>Could this endpoint's output be influenced by something the server itself never
+  verified?</strong> If a client-supplied JSON result (not raw input) is accepted as authoritative,
+  the answer is yes — and the fix is always the same: recompute from the raw input the server
+  <em>can</em> verify, rather than trusting a client's copy of a previous answer.</p>
+
+  <div class="box primer">
+    <p class="box-label">The general principle</p>
+    <p><strong>A system should not accept as authoritative anything it could not have produced
+    itself.</strong> Recomputing from raw input means the only way to influence the output is to
+    change the same input that would have influenced the on-screen result too — nothing left to
+    edit undetected.</p>
+  </div>
+
+  <h2>Quick decision table</h2>
+  <table>
+    <tr><th>Question</th><th>If "yes" to trusting the client...</th><th>The safer alternative</th></tr>
+    <tr><td>Does this endpoint format a result the client already has?</td><td>Client can edit the result before submitting it</td><td>Re-accept raw input; recompute server-side</td></tr>
+    <tr><td>Does this endpoint need to remember a prior request?</td><td>Requires new storage + identity + lifecycle</td><td>Design the endpoint so one request carries its own complete input</td></tr>
+  </table>
+
+  <hr>
+  <p>
+    <a href="../lessons/0023-statelessness-and-trust-boundaries.html">← Back to Lesson 30</a> ·
+    <a href="../lessons/0024-api-endpoint-map-and-route-boundaries.html">← Back to Lesson 31</a>
+  </p>
+
+</div>
+</body>
+</html>

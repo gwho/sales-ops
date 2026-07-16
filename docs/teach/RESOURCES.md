@@ -53,12 +53,18 @@ Curated for a learner with **zero assumed prior knowledge** of any of these tech
 
 ## Track 4 — HTTP APIs & Statelessness
 
-- [MDN — An overview of HTTP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview)
-  Vendor-neutral, widely regarded as the best plain-language HTTP primer. Use for: L4.1.
+- [MDN — An overview of HTTP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview)
+  Vendor-neutral, widely regarded as the best plain-language HTTP primer. Use for: L4.1 (`0022`).
+  URL updated 2026-07-16 — MDN moved this page under `/Guides/`; the old `/Web/HTTP/Overview` URL
+  still 301-redirects here, confirmed live via `curl -L`, not just assumed.
 - [FastAPI — Tutorial (official)](https://fastapi.tiangolo.com/tutorial/)
-  Written by the framework's own author; the project's `context/library-docs.md` already tracks project-specific deviations from it. Use for: pairing with Tutorial 7.
-- [MDN — HTTP response status codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status)
-  Reference for L4.1's "200/400/404/500" vocabulary.
+  Written by the framework's own author; the project's `context/library-docs.md` already tracks
+  project-specific deviations from it. Use for: pairing with Tutorial 7. Confirmed live (200)
+  2026-07-16.
+- [MDN — HTTP response status codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status)
+  Reference for L4.1's "200/400/404/500" vocabulary. URL updated 2026-07-16 — MDN moved this page
+  under `/Reference/`; the old `/Web/HTTP/Status` URL still 301-redirects here, confirmed live via
+  `curl -L`.
 
 ## Track 5 — UI Components & Next.js
 

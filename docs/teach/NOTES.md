@@ -72,3 +72,69 @@
     replaced with an unverified deep-linked sub-page. Noted explicitly in `RESOURCES.md` so a future
     session doesn't mistake the 429 for a broken citation.
   - No learning records written — correctly so, per this file's own standing rule.
+- 2026-07-16 (later session): shipped Track 4's two prerequisite lessons (`0022`-`0023`, HTTP
+  request/response/multipart uploads and statelessness/trust boundaries) as a required first step
+  of a `/tutorial` task file for Tutorial 07
+  (`docs/tutorials/tutoiral-ideas/lesson-7-fastapi-integration-ideas.md`), which explicitly said
+  "if those lessons have not been generated yet, create them before Tutorial 07." Checked
+  `ROADMAP.md` first and confirmed Track 4 was still just the two-item syllabus sketch, not yet
+  shipped.
+  - **Numbering note**: the next available public lesson number was `0022`, immediately after Track
+    3's `0021` capstone. Confirmed by listing `docs/teach/lessons/` before naming the new files,
+    not by assuming `0021` was still the latest.
+  - **Scope note, a deliberate departure from the Track 1-3 pattern**: every earlier track expanded
+    its syllabus sketch into a much finer lesson split (Track 1's 4-item sketch became 7 lessons,
+    Track 2's 4-item sketch became 7, Track 3's single L3.1 became 7). Track 4 shipped as close to
+    literally two lessons for two syllabus items, per the task file's own explicit instruction to
+    keep them "concept first and code-light" — the code depth is deliberately reserved for
+    Tutorial 07 itself, not front-loaded into the prerequisite lessons. No new reference docs were
+    added for the same reason: nothing in these two lessons is dense enough yet to need a
+    compressed lookup page, and neither term set recurs elsewhere in the workspace yet.
+  - `0023`'s primary source is this repo's own `docs/grilling/phase-10-fastapi-integration/explanation.md`
+    and `docs/adr/0006`, not an external primer — the same "no clean beginner external resource
+    exists, use the repo's own worked example" pattern `0012`/`0015`/`0019`/`0020` already
+    established, applied here because generic "what does stateless mean" explainers online tend to
+    either assume REST/backend familiarity already or oversimplify past the point of being useful
+    before Tutorial 07's real ADR 0006 case study.
+  - URL verification: `RESOURCES.md`'s existing Track 4 entries (from an earlier, unlogged session)
+    were checked with `curl -L` before reuse — the two MDN URLs cited (`/Web/HTTP/Overview`,
+    `/Web/HTTP/Status`) turned out to 301-redirect to MDN's reorganized `/Guides/` and `/Reference/`
+    paths respectively; updated to the canonical redirect targets rather than left pointing at the
+    old paths. `fastapi.tiangolo.com/tutorial/` returned a direct 200.
+  - No learning records written — correctly so, per this file's standing rule.
+- 2026-07-16 (later session): built Track 4's optional reinforcement sequence — seven lessons
+  (`0024`–`0030`) plus five new reference docs — from a fully-specified task file the user had
+  written at `docs/teach/lessons-ideas/track-4-ideas.md`, the same "follow the user's own spec
+  closely" working pattern as every earlier task-file session (Track 2, Track 3, and the
+  `0022`/`0023` prerequisite lessons themselves). Confirmed via `ls docs/teach/lessons/` and
+  `ls docs/teach/reference/`
+  before naming files that `0024`–`0030` and all five suggested reference-doc filenames were free —
+  not assumed from the task file's own suggested names.
+  - **Scope was confirmed with the user first, via `AskUserQuestion`,** rather than assumed —
+    the task file itself frames the whole sequence as conditional ("if the goal is only to satisfy
+    the roadmap, Track 4 is already ready for Tutorial 07"), and `0022`/`0023` alone already fully
+    satisfy the roadmap's Track 4 requirement. The user chose to build the full seven-lesson +
+    five-reference-doc sequence anyway, for retention *after* completing Tutorial 07 — this is
+    genuinely optional reinforcement, not a gap that was blocking anything.
+  - **Navigation precedent, also confirmed rather than assumed:** `0024` starts its own chain with
+    `← You are here`, *not* rewiring `0023`'s existing "Next: Tutorial 07 →" bottom-nav link —
+    matching the exact "don't rewire earlier chapters" precedent `0008` and `0015` already set.
+    `0023` was left completely untouched. `0030` (capstone) ends with "Track complete," no forward
+    link — there's no Tutorial N waiting on the other side of this particular block, unlike Tracks
+    1-3's capstones.
+  - Content mapping to the task file's suggested topics-beyond-the-roadmap list: the multipart
+    `Content-Type` boundary trap folded into `0025` (it's the same FormData/UploadFile chain, one
+    layer below the field-name question); HTTP-contract-testing-vs-business-result-testing folded
+    into `0026` (the exact distinction `tests/test_backend_errors.py` demonstrates); headers-as-API-contract
+    became `0027`'s central framing rather than a side note; the browser-vs-server-state bridge
+    became `0029`'s entire subject; the 90-second "why not generate-once-fetch-by-ID" interview drill
+    and the design-only fourth-workflow rehearsal were placed as `0030`'s and `0028`'s exercises
+    respectively, rather than as separate lessons — each fit naturally as the capping exercise for
+    the lesson whose concept it directly exercises.
+  - Every lesson's "Primary source"/"What you're rehearsing" box points at specific Tutorial 07
+    Part numbers and real file/line citations gathered by reading Tutorial 07 in full (all 9 Parts
+    plus both data-flow traces) before writing anything — per this workspace's standing rule to
+    cite the repo's own doc trail directly rather than re-derive explanations from the code alone.
+  - No learning records written — correctly so, per this file's standing rule: this is lesson
+    authorship, not evidence of the user having completed the exercises or answered the retrieval
+    checks yet.

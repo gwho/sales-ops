@@ -143,12 +143,46 @@ Excel).
 
 ## Track 4 — HTTP APIs & Statelessness
 
+**Status: prerequisite lessons shipped (2026-07-16)** — see `docs/teach/lessons/0022`–`0023`. Unlike
+Tracks 1-3, this track's syllabus sketch (L4.1, L4.2 below) was shipped almost exactly as written —
+two short, deliberately code-light lessons, not a finer split — since Tutorial 07 itself carries the
+code depth. No new reference docs were added; nothing in these two lessons recurs elsewhere yet.
+
 **Prerequisite lessons:**
-- **L4.1**: What HTTP is — request/response, verbs (GET/POST), status codes (200/400/404/500), and what "an API" means in the most concrete possible terms (a URL that returns structured data instead of a web page).
-- **L4.2**: What "stateless" means for a server, and what a "trust boundary" is — why a server should never treat client-submitted data as authoritative for something it could recompute itself.
+- **L4.1**: What HTTP is — request/response, verbs (GET/POST), status codes (200/400/404/500), and what "an API" means in the most concrete possible terms (a URL that returns structured data instead of a web page). Shipped as `0022-http-request-response-and-multipart-uploads.html`.
+- **L4.2**: What "stateless" means for a server, and what a "trust boundary" is — why a server should never treat client-submitted data as authoritative for something it could recompute itself. Shipped as `0023-statelessness-and-trust-boundaries.html`.
 
 **Case-study checkpoint:**
 - `/tutorial docs/plan/phase-10-fastapi-integration` → **Tutorial 7**. Pairs with `docs/grilling/phase-10-fastapi-integration/` (the actual argument about whether to persist a "Workflow Run," resolved: no). Concept: statelessness as a *testable property*, not a slogan; report endpoints always re-accept files and recompute rather than trusting a stored result.
+
+**Status: optional reinforcement sequence shipped (2026-07-16, later session)** — seven lessons
+(`docs/teach/lessons/0024`–`0030`) plus five new reference docs, built *after* Tutorial 07 was
+already complete, from a fully-specified task file the user had written at
+`docs/teach/lessons-ideas/track-4-ideas.md` (same "follow the user's own spec closely" pattern as
+the Track 2/3 `track2-ideas.md`/`track-3-ideas.md` sessions). This is **optional Track 4
+reinforcement, not a change to the settled L4.1/L4.2 prerequisite shape above** — the roadmap's
+"Track 4 is already ready for Tutorial 07" status stands unchanged; these seven lessons exist only
+for retention *after* Tutorial 07, rehearsing one concept each rather than teaching anything new.
+
+| Lesson | Concept rehearsed |
+|---|---|
+| `0024-api-endpoint-map-and-route-boundaries.html` | The 7 real endpoints as 3 shapes (Workflow Result / Report Artifact / sample-file download), not interchangeable URLs |
+| `0025-formdata-uploadfile-and-loader-callbacks.html` | The `FormData` key → `Annotated[UploadFile, File()]` → `read_xlsx_upload` → `load_*` chain; the multipart-boundary `Content-Type` trap |
+| `0026-api-error-contracts-and-business-readable-failures.html` | The uniform `{"detail": "string"}` shape across all three error sources; the `raise_server_exceptions=False` testing gotcha |
+| `0027-cors-exposed-headers-and-browser-downloads.html` | `allow_origins` vs. `expose_headers` as two separate permissions; `postReport()`/`downloadBlob()` vs. a plain `<a download>` |
+| `0028-thin-api-adapters-and-framework-free-business-core.html` | The adapter/business-rule boundary; ends with a design-only "fourth workflow" rehearsal exercise |
+| `0029-client-state-vs-server-state-current-result-vs-report-request.html` | Browser-owned `currentResult`/`RequestStatus`/`ReportRequestState` vs. server memory (none, in Phase 10) — Phase 12 kept as a forward reference only |
+| `0030-track-4-guided-api-trace.html` | Capstone — two full request traces (Run Validation, Download Inventory Allocation Report) plus a 90-second interview drill on "why not generate-once-fetch-by-ID" |
+
+New reference docs shipped alongside: `http-api-glossary.html` (companion to 0022/0024/0025),
+`statelessness-trust-boundary-checklist.html` (companion to 0023/0024 — generalizes past this repo),
+`api-error-contract-pattern.html` (companion to 0026), `cors-and-downloads-cheat-sheet.html`
+(companion to 0027), and `thin-api-adapter-pattern.html` (companion to 0028).
+
+Navigation follows the same precedent Tracks 2/3 established: `0024` starts its own chain with
+`← You are here` rather than rewiring `0023`'s existing "Next: Tutorial 07 →" — `0023` is untouched.
+`0030` (capstone) has no forward link — "Track complete" — since there's no further numbered Track
+4 content waiting on the other side of it.
 
 ---
 
@@ -230,8 +264,9 @@ This is the literal `/teach` queue — start at the top, don't skip:
    a guided report-trace capstone — one linear block (mirroring how Track 2's `0008`–`0014` worked
    before Tutorial 3), consumed entirely before Tutorial 6, not a single lesson. → **Tutorial 6**
    (`phase-6-excel-report-export`)
-10. **L4.1** — HTTP/REST basics, request/response, status codes.
-11. **L4.2** — Statelessness and trust boundaries. → **Tutorial 7** (`phase-10-fastapi-integration`)
+10. **L4.1** — HTTP/REST basics, request/response, status codes. Shipped as `0022`.
+11. **L4.2** — Statelessness and trust boundaries. Shipped as `0023`. → **Tutorial 7**
+    (`phase-10-fastapi-integration`)
 12. **L5.1 + L5.2** — What a browser renders; React components/props/state (branch point into the frontend track).
 
 **Important asymmetry, worth stating explicitly: generation order ≠ consumption order for Tutorial 8.** The settled `/tutorial` batch below generates `phase-12-postgres-backed-latest-session-dashboard` as Tutorial 8, right after Tutorial 7 — that's the right call for *having the file ready* and for `/tutorial`'s own continuity mechanic (each new tutorial references the prior ones in the series, so generating in one unbroken run is cleaner than generating out of order later). But Phase 12's central insight — the session-identity choice in `localStorage` *structurally forcing* the dashboard into a Client Component — only lands once L5.3 (the RSC/Client Component rule, Track 5) has actually been taught. So: **generate Tutorial 8 now, as part of this batch, but don't schedule the lesson that deeply teaches it until after Track 5 is solid** (i.e., after Tutorial 9 or 10 below). Reading Tutorial 8 early is fine for orientation; treat its Q1→Q8 coupling insight as a forward-reference to revisit, not something to fully absorb out of order.

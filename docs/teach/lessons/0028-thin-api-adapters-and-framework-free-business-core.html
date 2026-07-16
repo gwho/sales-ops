@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 35 — Thin API Adapters and the Framework-Free Business Core</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 4 · Reinforcement 5 of 7</span>
+    <a href="0029-client-state-vs-server-state-current-result-vs-report-request.html">Next: Client state vs. server state →</a>
+  </div>
+
+  <p class="kicker">Track 4 — Optional Reinforcement · 5 of 7</p>
+  <h1>Thin API Adapters and the Framework-Free Business Core</h1>
+  <p class="lede">
+    Every lesson in this reinforcement block has quietly depended on one rule: <code>backend/</code>
+    translates HTTP into calls on already-tested Python, and never decides anything itself. This
+    lesson makes that rule the direct subject, and asks you to prove you can apply it to a workflow
+    that doesn't exist yet.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">What you're rehearsing</p>
+    <p>Tutorial 07 Part 5, against all three routers
+    (<span class="filelink">backend/routers/orders.py</span>,
+    <span class="filelink">backend/routers/inventory.py</span>,
+    <span class="filelink">backend/routers/payments.py</span>) and one business module you already
+    know well, <span class="filelink">src/order_validation.py</span> (Tutorial 03).</p>
+  </div>
+
+  <h2>Two layers, one rule</h2>
+  <p><span class="filelink">context/architecture.md</span>'s System Boundaries table already settled
+  this before Phase 10 wrote a single route: <code>backend/</code> <strong>owns</strong> "FastAPI
+  orchestration over tested modules" and <strong>must not own</strong> "duplicated business logic."
+  Two concrete disciplines make that real rather than aspirational:</p>
+
+  <ol>
+    <li><strong>No <code>fastapi</code> import ever enters <code>src/</code>.</strong> Every business
+    module (Tutorials 03-06) raises its own plain pandas/openpyxl/business exceptions exactly as it
+    does for a direct Python caller — it has no idea an HTTP layer even exists.</li>
+    <li><strong>Every route handler's return type is a real <code>src/</code>-module
+    <code>TypedDict</code>, never a parallel Pydantic <code>BaseModel</code>.</strong>
+    <code>OrderValidationResult</code> is imported directly from <code>src.order_validation</code> —
+    not redefined, not wrapped, not subsetted.</li>
+  </ol>
+
+  <p>Open <span class="filelink">backend/routers/orders.py</span>'s <code>_load_and_validate</code>
+  once more, this time reading it purely for what it <em>doesn't</em> do:</p>
+  <pre><code>def _load_and_validate(
+    orders_file: UploadFile, product_master_file: UploadFile
+) -> tuple[OrderValidationResult, pd.DataFrame]:
+    orders_df = read_xlsx_upload(orders_file, "orders file", load_orders)
+    product_master_df = read_xlsx_upload(
+        product_master_file, "product master file", load_product_master
+    )
+    return validate_orders(orders_df, product_master_df), orders_df</code></pre>
+  <p>There is no <code>if</code> statement anywhere in this function whose condition is about
+  business meaning — nothing checking "is this SKU active" or "is this order missing a delivery
+  date." Every real decision is one function call away, inside <code>validate_orders()</code>,
+  which owns it. This function's entire job is describable purely in terms of <em>where data comes
+  from</em> (an HTTP upload) and <em>where it goes</em> (a tested Python function) — never what the
+  data means.</p>
+
+  <div class="box primer">
+    <p class="box-label">How to tell which layer a piece of code belongs in</p>
+    <p>Read any function and ask: does its correctness depend on a real-world policy (an adapter
+    can be "correct" and still produce a business-wrong answer only if the layer it calls is
+    wrong), or does it decide something about the data itself? An adapter's job is fully described
+    by faithfully carrying data across a boundary. A business-rule module's job is fully described
+    by applying the right real-world policy. If an adapter function ever grows a business-meaning
+    <code>if</code>, that's the smell — the logic is living one layer too shallow.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does every route handler return the real <code>OrderValidationResult</code> <code>TypedDict</code> instead of a separate Pydantic <code>BaseModel</code>?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false"><code>TypedDict</code> is required by FastAPI's routing decorator</button>
+        <button class="quiz-option" data-correct="true">A second, hand-maintained schema could drift from the original without anything failing loudly</button>
+        <button class="quiz-option" data-correct="false">Pydantic <code>BaseModel</code> cannot represent nested lists</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">A function converts an uploaded file into a DataFrame, and also checks "does this SKU exist in the product master" before returning it. Which layer does that SKU check belong in?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">The adapter layer — it's part of loading the file</button>
+        <button class="quiz-option" data-correct="true">The business-rule layer — it's a decision about what the data means</button>
+        <button class="quiz-option" data-correct="false">Neither — it should be removed entirely</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What would importing <code>fastapi</code> into <code>src/order_validation.py</code> immediately cost, even if the import was never actually used?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Nothing measurable — unused imports have no effect</button>
+        <button class="quiz-option" data-correct="true">Every direct caller, including every existing test, would carry a web-framework dependency it never needed</button>
+        <button class="quiz-option" data-correct="false">It would make <code>validate_orders</code> run asynchronously by default</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (20-25 minutes) — design a fourth workflow, don't implement it</p>
+    <p>Assume a fourth, already-tested business function exists:
+    <code>process_returns(orders_df, returns_df) -&gt; ReturnsProcessingResult</code> in a new
+    <code>src/returns_processing.py</code>. Design, on paper only, the thin adapter layer for
+    <code>POST /api/returns/process</code>, following Phase 10's exact pattern:</p>
+    <ul>
+      <li>What would the new <span class="filelink">backend/routers/returns.py</span>'s
+      <code>_load_and_process</code>-style helper call, in what order?</li>
+      <li>Which existing, unchanged functions from <span class="filelink">backend/uploads.py</span>
+      would it reuse — would <code>read_xlsx_upload</code> need <em>any</em> modification?</li>
+      <li>What would <code>lib/api-client.ts</code> need — a new function, or would
+      <code>postJSON</code>/<code>postReport</code> already cover it unchanged?</li>
+      <li>Name one thing that would be a design smell if your plan added it: a new shared helper
+      that duplicates something <code>backend/uploads.py</code> or <code>lib/api-client.ts</code>
+      already generalizes, or a business rule written directly inside the new router.</li>
+    </ul>
+    <p>Once you've written your own answer, compare it against Tutorial 07's own "Extend it —
+    Challenge 2," which asks the identical question.</p>
+  </div>
+
+  <p><strong>Failure mode named:</strong> adding business rules directly to FastAPI route handlers,
+  or importing FastAPI into <code>src/</code>. Either one creates a second place a business fact
+  could live — and per every earlier tutorial's recurring lesson, two copies of the same fact are
+  two copies that can silently disagree.</p>
+
+  <div class="ask-teacher">
+    If your fourth-workflow design invented a new shared helper instead of reusing
+    <code>read_xlsx_upload</code>/<code>postJSON</code>/<code>postReport</code> unchanged, ask now
+    whether that's solving a real new problem — it's worth checking before assuming the existing
+    generalization doesn't already cover it.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0027-cors-exposed-headers-and-browser-downloads.html">← Back: CORS, exposed headers &amp; browser downloads</a>
+    <a href="0029-client-state-vs-server-state-current-result-vs-report-request.html">Next: Client state vs. server state →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

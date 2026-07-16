@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 31 — API Endpoint Map and Route Boundaries</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>← You are here</span>
+    <a href="0025-formdata-uploadfile-and-loader-callbacks.html">Next: FormData, UploadFile &amp; loader callbacks →</a>
+  </div>
+
+  <p class="kicker">Track 4 — Optional Reinforcement · 1 of 7</p>
+  <h1>API Endpoint Map and Route Boundaries</h1>
+  <p class="lede">
+    You've finished Tutorial 07 — you've read every router and traced two full requests end to end.
+    This short block of seven lessons doesn't teach anything new; it rehearses one concept each,
+    deliberately, so it survives longer than "I followed the tutorial once." This first one is the
+    map: read the whole endpoint list as a business workflow map, not a pile of interchangeable
+    URLs.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">What you're rehearsing</p>
+    <p>No new external resource — this lesson exercises Tutorial 07's own endpoint list against
+    <span class="filelink">backend/main.py</span> and the four router files
+    (<span class="filelink">backend/routers/orders.py</span>,
+    <span class="filelink">backend/routers/inventory.py</span>,
+    <span class="filelink">backend/routers/payments.py</span>,
+    <span class="filelink">backend/routers/templates.py</span>). Have Tutorial 07's
+    "Architecture overview" section open alongside this lesson.</p>
+  </div>
+
+  <h2>Three kinds of endpoint, not one</h2>
+  <p>Every endpoint in this API returns HTTP, but "returns HTTP" is where the similarity ends. Read
+  each one for what it actually hands back, and three genuinely different shapes fall out:</p>
+
+  <table>
+    <tr><th>Endpoint</th><th>Shape</th><th>What comes back</th></tr>
+    <tr><td><code>POST /api/orders/validate</code></td><td>Workflow Result (JSON)</td><td>An <code>OrderValidationResult</code> <code>TypedDict</code>, serialized to JSON</td></tr>
+    <tr><td><code>POST /api/inventory/allocate</code></td><td>Workflow Result (JSON)</td><td>An <code>InventoryAllocationResult</code> <code>TypedDict</code></td></tr>
+    <tr><td><code>POST /api/payments/aging</code></td><td>Workflow Result (JSON)</td><td>A <code>PaymentAgingResult</code> <code>TypedDict</code></td></tr>
+    <tr><td><code>POST /api/orders/validate/report</code></td><td>Report Artifact (bytes)</td><td>Raw <code>.xlsx</code> bytes + <code>Content-Disposition</code>/<code>X-Report-Id</code>/<code>X-Generated-At</code></td></tr>
+    <tr><td><code>POST /api/inventory/allocate/report</code></td><td>Report Artifact (bytes)</td><td>Raw <code>.xlsx</code> bytes, same header set</td></tr>
+    <tr><td><code>POST /api/payments/aging/report</code></td><td>Report Artifact (bytes)</td><td>Raw <code>.xlsx</code> bytes, same header set</td></tr>
+    <tr><td><code>GET /api/templates/{template_name}</code></td><td>Sample-file download</td><td>A committed <span class="filelink">sample_data/*.xlsx</span> file, byte-for-byte, from an allow-list</td></tr>
+  </table>
+
+  <p>Two structural facts fall straight out of that table, and both are things Tutorial 07 already
+  proved rather than just asserted. First: every <strong>Workflow Result</strong> endpoint has a
+  paired <strong>Report Artifact</strong> endpoint with the same URL prefix plus <code>/report</code>
+  — this is a deliberate, uniform naming convention, not three unrelated design choices. Second: the
+  Report Artifact endpoints never accept a <code>report_id</code> or any prior result as input — each
+  one re-accepts the same raw source file(s) its Workflow Result sibling takes (Lesson 30, Tutorial
+  07 Part 2/3). A sample-file download is a third, simpler thing entirely: it doesn't run any
+  business module at all, it just serves a byte-identical file off disk from a fixed allow-list
+  (<span class="filelink">backend/routers/templates.py</span>'s <code>TEMPLATE_FILES</code> dict).</p>
+
+  <div class="box primer">
+    <p class="box-label">Why the distinction matters, not just as taxonomy</p>
+    <p>A "Workflow Result" endpoint and its paired "Report Artifact" endpoint can look almost
+    identical in a request log — same URL prefix, same uploaded files, same <code>200</code> status.
+    But they answer two different questions. The Workflow Result endpoint answers "what does the
+    business logic conclude about this data, in a shape the UI can render into KPIs and tables?" The
+    Report Artifact endpoint answers "give me an official, downloadable file of that same
+    conclusion." Confusing the two — for instance, assuming the report endpoint could be skipped
+    because "the JSON already has the data" — misses that the report endpoint recomputes
+    independently and produces a completely different kind of response (bytes, not JSON) meant for a
+    human to open in Excel, not for a browser to parse and render.</p>
+  </div>
+
+  <h2><code>GET /api/dashboard</code> — the one that doesn't fit the pattern (on purpose)</h2>
+  <p><span class="filelink">backend/routers/dashboard.py</span>'s <code>GET /api/dashboard</code>
+  breaks two of the patterns above at once: it's a <code>GET</code>, not a <code>POST</code>, and it
+  returns a Workflow-Result-shaped JSON body without any file upload at all. This is a later,
+  deliberate Phase 12 addition — not part of Track 4's stateless design, and not something to absorb
+  deeply here. The short version: it reads back <em>this browser's own</em> most recently saved
+  result per workflow, keyed by an anonymous session identifier, falling back to sample data per
+  workflow independently. File it as "later, deliberate persistence" for now — Track 6 teaches it
+  properly.</p>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">A request hits <code>POST /api/payments/aging/report</code>. What does the response body actually contain?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">A <code>PaymentAgingResult</code> JSON object</button>
+        <button class="quiz-option" data-correct="true">Raw <code>.xlsx</code> file bytes</button>
+        <button class="quiz-option" data-correct="false">A <code>report_id</code> to fetch the file later</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Does <code>POST /api/inventory/allocate/report</code> accept the JSON result from an earlier <code>POST /api/inventory/allocate</code> call as input?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Yes, if the client includes it</button>
+        <button class="quiz-option" data-correct="true">No — it re-accepts the raw source files and recomputes</button>
+        <button class="quiz-option" data-correct="false">Only for the inventory workflow specifically</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Which endpoint runs zero business-module code at all?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false"><code>POST /api/orders/validate</code></button>
+        <button class="quiz-option" data-correct="true"><code>GET /api/templates/{template_name}</code></button>
+        <button class="quiz-option" data-correct="false"><code>POST /api/orders/validate/report</code></button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (5 minutes)</p>
+    <p>Open <span class="filelink">backend/main.py</span> and list, from memory first, all seven
+    real endpoints this API exposes (not counting <code>/health</code>) — then check yourself against
+    <span class="filelink">backend/routers/orders.py</span>,
+    <span class="filelink">backend/routers/inventory.py</span>,
+    <span class="filelink">backend/routers/payments.py</span>, and
+    <span class="filelink">backend/routers/templates.py</span>. For each one, write one word:
+    "result," "report," or "file." Then, without looking anything up, answer: if this project added a
+    <code>POST /api/returns/process</code> workflow tomorrow, how many <em>new</em> endpoints would
+    it need to follow this exact pattern, and what would the second one's URL be?</p>
+  </div>
+
+  <p><strong>Failure mode named:</strong> treating every endpoint as "just another URL" that happens
+  to live at a different path. The URL shape (<code>/validate</code> vs. <code>/validate/report</code>)
+  isn't decoration — it's the only signal, at a glance, of which of the three fundamentally different
+  contracts (Workflow Result, Report Artifact, sample-file download) a given request is actually
+  making. Missing this distinction is exactly how someone ends up asking "why do I have to upload the
+  file twice" without realizing the second upload is going to a categorically different kind of
+  endpoint, not a redundant call to the same one.</p>
+
+  <div class="ask-teacher">
+    If the "why three shapes and not just one flexible endpoint" question still feels open, ask now —
+    Lesson 30's statelessness/trust-boundary reasoning and Tutorial 07 Part 2/3 are the two places
+    that answer it most directly, and it's worth being able to state the answer in your own words
+    before Lesson 37's capstone trace.
+  </div>
+
+  <div class="nav nav-bottom">
+    <span>← You are here</span>
+    <a href="0025-formdata-uploadfile-and-loader-callbacks.html">Next: FormData, UploadFile &amp; loader callbacks →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — CORS and Downloads Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 4</p>
+  <h1>CORS and Downloads Cheat Sheet</h1>
+  <p class="lede">The two separate CORS permissions, this project's exact header list, and the two
+  different download mechanisms it uses. Companion to
+  <a href="../lessons/0027-cors-exposed-headers-and-browser-downloads.html">Lesson 34</a>.</p>
+
+  <div class="box primer">
+    <p class="box-label">A note on this document's status</p>
+    <p>Pre-study, same status as this workspace's other reference docs — a lookup tool, not yet
+    evidence of internalized understanding.</p>
+  </div>
+
+  <h2>Two separate permissions</h2>
+  <table>
+    <tr><th>Setting</th><th>Controls</th><th>Failure symptom</th></tr>
+    <tr><td><code>allow_origins</code></td><td>Whether the cross-origin request is permitted at all</td><td>Browser blocks the whole request — no body reaches your code</td></tr>
+    <tr><td><code>expose_headers</code></td><td>Which response headers, beyond a small safelist, cross-origin JS may read</td><td>Request succeeds fully; <code>response.headers.get(...)</code> returns <code>null</code> for anything unlisted</td></tr>
+  </table>
+  <p>These are independent. A response can be a complete, correct <code>200</code> while a specific
+  header is still invisible to your own JavaScript.</p>
+
+  <h2>This project's real CORS config</h2>
+  <pre><code>app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins(),
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+    expose_headers=["Content-Disposition", "X-Report-Id", "X-Generated-At", "X-Persisted"],
+)</code></pre>
+  <p>(<code>X-Persisted</code> is a later, Phase 12 addition — Phase 10 shipped with the first three
+  only.)</p>
+
+  <h2>Headers as contract, not metadata</h2>
+  <table>
+    <tr><th>Header</th><th>Read by</th><th>Purpose</th></tr>
+    <tr><td><code>Content-Disposition</code></td><td><code>parseFilename()</code></td><td>The suggested download filename</td></tr>
+    <tr><td><code>X-Report-Id</code></td><td><code>postReport()</code></td><td>Display metadata for the generated report</td></tr>
+    <tr><td><code>X-Generated-At</code></td><td><code>postReport()</code></td><td>Display metadata — when the report was generated</td></tr>
+  </table>
+
+  <h2>Two download mechanisms, genuinely different</h2>
+  <table>
+    <tr><th></th><th><code>fetch()</code> + <code>Blob</code> (report downloads)</th><th>Plain <code>&lt;a href download&gt;</code> (sample files)</th></tr>
+    <tr><td>JavaScript touches the response?</td><td>Yes — reads headers and body directly</td><td>No — a normal browser navigation</td></tr>
+    <tr><td>CORS applies?</td><td>Yes — both <code>allow_origins</code> and <code>expose_headers</code> matter</td><td>No — nothing to restrict, no script reads the response</td></tr>
+    <tr><td>Mechanism</td><td><code>URL.createObjectURL(blob)</code> → hidden <code>&lt;a download&gt;</code> → <code>.click()</code> → <code>URL.revokeObjectURL</code></td><td>Direct browser navigation to the URL with <code>download</code> attribute</td></tr>
+    <tr><td>Used for</td><td>Report Artifacts — server-computed on demand, must be fetched via JS to inspect headers first</td><td>Sample-file downloads — always the exact same committed file, no computation needed</td></tr>
+  </table>
+
+  <h2>Debugging checklist: "the header is in DevTools but my code sees null"</h2>
+  <ol>
+    <li>Confirm the header is genuinely present in the Network tab's Response Headers (not just the request).</li>
+    <li>Check <code>expose_headers</code> lists that exact header name.</li>
+    <li>Remember: DevTools reads the raw HTTP response directly — its visibility there is <em>not</em> evidence JavaScript can read it too.</li>
+  </ol>
+
+  <hr>
+  <p><a href="../lessons/0027-cors-exposed-headers-and-browser-downloads.html">← Back to Lesson 34</a></p>
+
+</div>
+</body>
+</html>

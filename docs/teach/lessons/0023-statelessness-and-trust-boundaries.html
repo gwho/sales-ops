@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 30 — Statelessness and Trust Boundaries</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 4 · L4.2 of 2</span>
+    <a href="../../tutorials/07-fastapi-integration/README.md">Next: Tutorial 07 →</a>
+  </div>
+
+  <p class="kicker">Track 4 — HTTP APIs &amp; Statelessness</p>
+  <h1>Statelessness and Trust Boundaries</h1>
+  <p class="lede">
+    Lesson 29 covered the mechanics of one request/response round trip. This lesson covers what
+    happens (or rather, deliberately doesn't happen) <em>between</em> round trips, and a closely
+    related idea: why a server should think twice before believing anything a client tells it.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p>No single beginner-friendly external primer covers this as cleanly as this repo's own
+    real decision — like Lesson 12's greedy-processing gap, the clearest teaching source is a
+    genuine worked example: <span class="filelink">docs/grilling/phase-10-fastapi-integration/explanation.md</span>
+    and <span class="filelink">docs/adr/0006-stateless-fastapi-workflow-and-report-exports.md</span>,
+    which Tutorial 07 will walk through in real code.</p>
+  </div>
+
+  <h2>What "stateless" means for a server</h2>
+  <p>A <strong>stateless</strong> server processes exactly one request, sends back exactly one
+  response, and then forgets everything about that request happened at all. Nothing about it
+  survives in the server's memory for the <em>next</em> request — not who sent it, not what it
+  asked for, not what the server computed. If two requests need to feel connected to each other,
+  something has to deliberately carry that connection: a database row, a file on disk, an
+  identifier the client itself resends every time. Statelessness isn't "the server has no memory
+  anywhere" — it's "the server has no memory <em>by default</em>, and adding memory is always a
+  deliberate, visible decision," never an accident.</p>
+
+  <h2>A concrete test for statelessness</h2>
+  <p>Here's a test that works on any API design, not just this repo's: <strong>if completing this
+  request requires the server to remember something about an earlier request, it is not
+  stateless.</strong> Not "the word 'state' doesn't appear in the code" — an actual dependency on
+  server-side memory of the past.</p>
+
+  <div class="box primer">
+    <p class="box-label">Why this test matters, not just as a definition</p>
+    <p>A design can <em>look</em> like an ordinary, reasonable API and still fail this test. A
+    two-step flow — "generate a report, get an ID back, fetch the report by that ID later" — reads
+    as completely normal REST design. But walk through what has to be true for step two to work at
+    all: the server has to have stored the actual bytes, or enough information to regenerate them,
+    keyed by that ID, somewhere that survives between the two separate requests. That "somewhere"
+    is a real piece of infrastructure — a job store, a file store, a database table — that didn't
+    need to exist before. The tell isn't in how the endpoint reads; it's in what has to be true
+    for it to function at all.</p>
+  </div>
+
+  <h2>Trust boundaries: why a server should recompute, not just believe</h2>
+  <p>A <strong>trust boundary</strong> is the line between "data this system produced and
+  verified itself" and "data that arrived from the outside and could say anything." Anything a
+  client sends — a form field, a file, a claimed result — crossed that boundary from the outside,
+  and a careless server can end up treating it as more authoritative than it's earned.</p>
+
+  <p>Concretely: imagine an API that computes something expensive once, shows the result to a
+  user, and later offers "download an official report of that result" — but the download step
+  just accepts whatever result JSON the client currently has and formats it, instead of
+  recomputing from scratch. Nothing stops a client from editing that JSON before asking for the
+  download. The server would hand back a real, official-looking file built from numbers nobody
+  ever actually verified.</p>
+
+  <p>The general principle behind the fix: <strong>a system should not accept as authoritative
+  anything it could not have produced itself.</strong> If the server always recomputes the result
+  from the original raw input rather than trusting a client's copy of a previous answer, there's
+  nothing to edit — the only way to influence the output is to change the same raw input that
+  would have influenced it in the first place.</p>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">A "generate report, fetch it later by ID" design requires which piece of new infrastructure?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">A faster server, nothing structural</button>
+        <button class="quiz-option" data-correct="true">Somewhere to store the result between requests</button>
+        <button class="quiz-option" data-correct="false">A second API endpoint only, no storage</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why is recomputing a result from raw input safer than trusting a client's copy of a previous result?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Recomputing is always faster</button>
+        <button class="quiz-option" data-correct="true">There's nothing left for a client to edit undetected</button>
+        <button class="quiz-option" data-correct="false">Clients cannot send JSON bodies</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Is "the code never uses the word 'state'" a valid test for whether a design is actually stateless?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Yes, that's the definitive test</button>
+        <button class="quiz-option" data-correct="true">No — check what has to be remembered between requests</button>
+        <button class="quiz-option" data-correct="false">Yes, but only for GET endpoints</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (5 minutes)</p>
+    <p>Design, on paper, a two-step "generate report → fetch by ID" API for some made-up domain
+    (a grade report, a shipping label — your choice). List every new piece of state it would force
+    into existence: what gets stored, keyed by what, for how long, and who's responsible for
+    cleaning it up. Then compare that list to how many of those questions a single "recompute and
+    return it now" endpoint would need to answer.</p>
+  </div>
+
+  <p>You now have both halves of Tutorial 07's core idea: request/response mechanics from Lesson
+  29, and why this repo's real backend forgets every request and recomputes every report from
+  Lesson 30. Tutorial 07 is where you watch both of these play out in actual FastAPI and
+  TypeScript code, against a real ADR that made this exact decision.</p>
+
+  <div class="ask-teacher">
+    If the "recompute vs. trust" trade-off still feels like pure overhead with no real benefit,
+    ask now for a concrete attack scenario — Tutorial 07 walks through one directly, but talking
+    through your own guess first will make that section land harder.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0022-http-request-response-and-multipart-uploads.html">← Back: HTTP request/response &amp; multipart uploads</a>
+    <a href="../../tutorials/07-fastapi-integration/README.md">Next: Tutorial 07 →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>
