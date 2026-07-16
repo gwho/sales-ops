@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 9 — Structured Errors and Result Envelopes</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 2 · Lesson 2 of 7</span>
+    <a href="0010-reading-tests-as-specifications.html">Next: Reading tests as specifications →</a>
+  </div>
+
+  <p class="kicker">Track 2 — Business Rules &amp; Testing Discipline</p>
+  <h1>Structured Errors and Result Envelopes</h1>
+  <p class="lede">
+    Lesson 8 drew the line between a business rule violation and a programming error. This lesson
+    is about the <em>shape</em> a business module hands back once it's sorted every row into one
+    bucket or the other — no printing, no crashing, no loose tuple of DataFrames.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Building on</p>
+    <p>No new external source this time — this lesson is Lesson 4's (Track 1)
+    <code>TypedDict</code>/contract material, applied to three real modules instead of one bare
+    definition. Reread Lesson 4 first if <code>TypedDict</code> itself feels shaky.</p>
+  </div>
+
+  <h2>The rule, stated plainly</h2>
+  <p><span class="filelink">context/code-standards.md</span> states this repo's rule directly:</p>
+  <pre><code>Do not print from business logic; return structured errors or results.</code></pre>
+  <p>Two alternatives this repo deliberately avoids: a function that <code>print()</code>s a
+  problem straight to the console (nothing downstream — a future web page, a report — can
+  <em>use</em> printed text), and a function that just crashes on the first bad row (Lesson 8's
+  crash-vs-report distinction, now at the scale of a whole batch instead of one cell). The chosen
+  alternative: process every row, and hand back one structured value describing everything that
+  happened.</p>
+
+  <h2>One dict, several named parts</h2>
+  <p>Each of the three Track 2 modules defines its own small <code>TypedDict</code> — a <strong>result
+  envelope</strong> — bundling everything that one call produces. Compare the three:</p>
+
+  <pre><code># src/order_validation.py
+class OrderValidationResult(TypedDict):
+    summary: ValidationSummary
+    valid_orders: list[ValidOrderRow]
+    errors: list[ValidationErrorRow]
+
+# src/inventory_allocation.py
+class InventoryAllocationResult(TypedDict):
+    summary: AllocationSummary
+    allocation_results: list[AllocationResultRow]
+    backorders: list[BackorderRow]
+    remaining_inventory: list[RemainingInventoryRow]
+    supplier_follow_ups: list[SupplierFollowUpRow]
+
+# src/payment_aging.py
+class PaymentAgingResult(TypedDict):
+    summary: PaymentAgingSummary
+    aging_rows: list[PaymentAgingRow]
+    data_issues: list[PaymentDataIssueRow]
+    draft_messages: list[DraftMessageRow]</code></pre>
+
+  <p>Three different shapes — Order Validation only has two lists, Inventory Allocation has four —
+  but the same idea every time: <strong>one function call, one dict, every output the module
+  produces bundled under named keys.</strong> A caller runs <code>validate_orders(...)</code> once
+  and gets back everything at once — a summary, the rows that passed, and the rows that didn't —
+  instead of needing to call three separate functions and stitch their results together by hand.</p>
+
+  <div class="box primer">
+    <p class="box-label">Why not just return a tuple?</p>
+    <p>A tuple like <code>(valid_orders_df, errors_df)</code> works, but it's positional — the
+    caller has to remember "the first one is valid orders, the second is errors," with nothing in
+    the code itself enforcing that memory. A named dict key can't be silently mixed up the way
+    tuple position can. This is the same "give the promise a name" idea Lesson 4 introduced for
+    <code>TypedDict</code> fields generally, just applied to a whole function's return value instead
+    of one row.</p>
+  </div>
+
+  <h2>Summary and rows are different questions</h2>
+  <p>Notice every envelope's first key is <code>summary</code> — a small object with counts (how
+  many valid, how many errors) — separate from the <em>rows</em> themselves. "How many problems are
+  there" and "what exactly are they" are different questions a caller might want answered
+  independently — a KPI card needs the first; a detail table needs the second. Bundling both under
+  one envelope means neither question requires a second function call.</p>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does context/code-standards.md forbid business logic from printing directly?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">printing is measurably too slow</button>
+        <button class="quiz-option" data-correct="true">nothing downstream can use printed text</button>
+        <button class="quiz-option" data-correct="false">Python disallows print in modules</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What's the main risk of returning a tuple like (valid_df, errors_df) instead of a named dict?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">tuples cannot hold two DataFrames</button>
+        <button class="quiz-option" data-correct="true">callers can mix up which position means what</button>
+        <button class="quiz-option" data-correct="false">tuples are not valid JSON at all</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (3 minutes)</p>
+    <p>Open <span class="filelink">src/contracts.py</span> and find <code>PaymentAgingSummary</code>.
+    Then open <span class="filelink">src/payment_aging.py</span> and find where
+    <code>PaymentAgingResult</code>'s <code>summary</code> key gets built. Without reading the whole
+    function: which single question does <code>total_invoices</code> answer that none of the
+    <em>row-level</em> fields (like a single <code>PaymentAgingRow</code>'s <code>days_overdue</code>)
+    can answer on their own?</p>
+  </div>
+
+  <p>Each of these three envelopes gets its own close reading in the real tutorials:
+  <a href="../../tutorials/03-order-validation-core/README.md#part-1--a-result-envelope-not-a-tuple">Tutorial 03 Part 1</a>,
+  <a href="../../tutorials/04-inventory-allocation-core/README.md#part-1--result-envelope-symmetry-with-phase-3">Tutorial 04 Part 1</a>, and
+  <a href="../../tutorials/05-payment-aging-core/README.md#part-1--result-envelope-one-payment-aging-result-instead-of-three-caller-stitched-outputs">Tutorial 05 Part 1</a>
+  — each one explains why that specific module's envelope has the shape it has, and what the
+  spec's own suggested (different, more scattered) shape would have cost.
+  <a href="../reference/result-envelope-pattern.html">The Result Envelope Pattern reference</a>
+  puts all three envelopes' fields side by side in one table.</p>
+
+  <div class="ask-teacher">
+    If "why one dict instead of three separate function calls" still feels like a style preference
+    rather than a real design reason, ask now with a concrete counter-example — Lesson 10 assumes
+    you can read any of these three envelopes' shape at a glance.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0008-business-rules-vs-code-rules.html">← Back: Business rules vs. code rules</a>
+    <a href="0010-reading-tests-as-specifications.html">Next: Reading tests as specifications →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

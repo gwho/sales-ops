@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 15 — Presentation Layer vs. Business Logic Layer</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 3 · Lesson 1 of 7</span>
+    <a href="0016-consuming-contracts-without-changing-them.html">Next: Consuming contracts without changing them →</a>
+  </div>
+
+  <p class="kicker">Track 3 — Presentation Without Leakage</p>
+  <h1>Presentation Layer vs. Business Logic Layer</h1>
+  <p class="lede">
+    You've finished Tutorials 03–05 — three modules that each decide real business facts about a
+    spreadsheet row. Track 3 is about a fourth module that decides nothing at all:
+    <span class="filelink">report_export.py</span>. This lesson teaches the one distinction the
+    whole track, and Tutorial 06, builds on.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p>No single official external resource teaches this as its own topic — like Lesson 12's
+    greedy-processing gap, it's best learned directly from this repo's own worked example:
+    <span class="filelink">docs/plan/phase-6-excel-report-export/explanation.md</span> §1, and
+    <a href="../../tutorials/06-excel-report-export/README.md#part-1--result-envelopes-become-workbook-inputs-not-raw-dataframes">Tutorial 06 Part 1</a>, once you get there.</p>
+  </div>
+
+  <h2>Two layers, two jobs</h2>
+  <table>
+    <tr><th></th><th>Business logic layer</th><th>Presentation layer</th></tr>
+    <tr><td>What it decides</td><td>What a result <em>is</em> — computes, classifies, validates a
+    real-world fact.</td><td>How an already-decided result should <em>look</em> to a human reading
+    it.</td></tr>
+    <tr><td>Examples in this repo</td><td><span class="filelink">order_validation.py</span>,
+    <span class="filelink">inventory_allocation.py</span>,
+    <span class="filelink">payment_aging.py</span> (Tutorials 03–05)</td>
+    <td><span class="filelink">report_export.py</span> (Tutorial 06)</td></tr>
+    <tr><td>Can it be "wrong" in a business sense?</td><td>Yes — a bug in a rule produces a wrong
+    business fact.</td><td>No — a bug here can only be a formatting mistake. It has no rules of its
+    own to get wrong.</td></tr>
+  </table>
+
+  <p>That last row is the whole point. <span class="filelink">report_export.py</span> reads a
+  result someone else already computed and writes it to a spreadsheet. It never asks "is this
+  quantity correct," "is this SKU active," or "is this invoice overdue" — those questions were
+  already answered, upstream, by the module that owns them.</p>
+
+  <h2>What "never recalculates" looks like in real code</h2>
+  <p>Open <span class="filelink">src/report_export.py</span> and find the start of
+  <code>export_order_validation_report</code>:</p>
+
+  <pre><code>def export_order_validation_report(
+    result: OrderValidationResult,
+    original_orders_df: pd.DataFrame | None = None,
+    generated_at: datetime | None = None,
+) -> tuple[bytes, ReportManifest]:
+    wb = _new_workbook()
+    _write_summary_sheet(wb, "Summary", result["summary"])
+    _write_detail_sheet(wb, "Valid Orders", result["valid_orders"], VALID_ORDER_COLUMNS)
+    _write_detail_sheet(wb, "Validation Errors", result["errors"], VALIDATION_ERROR_COLUMNS)</code></pre>
+
+  <p>Every line reads a key straight out of <code>result</code> — the exact dict
+  <code>validate_orders()</code> already returned — and hands it to a generic sheet writer.
+  Nothing here re-parses a date, re-checks a SKU, or re-decides anything. Now open
+  <span class="filelink">tests/test_report_export.py</span> and find:</p>
+
+  <pre><code>def test_inventory_allocation_report_backorders_sheet_uses_precomputed_list_as_is():
+    workbook_bytes, _ = export_inventory_allocation_report(
+        _inventory_allocation_result(), generated_at=GENERATED_AT
+    )
+    wb = _load(workbook_bytes)
+    ws = wb["Backorders"]
+    row = dict(zip(ALLOCATION_RESULT_COLUMNS, [c.value for c in ws[2]]))
+    assert row["status"] == "Backordered"</code></pre>
+
+  <p><code>"Backordered"</code> is a fact <span class="filelink">inventory_allocation.py</span>
+  already decided, back in Tutorial 04 — by comparing <code>allocatable_qty</code> against the
+  order's requested quantity. The report just writes whatever string is already sitting in
+  <code>row["status"]</code>.</p>
+
+  <div class="box primer">
+    <p class="box-label">The failure mode this rule prevents</p>
+    <p>Imagine <code>_write_detail_sheet</code> instead re-derived <code>status</code> inline —
+    say, <code>"Backordered" if allocated_qty == 0 else "Fully Allocated"</code>. It would usually
+    agree with the real module, right up until a future rule change to
+    <span class="filelink">inventory_allocation.py</span> shipped without an identical change here.
+    At that point, the live dashboard (reading the real result) and a downloaded report generated
+    moments later (reading a stale reimplementation) could show two different answers for the
+    <em>same order line</em> — a report that quietly recomputes and disagrees with the screen. This
+    is exactly why the rule is "never recalculate," not "try to recalculate correctly."</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Which module in this repo is allowed to decide whether an order line is backordered?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">report_export.py, when writing</button>
+        <button class="quiz-option" data-correct="true">inventory_allocation.py, once, upstream</button>
+        <button class="quiz-option" data-correct="false">test_report_export.py, via fixtures</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">A function reads a value from result[...], then two lines later re-derives what it thinks that value should be from raw numbers. Is it still purely a presentation layer?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Yes, formatting code stays presentation</button>
+        <button class="quiz-option" data-correct="true">No, recomputing a fact crosses the line</button>
+        <button class="quiz-option" data-correct="false">Only if pandas is involved somewhere</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Can a bug inside report_export.py ever produce a wrong business fact, like an invoice's aging bucket?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Yes, if the columns are misordered</button>
+        <button class="quiz-option" data-correct="false">Yes, but only for Excel formulas</button>
+        <button class="quiz-option" data-correct="true">No — it has no business rules to break</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (5 minutes)</p>
+    <p>Open <span class="filelink">src/report_export.py</span> and find one more sheet-writing call
+    — besides <code>Backorders</code> — where a field is passed straight from <code>result[...]</code>
+    into a cell with zero transformation. Write down: which sheet, which field, and which upstream
+    module (Tutorial 03, 04, or 05) actually decided that value.</p>
+  </div>
+
+  <p>This distinction is exactly what
+  <a href="../../tutorials/06-excel-report-export/README.md#part-1--result-envelopes-become-workbook-inputs-not-raw-dataframes">Tutorial 06 Part 1</a>
+  proves with real tests, once you get there. Next: how a presentation module is allowed to
+  <em>read</em> a contract it never produced, without ever changing what that contract means.
+  <a href="../reference/presentation-layer-glossary.html">The Presentation Layer Glossary
+  reference</a> collects this lesson's terms for quick lookup.</p>
+
+  <div class="ask-teacher">
+    If "presentation layer" still sounds like a synonym for "UI code" rather than a role any module
+    can play, ask now with a concrete example — Lesson 16 assumes you can spot the difference
+    between reading a contract and reinterpreting it.
+  </div>
+
+  <div class="nav nav-bottom">
+    <span>← You are here</span>
+    <a href="0016-consuming-contracts-without-changing-them.html">Next: Consuming contracts without changing them →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

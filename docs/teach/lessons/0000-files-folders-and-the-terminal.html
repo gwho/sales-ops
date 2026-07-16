@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 0 — Files, Folders, and the Terminal</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Before Track 1 · Lesson 0</span>
+    <a href="0001-how-to-read-this-repo-and-tutorials.html">Next: How to read this repo →</a>
+  </div>
+
+  <p class="kicker">Before Track 1 — The Absolute Basics</p>
+  <h1>Files, Folders, and the Terminal</h1>
+  <p class="lede">
+    The layer underneath everything else in this course. Lesson 1 talks about "folders" and
+    tells you to run a command in a terminal without explaining either — this lesson exists so
+    those words already mean something concrete by the time you get there.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p><a href="https://swcarpentry.github.io/shell-novice/01-intro.html">Software Carpentry — "The Unix Shell: Introducing the Shell"</a>
+    and its next episode, <a href="https://swcarpentry.github.io/shell-novice/02-filedir.html">"Navigating Files and Directories"</a>
+    — a free, official lesson written specifically for people who have never used a command line
+    before. This page only covers the slice you need right now; those two episodes are the right
+    next read if you want more practice typing real commands.</p>
+  </div>
+
+  <h2>A file is one thing; a folder holds things</h2>
+  <p>A <strong>file</strong> is a single named piece of content on a computer — text, code, a
+  spreadsheet, an image. A <strong>folder</strong> (also called a <strong>directory</strong> —
+  same thing, two names) doesn't hold content itself; it holds <em>other files and folders</em>,
+  giving them a shared home and a shared name.</p>
+
+  <p>This repo, <span class="filelink">sales-ops</span>, is itself just one folder. Opened up, it
+  looks like this (trimmed to what matters right now):</p>
+
+  <pre><code>sales-ops/              ← the repo: one folder, holding everything below
+  src/                   ← a folder, holding Python code files
+    excel_io.py          ← one file, inside the src/ folder
+    contracts.py         ← another file, inside the same folder
+  tests/                 ← a different folder, holding test files
+    test_excel_io.py
+  docs/
+    tutorials/
+      01-python-foundation/
+        README.md        ← one file, three folders deep</code></pre>
+
+  <p>Nothing here is special to programming — it's the same folders-inside-folders idea as any
+  file browser you've used. The only new thing is that from here on, you'll navigate this
+  structure by <em>typing</em> instead of clicking, which the rest of this lesson covers.</p>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Which best describes what a folder (directory) does?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="true">Groups files together under one name</button>
+        <button class="quiz-option" data-correct="false">Executes files placed inside it automatically</button>
+        <button class="quiz-option" data-correct="false">Converts files into a single file</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <h2>A path is directions to a file</h2>
+  <p>A <strong>path</strong> is just written-out directions from one place in the folder
+  structure to another, with a slash (<code>/</code>) between each step. Reading the tree above,
+  the path to <code>excel_io.py</code> from the repo root is:</p>
+
+  <pre><code>src/excel_io.py</code></pre>
+
+  <p>Read left to right: "go into the <code>src</code> folder, then find the file
+  <code>excel_io.py</code>." A path to something three folders deep just keeps chaining steps:
+  <code>docs/tutorials/01-python-foundation/README.md</code>.</p>
+
+  <p>One more piece of path syntax you'll see constantly once you start clicking links inside
+  the tutorials — <code>..</code> means <strong>"go up one folder level"</strong> instead of
+  down. Here's a real link from
+  <a href="../../tutorials/03-order-validation-core/README.md">Tutorial 3</a>, which lives at
+  <span class="filelink">docs/tutorials/03-order-validation-core/README.md</span>:</p>
+
+  <pre><code>[`src/order_validation.py`](../../../src/order_validation.py)</code></pre>
+
+  <p>That path starts three folders deep (<code>docs/tutorials/03-order-validation-core/</code>)
+  and needs to reach <code>src/order_validation.py</code>, which lives off the repo root instead —
+  a completely different branch of the tree. Each <code>../</code> climbs up one level
+  (<code>docs/tutorials/03-order-validation-core/</code> → <code>docs/tutorials/</code> →
+  <code>docs/</code> → the repo root), and only then does <code>src/order_validation.py</code>
+  make sense as "go back down into <code>src/</code> from here." Three steps up, because the link
+  starts three folders deep.</p>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">In a path like <code>../../../src/excel_io.py</code>, what does each <code>..</code> mean?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="true">Move one folder level up</button>
+        <button class="quiz-option" data-correct="false">Skip two files in order</button>
+        <button class="quiz-option" data-correct="false">Rename the current folder path</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <h2>What a file extension tells you</h2>
+  <p>The letters after the final <code>.</code> in a filename are the <strong>extension</strong> —
+  a label saying what kind of content the file holds, and often which program or tool is meant
+  to open it. You'll meet exactly these six in this repo:</p>
+
+  <table>
+    <tr><th>Extension</th><th>Means</th><th>Example in this repo</th></tr>
+    <tr><td><code>.py</code></td><td>Python code</td><td><span class="filelink">src/excel_io.py</span></td></tr>
+    <tr><td><code>.md</code></td><td>Markdown — plain text with light formatting, human-readable even unrendered</td><td><span class="filelink">docs/tutorials/01-python-foundation/README.md</span></td></tr>
+    <tr><td><code>.html</code></td><td>A web page — like this lesson itself</td><td><span class="filelink">docs/teach/lessons/0000-files-folders-and-the-terminal.html</span></td></tr>
+    <tr><td><code>.toml</code></td><td>A configuration file (settings, not code that runs)</td><td><span class="filelink">pyproject.toml</span></td></tr>
+    <tr><td><code>.lock</code></td><td>An exact, frozen record of installed versions</td><td><span class="filelink">uv.lock</span></td></tr>
+    <tr><td><code>.xlsx</code></td><td>An Excel spreadsheet</td><td><span class="filelink">sample_data/sample_orders.xlsx</span></td></tr>
+  </table>
+
+  <p>None of this is a Python rule — it's a general computing convention almost every tool
+  respects. Recognizing a file's job from its extension alone, before opening it, is most of
+  what "reading a repo's structure" actually is.</p>
+
+  <h2>A terminal is a way to talk to your computer by typing</h2>
+  <p>Every file browser you've used lets you double-click a folder to open it. A
+  <strong>terminal</strong> (also called a <strong>command line</strong> or <strong>shell</strong>)
+  is the same kind of interaction, done entirely by typing: you type a short instruction called a
+  <strong>command</strong>, press <kbd>Enter</kbd>, and the computer carries it out —
+  usually printing some text back as a result.</p>
+
+  <p>One command is worth knowing cold before Lesson 1, because its very first exercise uses it:
+  <code>ls</code> (short for "list") prints the names of every file and folder in your
+  <strong>current location</strong> — wherever your terminal happens to be "standing" right now,
+  which starts out as your repo's root folder if that's where you opened it.</p>
+
+  <pre><code>$ ls
+CLAUDE.md   context/   docs/   sample_data/   src/   tests/   ...</code></pre>
+
+  <p>The <code>$</code> isn't something you type — it's how documentation (including this lesson)
+  marks "this is a command, typed at the terminal," to distinguish it from ordinary text or
+  output. You only ever type what comes after it.</p>
+
+  <div class="box primer">
+    <p class="box-label">Why this matters</p>
+    <p>A command is not magic — it's a short, precise instruction, and most of the ones you'll
+    meet in this course (<code>ls</code>, later <code>uv run pytest</code>) just ask the computer
+    to <em>look at</em> or <em>run</em> something already sitting in the folder structure you now
+    know how to read. The terminal isn't a separate skill from files and paths — it's how you
+    move through them without a mouse.</p>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (3 minutes)</p>
+    <p>Open a terminal with this repo as your current location (if you're working alongside an
+    AI coding assistant, it likely already has one open for you — just ask where it is). Run:</p>
+    <pre><code>ls</code></pre>
+    <p>Compare what prints against the tree near the top of this lesson — find <code>src</code>,
+    <code>tests</code>, and <code>docs</code> in the output. Then run <code>ls src</code> and
+    confirm <code>excel_io.py</code> and <code>contracts.py</code> both appear — you're reading
+    the same folder structure, just one level deeper, by typing instead of clicking into it.</p>
+  </div>
+
+  <p>That's the whole prerequisite. Lesson 1's own exercise
+  (<code>ls docs/plan/phase-1-python-foundation/</code>) is exactly this same command, aimed one
+  path deeper — you now know what every part of it means before you type it.</p>
+
+  <div class="ask-teacher">
+    If "folder" vs. "directory," the <code>..</code> path syntax, or opening a terminal at all
+    still feels shaky — ask now. Lesson 1 assumes this lesson, not the other way around.
+  </div>
+
+  <div class="nav nav-bottom">
+    <span>← You are here</span>
+    <a href="0001-how-to-read-this-repo-and-tutorials.html">Next: How to read this repo →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

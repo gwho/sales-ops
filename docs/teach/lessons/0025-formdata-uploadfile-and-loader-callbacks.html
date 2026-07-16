@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 32 — FormData, UploadFile, and Loader Callbacks</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 4 · Reinforcement 2 of 7</span>
+    <a href="0026-api-error-contracts-and-business-readable-failures.html">Next: API error contracts →</a>
+  </div>
+
+  <p class="kicker">Track 4 — Optional Reinforcement · 2 of 7</p>
+  <h1>FormData, UploadFile, and Loader Callbacks</h1>
+  <p class="lede">
+    Lesson 31 mapped <em>which</em> endpoint does what. This one rehearses the exact mechanical bridge
+    one workflow request crosses: a browser's <code>FormData</code> key, to a FastAPI parameter name,
+    to a business module's own loader function — three files, two languages, one string that has to
+    match across all of them with nothing enforcing it.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">What you're rehearsing</p>
+    <p>Tutorial 07 Part 1 and Part 4, against the real files:
+    <span class="filelink">backend/uploads.py</span>,
+    <span class="filelink">backend/routers/orders.py</span>, and
+    <span class="filelink">lib/api-client.ts</span>.</p>
+  </div>
+
+  <h2>The chain, four links</h2>
+  <p>Follow one field, <code>orders_file</code>, across its entire journey:</p>
+
+  <table>
+    <tr><th>Link</th><th>Where</th><th>What it is</th></tr>
+    <tr><td>1</td><td><span class="filelink">app/order-validation/page.tsx</span></td><td><code>formData.set("orders_file", orders)</code> — a plain string key on a browser <code>FormData</code> object</td></tr>
+    <tr><td>2</td><td><span class="filelink">backend/routers/orders.py</span></td><td><code>orders_file: Annotated[UploadFile, File()]</code> — a Python parameter whose <em>name</em> must match link 1's key exactly</td></tr>
+    <tr><td>3</td><td><span class="filelink">backend/uploads.py</span></td><td><code>read_xlsx_upload(orders_file, "orders file", load_orders)</code> — <code>load_orders</code> passed in as a plain callback, not hardcoded</td></tr>
+    <tr><td>4</td><td><span class="filelink">src/order_validation.py</span></td><td><code>load_orders(file_obj)</code> — the actual required-column check, owned entirely by Tutorial 03's module</td></tr>
+  </table>
+
+  <p>Nothing links 1 and 2 except that both files were written to agree on the literal string
+  <code>"orders_file"</code>. No shared constant, no schema file, no compiler. FastAPI's
+  <code>Annotated[UploadFile, File()]</code> binding works purely by name: it looks at the incoming
+  multipart body for a part named <code>orders_file</code> and binds it to the Python parameter of
+  the same name. If either side's string drifted — a typo, a copy-paste from a different endpoint —
+  the request would still complete a full round trip; the expected field would simply never
+  arrive, and FastAPI's own validation machinery (Lesson 33) would report it as missing.</p>
+
+  <div class="box primer">
+    <p class="box-label">Multipart boundary failure — a name-adjacent trap, not the name trap itself</p>
+    <p>A related but different failure lives one layer below the field-name question: <strong>never
+    manually set <code>Content-Type: multipart/form-data</code></strong> on a request whose body is a
+    real <code>FormData</code> object. When <code>fetch()</code>'s <code>body</code> is a
+    <code>FormData</code> instance, the browser builds the multipart body <em>and</em> writes the
+    <code>Content-Type</code> header itself — including the exact <code>boundary=...</code> string it
+    chose while constructing that body. Overwrite that header by hand and the real boundary is gone;
+    the server receives a body with no way to tell where one named part ends and the next begins.
+    <span class="filelink">lib/api-client.ts</span>'s <code>postFormData</code> (Tutorial 07 Part 1)
+    never sets <code>Content-Type</code> for exactly this reason — the absence is deliberate, not an
+    oversight.</p>
+  </div>
+
+  <h2><code>read_xlsx_upload</code>: a callback, not a copy</h2>
+  <p>Open <span class="filelink">backend/uploads.py</span>'s signature:</p>
+  <pre><code>def read_xlsx_upload(
+    file: UploadFile, label: str, loader: Callable[[object], pd.DataFrame]
+) -> pd.DataFrame:</code></pre>
+  <p><code>loader</code> is one of <code>load_orders</code> / <code>load_product_master</code> /
+  <code>load_inventory</code> / <code>load_invoices</code> — passed in by whichever router calls it,
+  not owned by <span class="filelink">backend/uploads.py</span> itself. <code>read_xlsx_upload</code>
+  only ever checks two things on its own: is there a filename at all, and does it end in
+  <code>.xlsx</code>. Every question about <em>which columns are required</em> stays entirely inside
+  whichever <code>load_*</code> function it was handed — the same functions Tutorials 03-05 already
+  tested with zero HTTP machinery involved.</p>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What actually connects <code>formData.set("orders_file", orders)</code> to the Python parameter named <code>orders_file</code>?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">A shared TypeScript/Python schema file</button>
+        <button class="quiz-option" data-correct="true">Nothing but both sides agreeing on the same literal string</button>
+        <button class="quiz-option" data-correct="false">FastAPI's automatic camelCase-to-snake_case conversion</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does <code>read_xlsx_upload</code> take <code>loader</code> as a parameter instead of hardcoding a call to <code>load_orders</code>?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Because <code>load_orders</code> requires an HTTP request object</button>
+        <button class="quiz-option" data-correct="true">So the same function serves all four upload types without owning any column knowledge</button>
+        <button class="quiz-option" data-correct="false">Because pandas requires callback-style loading</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">A developer manually adds <code>"Content-Type": "multipart/form-data"</code> to a <code>fetch()</code> call whose body is a <code>FormData</code> object. What breaks?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Nothing — this is the correct, explicit way to set it</button>
+        <button class="quiz-option" data-correct="true">The real boundary string is lost, and the server can't split the body into parts</button>
+        <button class="quiz-option" data-correct="false">The request is silently converted to <code>application/json</code></button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (10 minutes)</p>
+    <p>Open <span class="filelink">backend/routers/payments.py</span> and find its own version of
+    this chain: which <code>FormData</code> key (check <span class="filelink">app/payment-aging/page.tsx</span>)
+    maps to which <code>Annotated[UploadFile, File()]</code> parameter, and which <code>load_*</code>
+    function from <span class="filelink">src/payment_aging.py</span> gets passed as <code>loader</code>.
+    Then, on paper only, rename the frontend's <code>FormData</code> key to
+    <code>"invoice_file"</code> (singular) while leaving the backend parameter as
+    <code>invoices_file</code> (plural). Predict, in one sentence, what error a user would actually
+    see — then check your answer against Lesson 33's error-contract material once you've written it
+    down.</p>
+  </div>
+
+  <p><strong>Failure mode named:</strong> duplicating required-column lists in <code>backend/</code>
+  instead of delegating to the <code>load_*</code> functions owned by the business modules. The
+  rejected alternative would hardcode a second copy of, say, <code>ORDERS_REQUIRED_COLUMNS</code>
+  inside <span class="filelink">backend/uploads.py</span> — and a second copy is a copy that can
+  silently drift the moment someone adds a required column to the Python core and forgets the
+  FastAPI-side list even exists.</p>
+
+  <div class="ask-teacher">
+    If "why does this even need a callback instead of four separate functions" still feels
+    unresolved, ask now — Tutorial 07 Part 4's testing-benefit checkpoint answers it directly, and
+    it's a good one to be able to explain unprompted before Lesson 35.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0024-api-endpoint-map-and-route-boundaries.html">← Back: API endpoint map &amp; route boundaries</a>
+    <a href="0026-api-error-contracts-and-business-readable-failures.html">Next: API error contracts →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

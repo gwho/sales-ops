@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 1 — How to Read This Repo and Its Tutorials</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 1 · Lesson 1 of 7</span>
+    <a href="0002-python-files-functions-and-data.html">Next: Python files &amp; functions →</a>
+  </div>
+
+  <p class="kicker">Track 1 — Python, Data-as-Tables, and Contracts</p>
+  <h1>How to Read This Repo and Its Tutorials</h1>
+  <p class="lede">
+    Before any Python syntax, you need a map. This repo has a specific filing system — for
+    code, for decisions, and for the tutorials you're about to read. Five minutes here saves
+    you from getting lost in <code>docs/tutorials/01-python-foundation/README.md</code>.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p><a href="https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions">Michael Nygard — "Documenting Architecture Decisions"</a>
+    — the original post defining the ADR pattern. This repo's <span class="filelink">docs/adr/</span> folder
+    follows it directly. You'll appreciate it fully once you reach Track 8, but the shape it
+    describes — a short, numbered document capturing one decision and the reasoning behind it —
+    is worth recognizing now, because you'll see it every time you open a <span class="filelink">docs/adr/000N-*.md</span> file.</p>
+  </div>
+
+  <h2>The four folders that matter for Track 1</h2>
+  <p>This repo has many top-level folders (<code>backend/</code>, <code>app/</code>, <code>components/</code> —
+  those belong to later tracks). Right now, only four matter:</p>
+
+  <table>
+    <tr><th>Folder</th><th>What lives there</th><th>Why you'd open it</th></tr>
+    <tr>
+      <td><code>src/</code></td>
+      <td>The actual Python code — business logic, data shapes, helpers.</td>
+      <td>This is the <em>ground truth</em>. Everything else describes or tests this.</td>
+    </tr>
+    <tr>
+      <td><code>tests/</code></td>
+      <td>Files named <code>test_*.py</code>, plus shared example data in <code>contract_fixtures.py</code>.</td>
+      <td>Proves <span class="filelink">src/</span> does what it claims — and doubles as
+      runnable documentation of expected behavior.</td>
+    </tr>
+    <tr>
+      <td><code>docs/plan/&lt;phase&gt;/</code></td>
+      <td>Three files per phase: <code>plan.md</code>, <code>explanation.md</code>, <code>ai-discussion-topics.md</code>.</td>
+      <td>The raw record of <em>what was built</em> and <em>why</em>, written right after
+      the code — the source material tutorials are generated from.</td>
+    </tr>
+    <tr>
+      <td><code>docs/tutorials/&lt;NN-slug&gt;/</code></td>
+      <td>One long <code>README.md</code> per phase, generated from that phase's <code>docs/plan</code> triad.</td>
+      <td>Your actual reading material — a teaching pass over the plan docs and the real code.</td>
+    </tr>
+  </table>
+
+  <p>There's a fifth folder, <code>context/</code>, holding living reference docs
+  (<code>context/architecture.md</code>, <code>context/code-standards.md</code>, etc.) —
+  these describe standing rules for the whole project, not one phase. You won't need them
+  for Track 1; they'll matter once you're reading or writing new code yourself.</p>
+
+  <div class="box primer">
+    <p class="box-label">Worth noticing</p>
+    <p><code>docs/plan</code> and <code>docs/tutorials</code> are <strong>not the same thing</strong>,
+    even though they cover the same phases. <code>docs/plan/phase-1-python-foundation/plan.md</code> is
+    a terse, three-file record written immediately after Phase 1 shipped. <code>docs/tutorials/01-python-foundation/README.md</code>
+    is a much longer document generated <em>from</em> that record later, specifically to teach it —
+    with code excerpts, questions, and exercises woven in. Read the tutorial first; drop into the
+    plan docs when you want the original, unfiltered decision record.</p>
+  </div>
+
+  <h2>The anatomy of a generated tutorial</h2>
+  <p>Open <a href="../../tutorials/01-python-foundation/README.md"><span class="filelink">docs/tutorials/01-python-foundation/README.md</span></a> now
+  (you don't need to read it yet — just look at its shape). Every one of these tutorials repeats the same four-beat pattern,
+  over and over, once per concept:</p>
+
+  <ol>
+    <li>
+      <strong>Concept primer.</strong> A short section under
+      "How to use an LLM before this tutorial" — a prompt you could paste into a chat, <em>before</em>
+      touching any code, to warm up the general idea (e.g. "what is structural typing?").
+      It deliberately does not mention this repo yet.
+    </li>
+    <li>
+      <strong>Code excerpt.</strong> A "Part N" section quotes real code — verbatim, with a file
+      path and line numbers — and explains <em>why</em> it's written that way, not just what it does.
+    </li>
+    <li>
+      <strong>Checkpoint.</strong> A question testing whether you understood the <em>why</em>,
+      followed by a <code>&lt;details&gt;</code> block you click open to reveal the answer —
+      exactly like the box below.
+    </li>
+    <li>
+      <strong>Trace.</strong> A "Full data flow" section near the end walks one real value through
+      every layer, step by step, tying every earlier Part together into one concrete example.
+    </li>
+  </ol>
+
+  <details>
+    <summary>This is a live example — click to open</summary>
+    <p>This is exactly what a tutorial's checkpoint looks like: a question, then a collapsed
+    answer. In the real tutorials, the question always tests the reasoning behind a design choice —
+    never something you could answer just by re-reading the code block above it.</p>
+  </details>
+
+  <h2>Why this order matters for you</h2>
+  <p>The four-beat pattern is deliberate, not decorative. The primer loads a general mental model
+  with no repo-specific noise, so when the code excerpt arrives you're pattern-matching a familiar
+  idea onto unfamiliar code — instead of learning both at once. The checkpoint forces you to state
+  the "why" in your own words before it's handed to you. The trace is the payoff: it only makes
+  sense once every earlier Part's vocabulary is already yours.</p>
+
+  <p>This means: <strong>don't skip to the trace.</strong> If Part 3's checkpoint stumped you,
+  the trace at the bottom will too — it's built entirely out of ideas the Parts already introduced.</p>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Which file is the terse, original record written right after a phase shipped — not the long teaching document generated from it?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">the tutorial README file</button>
+        <button class="quiz-option" data-correct="true">the phase's plan.md file</button>
+        <button class="quiz-option" data-correct="false">the context architecture file</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">In a tutorial's four-beat pattern, what always comes right before a "Checkpoint"?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">the full data flow trace</button>
+        <button class="quiz-option" data-correct="true">a real code excerpt with explanation</button>
+        <button class="quiz-option" data-correct="false">an LLM pre-study prompt</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (2 minutes)</p>
+    <p>Open <span class="filelink">docs/plan/phase-1-python-foundation/</span> in your file
+    explorer or terminal (<code>ls docs/plan/phase-1-python-foundation/</code>). Name the three
+    files you find, in one sentence each, based on this lesson's table above — don't reread
+    the files themselves, just predict from the folder listing what each one is for.</p>
+  </div>
+
+  <h2>Where you're headed</h2>
+  <p>Lessons 2–6 each fill in one prerequisite concept the tutorials assume you already have —
+  Python basics, <code>pytest</code>, contracts, Excel-as-tables, and demo-vs-test data. Lesson 7
+  is a guided trace exercise that rehearses all of it together. Once Lesson 7 is done, you'll read
+  <a href="../../tutorials/01-python-foundation/README.md">Tutorial 01</a> and
+  <a href="../../tutorials/02-sample-data/README.md">Tutorial 02</a> as your case studies —
+  this course teaches the concepts underneath them, not a replacement for reading them.</p>
+
+  <p>If anything here is unclear, or you want to go deeper on any folder before moving on —
+  <strong>just ask</strong>. That's what this session is for.</p>
+
+  <div class="ask-teacher">
+    Stuck, curious, or want more detail on anything above? Ask your teacher (this chat) before
+    moving on — that's the fastest feedback loop you have.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0000-files-folders-and-the-terminal.html">← Back: Files, folders &amp; terminal</a>
+    <a href="0002-python-files-functions-and-data.html">Next: Python files &amp; functions →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

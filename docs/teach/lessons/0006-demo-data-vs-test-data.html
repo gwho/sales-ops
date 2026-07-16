@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 6 — Demo Data vs. Test Data</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 1 · Lesson 6 of 7</span>
+    <a href="0007-track-1-guided-trace.html">Next: Guided trace →</a>
+  </div>
+
+  <p class="kicker">Track 1 — Python, Data-as-Tables, and Contracts</p>
+  <h1>Demo Data vs. Test Data</h1>
+  <p class="lede">
+    This repo maintains <em>three</em> separate sources of example data, on purpose:
+    <span class="filelink">sample_data/*.xlsx</span>, <span class="filelink">src/sample_data.py</span>'s
+    generator functions, and <span class="filelink">tests/contract_fixtures.py</span>'s hand-typed
+    examples. They look similar. They are not interchangeable.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p><a href="https://pandas.pydata.org/docs/user_guide/10min.html">pandas — 10 Minutes to pandas</a>
+    (same as Lesson 5) — both demo data and test fixtures in this repo are expressed as DataFrames
+    or dicts, so the same mental model applies; this lesson is about <em>purpose</em>, not new
+    syntax.</p>
+  </div>
+
+  <h2>Three things, three jobs</h2>
+  <table>
+    <tr><th>Source</th><th>Built by</th><th>Job</th></tr>
+    <tr>
+      <td><span class="filelink">sample_data/*.xlsx</span></td>
+      <td>Generated, then committed to git</td>
+      <td>A believable demo a reviewer opens directly — realistic, mostly clean, with a few
+      deliberate imperfections.</td>
+    </tr>
+    <tr>
+      <td><span class="filelink">src/sample_data.py</span></td>
+      <td>Hand-authored Python code</td>
+      <td>The generator that <em>produces</em> the xlsx files above — pure functions, no file
+      writing themselves.</td>
+    </tr>
+    <tr>
+      <td><span class="filelink">tests/contract_fixtures.py</span></td>
+      <td>Hand-typed dict literals</td>
+      <td>One believable example value per contract (Lesson 4) — proves the <em>shape</em> can hold
+      real-looking data, nothing more.</td>
+    </tr>
+  </table>
+
+  <h2>Why not derive the fixtures from the generated data?</h2>
+  <p>It would be technically possible to write a small function that reads
+  <span class="filelink">sample_orders.xlsx</span> and computes a real validation-error example from
+  it. This repo deliberately doesn't. Two reasons, both worth holding onto:</p>
+
+  <ol>
+    <li><strong>The rule doesn't exist yet.</strong> Computing a real
+    <code>ValidationErrorRow</code> means running order-validation logic — but that logic is a
+    later phase's job. Writing a throwaway version now just to fill in a fixture <em>is</em> that
+    later phase's work, done early and without its real design.</li>
+    <li><strong>Independence is the whole point.</strong> If a fixture were computed <em>from</em>
+    the real logic, a bug in that logic would produce a fixture that faithfully reproduces the same
+    bug — the "proof" and the thing it's supposed to prove would trace back to one source, so they
+    could never disagree. A fixture typed by hand, from reading the spec directly, has an
+    independent chance of catching a mistake the real code makes later.</li>
+  </ol>
+
+  <p>Look at the docstring in <span class="filelink">tests/contract_fixtures.py</span> — it says
+  this outright:</p>
+  <pre><code>"""Realistic example values for each Phase 1 output-contract family (Contract Fixtures).
+
+Hand-authored, not computed by src/sample_data.py or any business-rule module —
+order_validation.py, inventory_allocation.py, and payment_aging.py don't exist
+until Phases 3-5. These only prove the contract shapes can hold believable demo
+data; they are not evidence that any business rule is implemented correctly.
+"""</code></pre>
+
+  <h2>Tests that count properties, not exact values</h2>
+  <p>Because <span class="filelink">src/sample_data.py</span>'s generator functions are just regular
+  functions (Lesson 2) that build and return a DataFrame (Lesson 5), they can be tested directly —
+  call the function, check something true about what comes back. Here's the pattern from
+  <span class="filelink">tests/test_sample_data.py</span>:</p>
+
+  <pre><code>def test_generate_orders_has_exactly_one_duplicate_order_id():
+    df = generate_orders(generate_product_master())
+
+    duplicate_mask = df["order_id"].duplicated(keep=False)
+    duplicated_ids = set(df.loc[duplicate_mask, "order_id"])
+
+    assert duplicated_ids == {"SO-2026-010"}
+    assert duplicate_mask.sum() == 2</code></pre>
+
+  <p>This doesn't check "row 34 equals this exact dict" — it checks a <em>property</em>: exactly
+  one <code>order_id</code> is duplicated, and it's specifically <code>SO-2026-010</code>. That's
+  deliberately in between two extremes: too loose (just "some duplicate exists somewhere," which
+  would miss a second, accidental duplicate creeping in later) and too rigid (hardcoding the whole
+  row, which would break on any unrelated edit to the sample data).</p>
+
+  <div class="box primer">
+    <p class="box-label">The boundary that's being protected</p>
+    <p>Just like Lesson 5's <code>validate_required_columns</code>, these tests never compute a
+    real business result (an aging bucket, an allocation outcome) — only properties of the raw
+    <em>input</em> data (an amount, a date gap, a count). That line — testing what the data looks
+    like, never what a not-yet-built rule would decide about it — is the exact same "don't
+    reimplement a later phase early" boundary from this lesson's first half, just showing up again
+    inside a test file instead of inside a fixture file.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does tests/contract_fixtures.py avoid computing its examples from real business-rule code?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">business-rule code runs too slowly</button>
+        <button class="quiz-option" data-correct="true">that logic doesn't exist yet at this point</button>
+        <button class="quiz-option" data-correct="false">TypedDict forbids computed dict values</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What does test_generate_orders_has_exactly_one_duplicate_order_id actually assert?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">the entire DataFrame equals a fixed copy</button>
+        <button class="quiz-option" data-correct="true">exactly one order_id value repeats</button>
+        <button class="quiz-option" data-correct="false">no row is ever allowed to repeat</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (3 minutes)</p>
+    <p>Open <span class="filelink">tests/contract_fixtures.py</span> and search for
+    <code>MED-LENS</code>. Then open <span class="filelink">src/sample_data.py</span>'s product
+    master rows and check whether that SKU still exists there. Write one sentence on what this
+    mismatch demonstrates about keeping fixtures and generated data independently maintained —
+    including the cost of that independence, not just the benefit.</p>
+  </div>
+
+  <p>This lesson is your direct preparation for
+  <a href="../../tutorials/02-sample-data/README.md">Tutorial 02</a>'s Parts 3 and 6, which go
+  deeper on both halves of this: why the reorder-point scenario is an authored fact rather than a
+  simulated one, and the full "functional core, imperative shell" reasoning behind
+  <code>write_sample_workbooks()</code>.</p>
+
+  <div class="ask-teacher">
+    If the "independence protects against silent bugs" argument doesn't click yet, ask for another
+    example before Lesson 7 — the guided trace assumes you can explain it in your own words.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0005-excel-boundaries-and-table-shaped-data.html">← Back: Excel &amp; table data</a>
+    <a href="0007-track-1-guided-trace.html">Next: Guided trace →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

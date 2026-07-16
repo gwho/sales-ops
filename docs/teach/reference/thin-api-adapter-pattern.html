@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Thin API Adapter Pattern</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 4</p>
+  <h1>Thin API Adapter Pattern</h1>
+  <p class="lede">The adapter/business-rule boundary, generalized past this one repo, plus the two
+  concrete disciplines that keep it real instead of aspirational. Companion to
+  <a href="../lessons/0028-thin-api-adapters-and-framework-free-business-core.html">Lesson 35</a>.</p>
+
+  <div class="box primer">
+    <p class="box-label">A note on this document's status</p>
+    <p>Pre-study, same status as this workspace's other reference docs — a lookup tool, not yet
+    evidence of internalized understanding.</p>
+  </div>
+
+  <h2>The two layers</h2>
+  <table>
+    <tr><th></th><th>Adapter / orchestrator layer</th><th>Business-rule layer</th></tr>
+    <tr><td>Job</td><td>Translate between two systems — carry data across a boundary faithfully</td><td>Decide something — apply a real-world policy</td></tr>
+    <tr><td>Correctness is about</td><td><em>Where data comes from</em> and <em>where it goes</em></td><td><em>What the data means</em></td></tr>
+    <tr><td>This repo's example</td><td><span class="filelink">backend/routers/*.py</span>, <span class="filelink">backend/uploads.py</span></td><td><span class="filelink">src/order_validation.py</span>, <span class="filelink">src/inventory_allocation.py</span>, <span class="filelink">src/payment_aging.py</span></td></tr>
+  </table>
+
+  <h2>The smell test</h2>
+  <p>Read any function. Does it contain an <code>if</code> whose condition is about business meaning
+  ("is this SKU active," not "did this file arrive with the right field name")? If yes, that logic is
+  living one layer too shallow — it belongs one function call away, inside the module that owns that
+  decision.</p>
+
+  <h2>Two disciplines that make the rule real</h2>
+  <ol>
+    <li><strong>No framework import ever enters the business-rule layer.</strong> This repo:
+    zero <code>import fastapi</code> anywhere under <span class="filelink">src/</span>. Verified
+    mechanically with <code>grep -rn "^import fastapi\|^from fastapi" src/</code> — should return
+    nothing.</li>
+    <li><strong>Route/handler return types are the real business-module types, never a duplicate
+    schema.</strong> This repo: every router returns the actual <code>TypedDict</code>
+    (<code>OrderValidationResult</code>, etc.) directly — no parallel Pydantic <code>BaseModel</code>
+    redefining the same fields a second time.</li>
+  </ol>
+
+  <h2>Why duplicating a schema is worse than it looks</h2>
+  <p>A second, hand-maintained definition of the same shape has no mechanism forcing it to agree
+  with the original. The moment the real type gains a field, the duplicate silently falls behind —
+  and nothing fails loudly when that happens, because both definitions still compile and run; they
+  just quietly disagree.</p>
+
+  <h2>Applying the pattern to something new</h2>
+  <p>Before adding a new adapter-layer helper, check whether an existing one already generalizes:
+  <span class="filelink">backend/uploads.py</span>'s <code>read_xlsx_upload(file, label, loader)</code>
+  and <span class="filelink">lib/api-client.ts</span>'s <code>postJSON</code>/<code>postReport</code>
+  were built generic specifically so a new workflow could reuse them unchanged. If a design invents a
+  new shared helper instead, ask whether it's solving a genuinely new problem — or just not noticing
+  the existing generalization already covers it.</p>
+
+  <hr>
+  <p><a href="../lessons/0028-thin-api-adapters-and-framework-free-business-core.html">← Back to Lesson 35</a></p>
+
+</div>
+</body>
+</html>

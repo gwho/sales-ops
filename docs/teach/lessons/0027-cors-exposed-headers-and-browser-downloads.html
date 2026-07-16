@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 34 — CORS, Exposed Headers, and Browser Downloads</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 4 · Reinforcement 4 of 7</span>
+    <a href="0028-thin-api-adapters-and-framework-free-business-core.html">Next: Thin API adapters &amp; the framework-free core →</a>
+  </div>
+
+  <p class="kicker">Track 4 — Optional Reinforcement · 4 of 7</p>
+  <h1>CORS, Exposed Headers, and Browser Downloads</h1>
+  <p class="lede">
+    A request can succeed completely — status <code>200</code>, correct body, visible in DevTools —
+    and still "fail" from your own JavaScript's point of view. This lesson rehearses the one CORS
+    distinction that explains it, and how a report download turns a header into a saved file.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">What you're rehearsing</p>
+    <p>Tutorial 07 Part 8, against <span class="filelink">backend/main.py</span>'s CORS config and
+    <span class="filelink">lib/api-client.ts</span>'s <code>postReport()</code>/<code>downloadBlob()</code>.</p>
+  </div>
+
+  <h2>Two separate permissions, easy to conflate</h2>
+  <p>Open <span class="filelink">backend/main.py</span>:</p>
+  <pre><code>app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins(),
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+    expose_headers=["Content-Disposition", "X-Report-Id", "X-Generated-At", "X-Persisted"],
+)</code></pre>
+
+  <table>
+    <tr><th>Setting</th><th>Controls</th><th>Get it wrong and...</th></tr>
+    <tr><td><code>allow_origins</code></td><td>Whether the cross-origin request is permitted at all</td><td>The browser blocks the whole request — no body, nothing</td></tr>
+    <tr><td><code>expose_headers</code></td><td>Which response headers, beyond a small browser safelist, cross-origin JS may read</td><td>The request succeeds fully, but <code>response.headers.get(...)</code> silently returns <code>null</code> for anything not listed</td></tr>
+  </table>
+
+  <p>These are not two phrasings of the same rule. A response can be a complete, correct
+  <code>200</code> — visible whole in the Network tab, including every header — while your own
+  calling JavaScript still can't read one specific header, because <code>expose_headers</code> is a
+  separate, independent permission from "was the request allowed to happen."</p>
+
+  <div class="box primer">
+    <p class="box-label">Headers as part of the API contract, not incidental metadata</p>
+    <p><code>Content-Disposition</code>, <code>X-Report-Id</code>, and <code>X-Generated-At</code>
+    aren't decoration on top of the "real" response (the file bytes) — they're load-bearing parts of
+    the contract. <span class="filelink">lib/api-client.ts</span>'s <code>postReport()</code> reads
+    all three directly off the response and returns them as part of its own result type. If any one
+    of them were missing from <code>expose_headers</code>, the request would still "work" in the
+    sense of downloading real bytes — but the filename, report ID, and generation timestamp the UI
+    displays would silently be blank or fall back to a default, with no error anywhere to point at
+    the actual cause.</p>
+  </div>
+
+  <h2>From header to saved file: <code>postReport</code> → <code>downloadBlob</code></h2>
+  <pre><code>export async function postReport(
+  path: string,
+  formData: FormData,
+  fallbackFilename: string,
+): Promise&lt;ReportDownload&gt; {
+  const response = await postFormData(path, formData);
+  const blob = await response.blob();
+  return {
+    blob,
+    filename: parseFilename(response.headers.get("content-disposition"), fallbackFilename),
+    reportId: response.headers.get("x-report-id"),
+    generatedAt: response.headers.get("x-generated-at"),
+  };
+}
+
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}</code></pre>
+  <p><code>postReport</code> turns the response body into an in-memory <code>Blob</code> — not yet a
+  downloaded file. <code>downloadBlob</code> is the part that actually triggers a save:
+  <code>URL.createObjectURL(blob)</code> makes a temporary <code>blob:</code> URL the browser can
+  navigate to, a hidden <code>&lt;a download&gt;</code> element gets created and clicked
+  programmatically, then removed, and <code>URL.revokeObjectURL</code> frees the temporary URL
+  afterward. This exists because there's no simpler browser API for "save these already-fetched
+  bytes as a file" — a <code>Blob</code> isn't something you can just assign to
+  <code>window.location</code>.</p>
+
+  <p>Contrast this with the "Sample file" link elsewhere in the UI — a plain <code>&lt;a href
+  download&gt;</code> that never touches <code>fetch()</code> at all. That's a normal browser
+  navigation; no JavaScript ever receives the response to read headers or a body from, so CORS never
+  enters the picture. CORS only governs what cross-origin <em>JavaScript</em> is allowed to read —
+  and a plain navigation never hands the response to any JavaScript in the first place.</p>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">DevTools' Network tab clearly shows an <code>X-Report-Id</code> header on a response, but <code>response.headers.get("x-report-id")</code> returns <code>null</code>. What's almost certainly missing?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false"><code>allow_origins</code> for this origin</button>
+        <button class="quiz-option" data-correct="true"><code>X-Report-Id</code> from <code>expose_headers</code></button>
+        <button class="quiz-option" data-correct="false">A <code>Content-Type</code> header</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why doesn't a plain <code>&lt;a href download&gt;</code> element need any CORS configuration?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Because download links are always same-origin</button>
+        <button class="quiz-option" data-correct="true">No JavaScript ever receives the response to read — it's a normal browser navigation</button>
+        <button class="quiz-option" data-correct="false">Because <code>download</code> disables CORS checks</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Can a cross-origin request return a full, correct <code>200</code> response while a specific header is still unreadable to the calling JavaScript?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="true">Yes — <code>allow_origins</code> and <code>expose_headers</code> are separate permissions</button>
+        <button class="quiz-option" data-correct="false">No — a 200 status guarantees every header is readable</button>
+        <button class="quiz-option" data-correct="false">Only for <code>POST</code> requests, never <code>GET</code></button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (10 minutes)</p>
+    <p>With both dev servers running (<code>uv run fastapi dev backend/main.py</code> and
+    <code>npm run dev</code>), open <code>/order-validation</code>, run validation on the sample
+    data, then click "Download Report." In DevTools' Network tab, open the
+    <code>/api/orders/validate/report</code> request's Response Headers and confirm
+    <code>X-Report-Id</code> and <code>Content-Disposition</code> are genuinely present. Then, purely
+    on paper, remove <code>"X-Report-Id"</code> from <span class="filelink">backend/main.py</span>'s
+    <code>expose_headers</code> list (don't actually save the change) and predict exactly what value
+    <code>postReport()</code>'s <code>reportId</code> field would hold on the next request.</p>
+  </div>
+
+  <p><strong>Failure mode named:</strong> seeing a header correctly present in DevTools' Network tab
+  and concluding the frontend code must have a bug, when the actual gap is a missing entry in
+  <code>expose_headers</code>. The header genuinely exists on the wire — DevTools reads the raw HTTP
+  response directly, bypassing the browser's CORS-JS boundary entirely — so "I can see it in
+  DevTools" is not evidence that JavaScript can read it too.</p>
+
+  <div class="ask-teacher">
+    If it's still unclear why the browser bothers hiding headers from JavaScript at all (rather than
+    just blocking or allowing the whole response), ask now — it's worth understanding as a
+    security design choice, not an arbitrary inconvenience, before moving on.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0026-api-error-contracts-and-business-readable-failures.html">← Back: API error contracts &amp; business-readable failures</a>
+    <a href="0028-thin-api-adapters-and-framework-free-business-core.html">Next: Thin API adapters &amp; the framework-free core →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

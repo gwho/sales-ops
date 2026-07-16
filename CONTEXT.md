@@ -118,8 +118,8 @@ The portfolio state where all records are fictional and the UI demonstrates work
 
 ### Workflow Request
 
-A single API request that submits uploaded source file(s) and parameters for one business workflow (order validation, inventory allocation, or payment aging). It carries no server-side identity — the server processes it against the corresponding tested Python module and forgets it once the response is returned.
-_Avoid_: Workflow Run, Run, Job — these imply a persisted, trackable, or resumable entity, which Phase 10 deliberately does not introduce.
+A single API request that submits uploaded source file(s) and parameters for one business workflow (order validation, inventory allocation, or payment aging). The server always processes it against the corresponding tested Python module and returns its result the same way regardless of session identity — computation itself remains stateless and pure. As of Phase 12, if the request carries a valid Anonymous Session ID, the server also makes a best-effort attempt to persist the result as that session's Saved Workflow Result, reported via the `X-Persisted` header — a side effect, not a change to how the result is computed or returned.
+_Avoid_: Workflow Run, Run, Job — these imply a persisted, trackable, or resumable entity; Phase 12 introduces only a single best-effort latest-result save, never a history, retry queue, or resumable job.
 
 ### Workflow Result
 
@@ -127,7 +127,38 @@ The JSON result returned by a Workflow Request, matching the corresponding Pytho
 
 ### Current Result
 
-The most recent Workflow Result held in client-side page state. It exists only in the browser and is discarded on navigation or reload — the server retains no copy of it.
+The most recent Workflow Result held in client-side page state. It exists only in the browser and is discarded on navigation or reload — the server retains no copy of it. Independent from this, Phase 12 may also produce a Saved Workflow Result for the same request — a separate, best-effort, server-side latest-result cache for dashboard display. It does not change what Current Result means: purely client-side, ephemeral, discarded on navigation.
+
+### Anonymous Session ID
+
+A UUID generated once in the browser via `crypto.randomUUID()` and stored in `localStorage`, sent as the `X-Session-Id` header on Workflow Requests and Report Export Requests. It identifies a browser profile only — no authentication, no user account, nothing server-side treats it as a login. Clearing browser storage creates a new, unrelated Anonymous Session ID.
+_Avoid_: User ID, Account ID — these imply authenticated identity, which this project does not have.
+
+### Saved Workflow Result
+
+The most recent Workflow Result for a given Anonymous Session ID and workflow type, persisted to Postgres as a best-effort side effect of a Workflow Request. Saving a new one for the same session and workflow type overwrites the previous one — there is no history, only the latest.
+_Avoid_: Workflow Run, Run History — these imply a persisted, browsable sequence of past requests, which this project does not keep.
+
+### Workflow Results Store
+
+The single Postgres table (`workflow_results`) holding every session's Saved Workflow Results, keyed by (Anonymous Session ID, workflow type). Unlike the Demo Reporting Database, it is not rebuilt from `sample_data/*.xlsx` on startup — it holds real, session-specific results from real Workflow Requests, and is the first genuinely persistent, non-disposable data store in this project.
+_Avoid_: Demo Reporting Database — that term names a different, disposable, SQLite-based concept from the paused Phase 11 SQL-reporting design, not this one.
+
+### Persistence Outcome
+
+The `X-Persisted` response header on a Workflow Request, reporting whether the Workflow Result was saved as that session's Saved Workflow Result: `true` (saved), `false` (a valid Anonymous Session ID was supplied but the save failed — a transient infrastructure issue, not a data problem), or `skipped` (no Anonymous Session ID was supplied — standalone API use). It never appears on Report Export Request responses, which never persist.
+
+### Dashboard Latest Results
+
+The response shape of `GET /api/dashboard`: one field per workflow type, each either that session's Saved Workflow Result or `null` if none exists, is TTL-expired, or is Result Schema Version-incompatible. A dashboard-module aggregate type, not an Output Contract — it lives in the backend's dashboard module, not `src/contracts.py`, since Field Scope Boundary governs spec-derived contracts, not read-side aggregates over them.
+
+### Result Schema Version
+
+An integer stored alongside every Saved Workflow Result, identifying which version of its workflow type's Output Contract shape it was saved under. Bumped whenever a persisted Output Contract's fields change — the same mental checklist as editing `src/contracts.py` itself. `GET /api/dashboard` treats a stored result with a non-current version as unusable, the same as if it didn't exist.
+
+### Display Expiry
+
+The rule that a Saved Workflow Result older than a fixed TTL (default 30 days) is treated as unusable by `GET /api/dashboard` — the same as a missing or Result Schema Version-incompatible result — even though the row is not physically deleted. A visibility rule, not a data-deletion guarantee; physical cleanup is deferred out of Phase 12 scope.
 
 ### Report Export Request
 

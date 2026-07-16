@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — pytest Reading Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 1</p>
+  <h1>pytest Reading Cheat Sheet</h1>
+  <p class="lede">How to read a test file as a plain-English list of claims. Companion to
+  <a href="../lessons/0003-uv-pytest-and-test-reading.html">Lesson 3</a>.</p>
+
+  <h2>Commands</h2>
+  <table>
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr><td><code>uv sync</code></td><td>Install every dependency <span class="filelink">uv.lock</span> pins, into an isolated environment.</td></tr>
+    <tr><td><code>uv run pytest</code></td><td>Run the whole test suite inside that environment.</td></tr>
+    <tr><td><code>uv run pytest tests/test_excel_io.py</code></td><td>Run only that one file.</td></tr>
+    <tr><td><code>uv run pytest -v</code></td><td>Verbose — print every test's name and pass/fail, not just a summary count.</td></tr>
+    <tr><td><code>uv run pytest -k unknown_sku</code></td><td>Run only tests whose name contains "unknown_sku."</td></tr>
+  </table>
+
+  <h2>How pytest finds tests</h2>
+  <p>Per this repo's <span class="filelink">pyproject.toml</span>:</p>
+  <pre><code>[tool.pytest.ini_options]
+testpaths = ["tests"]</code></pre>
+  <p>Pytest looks under <span class="filelink">tests/</span>, opens every file named
+  <code>test_*.py</code>, and inside each one runs every function named <code>test_*</code>.</p>
+
+  <h2>assert — the whole mechanism</h2>
+  <table>
+    <tr><th>Statement</th><th>Result</th></tr>
+    <tr><td><code>assert 2 + 2 == 4</code></td><td>Condition is true — nothing happens, execution continues.</td></tr>
+    <tr><td><code>assert 2 + 2 == 5</code></td><td>Condition is false — raises <code>AssertionError</code>, the test fails right there.</td></tr>
+  </table>
+
+  <h2>Reading a "no assertion" test</h2>
+  <pre><code>def test_validate_required_columns_passes_when_all_present():
+    df = pd.DataFrame({"order_id": ["SO-1"], "sku": ["MED-LENS-001"]})
+    validate_required_columns(df, ["order_id", "sku"], "orders file")</code></pre>
+  <p>No <code>assert</code> line at all — the claim being tested is "this call does not raise
+  anything." If it did raise, the test fails there without needing an explicit assertion.</p>
+
+  <h2>Reading an expected-error test</h2>
+  <pre><code>with pytest.raises(MissingColumnsError) as excinfo:
+    validate_required_columns(df, ["order_id", "sku"], "orders file")
+
+assert "orders file" in str(excinfo.value)
+assert "sku" in str(excinfo.value)</code></pre>
+  <table>
+    <tr><th>Line</th><th>Meaning</th></tr>
+    <tr><td><code>with pytest.raises(X) as excinfo:</code></td><td>"I expect the indented block below to raise X. If it doesn't, that's the failure. If it does, capture it as excinfo."</td></tr>
+    <tr><td><code>str(excinfo.value)</code></td><td>The error's message text, as a string.</td></tr>
+    <tr><td><code>"orders file" in ...</code></td><td>Substring check — is this text present anywhere in the message?</td></tr>
+  </table>
+
+  <h2>Property-style assertions (this repo's house style for generated data)</h2>
+  <pre><code>duplicate_mask = df["order_id"].duplicated(keep=False)
+duplicated_ids = set(df.loc[duplicate_mask, "order_id"])
+
+assert duplicated_ids == {"SO-2026-010"}   # exactly this one, named
+assert duplicate_mask.sum() == 2          # exactly two rows involved</code></pre>
+  <p>Deliberately in between "some duplicate exists" (too loose — would miss a second, accidental
+  duplicate) and "row 34 equals this literal dict" (too rigid — breaks on any unrelated edit).
+  Names the exact expected value <em>and</em> the exact expected count.</p>
+
+  <h2>Reading a test name as a sentence</h2>
+  <p><code>test_generate_orders_has_exactly_one_unknown_sku</code> → "test: generate_orders has
+  exactly one unknown sku." Test names in this repo are written to be read this way — scan just the
+  <code>def test_...</code> lines in a file before reading any bodies, and you'll often already know
+  what the module does.</p>
+
+  <hr>
+  <p><a href="../lessons/0003-uv-pytest-and-test-reading.html">← Back to Lesson 3</a></p>
+
+</div>
+</body>
+</html>

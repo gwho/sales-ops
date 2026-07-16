@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 33 — API Error Contracts and Business-Readable Failures</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 4 · Reinforcement 3 of 7</span>
+    <a href="0027-cors-exposed-headers-and-browser-downloads.html">Next: CORS, exposed headers &amp; downloads →</a>
+  </div>
+
+  <p class="kicker">Track 4 — Optional Reinforcement · 3 of 7</p>
+  <h1>API Error Contracts and Business-Readable Failures</h1>
+  <p class="lede">
+    Every success response in this API has a different shape depending on which endpoint answered.
+    Every <em>failure</em> response, by design, has exactly the same shape no matter which endpoint
+    or which layer produced it. This lesson rehearses that uniform error contract, and a genuine
+    testing gotcha that comes with proving it.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">What you're rehearsing</p>
+    <p>Tutorial 07 Part 7, against <span class="filelink">backend/errors.py</span> and
+    <span class="filelink">tests/test_backend_errors.py</span> in full.</p>
+  </div>
+
+  <h2>One shape, three sources</h2>
+  <p>Every error this API can produce ends up as <code>{"detail": "&lt;business-readable
+  string&gt;"}</code> — but that string can originate from three genuinely different places:</p>
+
+  <table>
+    <tr><th>Source</th><th>Example</th><th>Status</th></tr>
+    <tr><td>A router or <span class="filelink">backend/uploads.py</span> raising <code>HTTPException</code> directly</td><td>Wrong file extension, missing columns</td><td><code>400</code></td></tr>
+    <tr><td>FastAPI's own <code>RequestValidationError</code> (a required <code>File()</code>/<code>Form()</code> field is entirely absent)</td><td>No file submitted at all</td><td><code>400</code></td></tr>
+    <tr><td>An unhandled <code>Exception</code> — a genuine bug</td><td>A typo'd variable name inside a route handler</td><td><code>500</code></td></tr>
+  </table>
+
+  <p>The first row needs no special handling — <code>HTTPException</code> already produces
+  <code>{"detail": "..."}</code> via FastAPI's default behavior. The other two rows are exactly what
+  <span class="filelink">backend/errors.py</span>'s two registered handlers exist to normalize.</p>
+
+  <div class="box primer">
+    <p class="box-label">The contract you didn't know you'd made</p>
+    <p>FastAPI's <em>own</em> validation machinery — the thing that fires automatically when a
+    required field is simply missing — returns <code>detail</code> as a <strong>list</strong> of
+    structured error objects by default, not a string. If nothing intercepted that, a request missing
+    a required file would return a <code>detail</code> shaped completely differently from every other
+    error this API produces — and <code>&lt;BusinessErrorMessage message={errorDetail} /&gt;</code>
+    on the frontend expects a plain string every time. <code>register_exception_handlers</code>'s
+    <code>RequestValidationError</code> handler rewrites FastAPI's own list-shaped error into the same
+    single-string shape everything else uses.</p>
+  </div>
+
+  <h2>400 vs. 500 — whose fault, not how bad</h2>
+  <p>The split isn't about severity — it's about which side of the request is responsible.
+  <code>400</code> means the <em>client</em> sent something this specific request can't proceed with
+  (a missing column, a corrupt file, a malformed date) — fixable by the caller, without touching the
+  server. <code>500</code> means something broke on the <em>server's</em> side regardless of what was
+  sent — never the caller's fault, and the response must never explain exactly what broke to a
+  stranger on the internet. <span class="filelink">backend/errors.py</span>'s generic
+  <code>Exception</code> handler enforces that second half directly: no matter what the real
+  exception's message says, the client always receives the same fixed, generic string.</p>
+
+  <h2>HTTP contract testing: proving shape, not just business results</h2>
+  <p>Open <span class="filelink">tests/test_backend_errors.py</span> in full. Neither test in this
+  file asserts anything about business logic — no SKU, no order, no aging bucket. Both tests exist
+  purely to prove the <em>HTTP contract itself</em>: status code, header behavior, and body shape.
+  This is a different kind of test from every one in Tutorials 03-06 — those proved "the business
+  logic is correct"; these prove "a caller can rely on the shape of what comes back, independent of
+  what the business logic decided."</p>
+
+  <pre><code>def test_unexpected_exception_returns_generic_500_without_leaking_message(monkeypatch):
+    def _boom(*args, **kwargs):
+        raise RuntimeError("super secret internal stack trace detail")
+
+    monkeypatch.setattr("backend.routers.orders.validate_orders", _boom)
+
+    # raise_server_exceptions=False: exercise the registered Exception handler's
+    # actual response instead of TestClient's default debugging behavior of
+    # re-raising unhandled exceptions straight into the test.
+    error_client = TestClient(app, raise_server_exceptions=False)</code></pre>
+
+  <div class="box primer">
+    <p class="box-label">The genuine gotcha</p>
+    <p>Starlette's <code>TestClient</code> defaults to <code>raise_server_exceptions=True</code> —
+    deliberately built so an unhandled exception inside a route propagates straight into the test
+    process as a real traceback, which is exactly what you want while debugging a genuine bug. But
+    that same default <em>bypasses</em> any registered exception handler that exists specifically to
+    convert an exception into a response — including <code>handle_unexpected_error</code>, the exact
+    thing this test needs to observe. Without
+    <code>TestClient(app, raise_server_exceptions=False)</code>, this test can never see what a real
+    client actually receives for a genuine server error; it only observes pytest's own
+    exception-propagation behavior, which proves nothing about whether the handler is registered
+    correctly.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">A request uploads a corrupt <code>.xlsx</code> file for the orders workflow. What status code should the response carry?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="true">400 — the client's file was the problem</button>
+        <button class="quiz-option" data-correct="false">500 — the server failed to parse it</button>
+        <button class="quiz-option" data-correct="false">200 — with an error field in the body</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Without <code>backend/errors.py</code>'s <code>RequestValidationError</code> handler, what shape would <code>detail</code> have when a required file is entirely missing?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">The same business-readable string as every other 400</button>
+        <button class="quiz-option" data-correct="true">A list of structured error objects, FastAPI's own default shape</button>
+        <button class="quiz-option" data-correct="false">An empty string</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does the generic-500 test need <code>TestClient(app, raise_server_exceptions=False)</code> specifically?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">It makes the test run faster</button>
+        <button class="quiz-option" data-correct="true">The default client re-raises unhandled exceptions instead of exercising the registered handler</button>
+        <button class="quiz-option" data-correct="false">It's required for any test using <code>monkeypatch</code></button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (10 minutes)</p>
+    <p>Run <code>uv run pytest tests/test_backend_errors.py -v</code> and confirm both tests pass.
+    Then, in <span class="filelink">tests/test_backend_errors.py</span>, temporarily remove
+    <code>raise_server_exceptions=False</code> from the second test's <code>TestClient(...)</code>
+    call and re-run just that test. Write down, in your own words, what pytest reports instead of a
+    clean assertion failure — then revert the change.</p>
+  </div>
+
+  <p><strong>Failure mode named:</strong> letting FastAPI's default list-shaped validation errors, or
+  a raw Python exception's message/traceback, leak past this boundary into a client response. Both
+  would silently break the one promise this API makes about every failure: that
+  <code>response.json().detail</code> is always a plain, business-readable string, safe to render
+  directly.</p>
+
+  <div class="ask-teacher">
+    If the "why does a test-client default even exist that could hide a bug like this" question
+    feels worth chasing further, ask now — it's a good example of a testing tool's convenience
+    default working against you in one specific, narrow case.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0025-formdata-uploadfile-and-loader-callbacks.html">← Back: FormData, UploadFile &amp; loader callbacks</a>
+    <a href="0027-cors-exposed-headers-and-browser-downloads.html">Next: CORS, exposed headers &amp; downloads →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

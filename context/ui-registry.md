@@ -61,7 +61,7 @@ Last updated: 2026-07-13 (Mobile Nav/Shell Responsiveness)
 Pattern notes:
 Client Component (was a Server Component through Phase 10.2 — promoted to hold `isDrawerOpen` state for the mobile nav drawer, see below). Root layout wraps `{children}` in this once (`app/layout.tsx`), not per-route — no route group was introduced, so it also (harmlessly) wraps the `/` redirect page for an instant before it navigates away. Structure: `flex h-screen overflow-hidden` → sidebar region + a flex-col column of `TopHeader` + `<main className="flex-1 overflow-y-auto">`.
 
-**Mobile navigation drawer (below `lg`):** the sidebar region is two separate elements, not one shape-shifting wrapper. A desktop wrapper (`hidden lg:block`) is always mounted and behaves exactly as before this change. A mobile drawer wrapper (`fixed inset-y-0 left-0 z-50 lg:hidden`, `id="mobile-sidebar-drawer"`) plus a backdrop (`fixed inset-0 z-40 bg-overlay/50 lg:hidden`) are **only rendered in the DOM while `isDrawerOpen` is true** — deliberately not a permanently-mounted, `-translate-x-full`-only panel, because that would leave the closed drawer's nav links reachable via Tab even while invisible. Both instances render the same unmodified `SidebarNav`. The drawer closes on: backdrop click, `Escape` (a `keydown` listener added only while open), and automatically on every route change (`usePathname()`-keyed effect) — the toggle button lives in `TopHeader`, which now accepts `isDrawerOpen`/`onToggle` props. No animated slide transition (instant mount/unmount) and no claimed `role="dialog"`/`aria-modal` — see `SidebarNav`'s entry for why. No body-scroll lock is needed: the shell's `h-screen overflow-hidden` root means there's no separate page-level scroll region to leak behind the backdrop.
+**Mobile navigation drawer (below `lg`):** the sidebar region is two separate elements, not one shape-shifting wrapper. A desktop wrapper (`hidden lg:block`) is always mounted and behaves exactly as before this change. A mobile drawer wrapper (`fixed inset-y-0 left-0 z-50 lg:hidden`, `id="mobile-sidebar-drawer"`) plus a backdrop (`fixed inset-0 z-40 bg-overlay/50 lg:hidden`) are **only rendered in the DOM while `isDrawerOpen` is true** (`z-40`/`z-50` is this app's first stacking-context precedent above chart tooltips' `z-10` — e.g. `DonutBreakdownChart`/`VerticalBucketBarChart` — a future modal/toast should sit at `z-50`+ to layer above this drawer, or the drawer's own `z-40`/`z-50` pair should be revisited as part of that decision, not picked independently) — deliberately not a permanently-mounted, `-translate-x-full`-only panel, because that would leave the closed drawer's nav links reachable via Tab even while invisible. Both instances render the same unmodified `SidebarNav`. The drawer closes on: backdrop click, `Escape` (a `keydown` listener added only while open), and automatically on every route change (`usePathname()`-keyed effect) — the toggle button lives in `TopHeader`, which now accepts `isDrawerOpen`/`onToggle` props. No animated slide transition (instant mount/unmount) and no claimed `role="dialog"`/`aria-modal` — see `SidebarNav`'s entry for why. No body-scroll lock is needed: the shell's `h-screen overflow-hidden` root means there's no separate page-level scroll region to leak behind the backdrop.
 
 ### SidebarNav
 
@@ -200,7 +200,7 @@ Server Component, thin wrapper over `Badge`. Tone is never inferred from the lab
 ### MetricCard
 
 File: `components/workflow/MetricCard.tsx`
-Last updated: 2026-07-12 (Phase 10.2: restructured into a compact tile)
+Last updated: 2026-07-13 (Phase 12: added optional `sample` chip)
 
 | Property | Class |
 | --- | --- |
@@ -215,7 +215,39 @@ Last updated: 2026-07-12 (Phase 10.2: restructured into a compact tile)
 | Accent/status usage | optional `icon`/`tone` props render a `w-7 h-7 rounded` chip (`bg-{tone}-subtle`, icon `text-{tone}`) above the value — `success`/`warning`/`danger`/`info`/`neutral`, same `Tone` type `StatusBadge` exports |
 
 Pattern notes:
-Server Component. Same `label`/`value`/`icon`/`tone` prop contract as Phase 9.1 — only the internal layout changed, so every existing call site (~15, across `/dashboard`'s Overview row and all 3 workflow pages' post-run summary grids) kept working with no edits. **Phase 10.2:** restructured from a short wide strip (label+icon row, value below, left-aligned) into a compact, roughly square, centered tile (icon chip → big value → label, all centered, `min-h-[104px]`) to read as a "dashboard tile" rather than a KPI strip, matching the reference dashboard's tile proportions. Added a subtle hover lift (`hover:border-border-strong hover:shadow-md`) matching the chart-card hover treatment below. Deliberately **not** adopted: the trend-delta (`+12.4%` arrow) from the same reference — still rejected, no time-series data exists to back it.
+Server Component. Same `label`/`value`/`icon`/`tone` prop contract as Phase 9.1 — only the internal layout changed, so every existing call site (~15, across `/dashboard`'s Overview row and all 3 workflow pages' post-run summary grids) kept working with no edits. **Phase 10.2:** restructured from a short wide strip (label+icon row, value below, left-aligned) into a compact, roughly square, centered tile (icon chip → big value → label, all centered, `min-h-[104px]`) to read as a "dashboard tile" rather than a KPI strip, matching the reference dashboard's tile proportions. Added a subtle hover lift (`hover:border-border-strong hover:shadow-md`) matching the chart-card hover treatment below. Deliberately **not** adopted: the trend-delta (`+12.4%` arrow) from the same reference — still rejected, no time-series data exists to back it. **Phase 12:** added an optional `sample?: boolean` prop — when true, renders a small `Badge tone="neutral" dot={false}` reading "Sample data" beneath the label. Dashboard-only usage (`components/dashboard/DashboardLiveSections.tsx`'s Overview row, one card at a time per workflow type), `false`/unset everywhere else — no visual change to any of the ~15 pre-existing call sites that don't pass it.
+
+### PersistenceNotice
+
+File: `components/feedback/PersistenceNotice.tsx`
+Last updated: 2026-07-13 (Phase 12: new)
+
+| Property | Class |
+| --- | --- |
+| Background | `bg-surface-subtle` |
+| Border | `border border-border` |
+| Border radius | `rounded-xl` |
+| Text — primary | `text-xs text-text-secondary` |
+| Text — secondary | n/a |
+| Spacing | `p-3` |
+| Hover/focus state | none |
+| Shadow | none |
+| Accent/status usage | none — deliberately not `bg-danger-subtle`/`role="alert"` |
+
+Pattern notes:
+Server Component (no interactivity). Renders only when a workflow page's `X-Persisted` response header is `"false"` — never for `"true"` or `"skipped"`, matching this project's existing convention that status UI appears only when there's something actionable (no success toasts exist anywhere in the app). Deliberately **not** `BusinessErrorMessage` — a failed save is a caveat about the dashboard, not an error about the workflow result the user came for, which stays fully visible and correct either way. See `docs/adr/0007-session-scoped-workflow-result-persistence.md`'s "Write-side UI surfacing" section.
+
+## Dashboard (`components/dashboard/`)
+
+### DashboardLiveSections
+
+File: `components/dashboard/DashboardLiveSections.tsx`
+Last updated: 2026-07-13 (Phase 12: new)
+
+Pattern notes:
+**Client Component** (`"use client"`) — the one place in the app that reads the Anonymous Session ID (`lib/session-id.ts`) and fetches `GET /api/dashboard`, because `app/dashboard/page.tsx` is a Server Component and a Vercel-side render has no access to `localStorage`. Owns the Overview KPI row, both chart cards (Allocation Status donut, Outstanding by Aging Bucket bar), and both tables (Inventory Shortage Alerts, Payment Follow-up Items) — everything on the dashboard that depends on session identity. `app/dashboard/page.tsx` itself keeps only the static shell (nav cards, infographic, guide copy, Reports section).
+
+First paint is always the existing `LoadingState` (never sample-then-swap, which would flash content and blur "is this real or sample?"); a failed fetch renders the existing `BusinessErrorMessage`. Once loaded, each of the three workflow results resolves independently to either the session's live saved result or the existing static `mock-data.ts` sample — reusing the pre-Phase-12 derivation logic (`.summary`, `supplier_follow_ups`, `aging_rows` filtering, `amountByAgingBucket(...)`) essentially unchanged, since only the *source* of each top-level value changed. Any section resolved from sample data shows a small `Badge tone="neutral" dot={false}` "Sample data" chip — via `MetricCard`'s new `sample` prop for the Overview cards, or via `TableSectionHeading`'s existing `action` slot for the two chart cards and two tables (replacing that slot's normal `Link`, never both at once).
 
 ### ReportCard
 
@@ -513,3 +545,15 @@ Plain CSS bar chart — `div` columns, height as a `%` of a fixed `h-32` contain
 **The sidebar is a fixed column at `lg` (1024px) and above, and a toggleable off-canvas drawer below it.** Breakpoint chosen to match the app's existing `lg`-based responsive convention (workflow-page KPI grids). `AppShell` (now a Client Component) renders two separate wrappers around the unmodified `SidebarNav` — an always-mounted `hidden lg:block` desktop wrapper, and a mobile drawer wrapper + `bg-overlay/50` backdrop that are **only mounted in the DOM while open**, not merely hidden via `-translate-x-full`. This was a deliberate accessibility choice: a permanently-mounted, transform-only drawer leaves its nav links in the keyboard tab order even while visually off-canvas; conditional mounting removes them from the DOM entirely when closed, so Tab can never land on a hidden link. The trade-off, accepted for this narrow pass: no animated slide-in/out transition (the drawer appears/disappears instantly) — a future pass could add one if wanted, at the cost of extra mount/unmount timing logic.
 
 **`TopHeader` (now also a Client Component) owns the toggle button** — `lg:hidden`, `Menu`/`X` icon swap, `aria-expanded`/`aria-controls="mobile-sidebar-drawer"`/state-dependent `aria-label`. The drawer additionally closes on backdrop click, `Escape`, and automatically on every route change. No `role="dialog"`/`aria-modal` is applied to the drawer wrapper — `SidebarNav`'s own `<nav>` landmark already provides real semantics, and claiming modal behavior without an actual focus trap would overstate what this implementation does. New `--overlay` token (see `ui-tokens.md`) backs the backdrop, reusing `--surface-inverse`'s HSL triple at reduced opacity (`bg-overlay/50`) rather than introducing a new hue.
+
+## Page composition notes (Phase 12)
+
+**`/dashboard` split into a Server Component shell + a Client Component live boundary.** `app/dashboard/page.tsx` renders only static content (page header, Reports section, Workflow nav cards, "How the Workflows Connect", "How This Demo Works") and a single `<DashboardLiveSections />`. Everything session-dependent — the Overview row, both chart cards, both tables — moved into `components/dashboard/DashboardLiveSections.tsx`, a Client Component fetching `GET /api/dashboard` on mount. This is not a stylistic choice: a Server Component's render happens on Vercel's server, which has no access to the browser's `localStorage` where the Anonymous Session ID lives, and Phase 12 deliberately chose `localStorage` over cookies (see `docs/adr/0007-session-scoped-workflow-result-persistence.md`) — so the fetch has to happen client-side or it would only ever see the "no session" case.
+
+**First paint is a loading skeleton, never sample-then-swap.** `DashboardLiveSections` renders the existing `LoadingState` until `GET /api/dashboard` resolves, then renders the real content once — showing sample values immediately and replacing them on fetch return would flash content and blur "is this real or sample?" for the viewer. A failed fetch renders the existing `BusinessErrorMessage` instead of the dashboard sections.
+
+**Sample-data fallback is per-workflow-type, independent per section, using the same `orderValidationResult`/`inventoryAllocationResult`/`paymentAgingResult`/`amountByAgingBucket` static imports the dashboard has used since Phase 9.** A session that's only run Order Validation shows that workflow live and the other two as sample — never all-or-nothing. Marked via a small "Sample data" `Badge` (`tone="neutral" dot={false}`): on `MetricCard`'s new `sample` prop for the 5 Overview cards (2 order-validation, 2 allocation, 1 aging), and via `TableSectionHeading`'s existing `action` slot for the two chart cards and two tables (replacing that slot's normal `Link`/nothing, one or the other, never both).
+
+**`X-Persisted: false` gets a small inline `PersistenceNotice`, never a success equivalent.** All 3 workflow pages now destructure `{ data, persisted }` from `postJSON` (previously just the raw result) and render `<PersistenceNotice />` only when `persisted === "false"` — `"true"` and `"skipped"` (the latter effectively unreachable from the real frontend, since `lib/session-id.ts` always attaches a header) render nothing new, matching this project's no-success-chrome convention. Discoverability of "runs feed the dashboard" lives in `/dashboard`'s own "How This Demo Works" copy, not in per-run UI on the workflow pages.
+
+**Do not reintroduce the old "async Server Component + `force-dynamic`" plan for `/dashboard`.** That framing came from the *paused, superseded* SQLite-based Phase 11 plan (`docs/archive/phase-11-sql-reporting-sqlite-plan.md`), which assumed a global, non-session-scoped query. It does not apply to Phase 12's session-scoped design and should not be revived by a future session skimming old docs.

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 4 — Contracts, TypedDict, and JSON Shapes</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 1 · Lesson 4 of 7</span>
+    <a href="0005-excel-boundaries-and-table-shaped-data.html">Next: Excel &amp; table data →</a>
+  </div>
+
+  <p class="kicker">Track 1 — Python, Data-as-Tables, and Contracts</p>
+  <h1>Contracts, TypedDict, and JSON Shapes</h1>
+  <p class="lede">
+    The single idea every later layer of this repo turns out to be a projection of: a
+    <strong>dict</strong> holds data, a <strong>TypedDict</strong> writes down what shape that dict
+    is promised to have, and an <strong>output contract</strong> is this repo's name for a
+    TypedDict that's shared across modules as a stable handoff point.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary source (reference, not a first read)</p>
+    <p><a href="https://peps.python.org/pep-0589/">PEP 589 — TypedDict</a> — the actual language
+    proposal defining what <code>TypedDict</code> is. Skim it after this lesson, once dict basics
+    (Lesson 2) feel solid; it's precise but dense.</p>
+  </div>
+
+  <h2>Recall: a dict has no promises</h2>
+  <p>From Lesson 2, a dict looks like this:</p>
+  <pre><code>row = {"total_orders": 12, "valid_orders": 9}</code></pre>
+  <p>Nothing about this line stops you from typing <code>{"toatl_orders": 12}</code> — a typo —
+  or from leaving out <code>valid_orders</code> entirely. Python won't complain until something
+  later tries to read the missing key and fails, possibly far away from where the mistake was made.
+  A dict is data with no attached promise about its own shape.</p>
+
+  <h2>TypedDict is the promise, written down</h2>
+  <p>Open <span class="filelink">src/contracts.py</span> and find this:</p>
+
+  <pre><code>class ValidationSummary(TypedDict):
+    total_orders: int
+    valid_orders: int
+    invalid_orders: int
+    duplicate_orders: int
+    invalid_skus: int
+    missing_field_count: int</code></pre>
+
+  <p>This reads as: "a <code>ValidationSummary</code> is a dict that must have exactly these six
+  keys, and each one must hold an integer." Crucially — and this is the part that surprises people
+  coming from other languages — <strong>at runtime, this is still just a plain dict.</strong>
+  <code>TypedDict</code> adds nothing extra when the program actually runs; it exists purely so a
+  type-checking tool (or a careful human) can catch a missing or misspelled key <em>before</em>
+  running anything, by reading the code.</p>
+
+  <p>A real value satisfying this contract looks identical to any other dict:</p>
+  <pre><code>summary: ValidationSummary = {
+    "total_orders": 12,
+    "valid_orders": 9,
+    "invalid_orders": 3,
+    "duplicate_orders": 2,
+    "invalid_skus": 1,
+    "missing_field_count": 0,
+}</code></pre>
+
+  <p>The <code>: ValidationSummary</code> after <code>summary</code> is a type hint (Lesson 2's
+  syntax again) — a note to any checking tool that this particular dict is claimed to match that
+  shape.</p>
+
+  <h2>NotRequired: an optional promise</h2>
+  <p>Some fields aren't always there. <span class="filelink">src/contracts.py</span> handles this
+  explicitly:</p>
+  <pre><code>class ValidationErrorRow(TypedDict):
+    row_number: int
+    order_id: NotRequired[str]
+    sku: NotRequired[str]
+    error_code: str
+    error_message: str
+    severity: str</code></pre>
+  <p><code>order_id</code> and <code>sku</code> are wrapped in <code>NotRequired[...]</code> — this
+  row is allowed to omit them (an error that isn't tied to a specific order or SKU), while
+  <code>row_number</code>, <code>error_code</code>, <code>error_message</code>, and
+  <code>severity</code> must always be present.</p>
+
+  <h2>Why bother, if it's "just a dict" anyway?</h2>
+  <p>Because this dict is going to cross a real boundary: a Python function builds it, and
+  eventually a web layer will convert it to <strong>JSON</strong> — a plain-text format almost
+  every programming language and every web browser can read, built out of exactly the same shapes
+  you already know: objects with named keys (like a dict) and arrays (like a list). A plain Python
+  dict converts to JSON for free, with zero extra work — which is precisely why this repo picked
+  <code>TypedDict</code> over heavier alternatives: it gets the "write the promise down" benefit
+  with none of the "now I need extra conversion code" cost.</p>
+
+  <div class="box primer">
+    <p class="box-label">The term to know</p>
+    <p>This repo calls a <code>TypedDict</code> that's shared as a stable handoff between modules
+    (Python business logic → a future web layer → a future UI) an <strong>output contract</strong>.
+    <code>ValidationSummary</code>, <code>PaymentAgingRow</code>, and every other class in
+    <span class="filelink">src/contracts.py</span> is one. The name is doing real work: like a
+    contract between two parties, it's a promise about shape that every consumer can rely on
+    without re-checking it themselves.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">At runtime, once your program is actually executing, what is a TypedDict-typed value really made of?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">a special validating wrapper class</button>
+        <button class="quiz-option" data-correct="true">an ordinary plain Python dict</button>
+        <button class="quiz-option" data-correct="false">a compiled JSON byte string</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">In ValidationErrorRow, what does wrapping order_id in NotRequired actually permit?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">any value type for that one field</button>
+        <button class="quiz-option" data-correct="true">omitting that key from the dict</button>
+        <button class="quiz-option" data-correct="false">renaming that key at runtime</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (4 minutes)</p>
+    <p>Open <span class="filelink">src/contracts.py</span> and find <code>PaymentAgingRow</code>.
+    List its fields in two groups: always-required, and <code>NotRequired</code>. (Hint: count
+    carefully — one of these two groups is empty for this particular contract, which is itself
+    worth noticing.)</p>
+  </div>
+
+  <p>You're now ready for
+  <a href="../../tutorials/01-python-foundation/README.md#part-1--typeddict-as-the-json-boundary-contract">Tutorial 01's Part 1</a>,
+  which goes further: why <code>TypedDict</code> specifically beat two heavier alternatives
+  (<code>dataclass</code> and Pydantic) for this repo's needs, and a subtlety about how
+  <code>TypedDict</code> checks shape that can bite you if two unrelated contracts happen to share
+  field names.</p>
+
+  <div class="ask-teacher">
+    If "JSON," "type hint," or "NotRequired" still feel fuzzy, ask before moving to Tutorial 01 —
+    its Part 1 checkpoint assumes you can already explain the runtime-vs-type-checking distinction
+    above in your own words.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0003-uv-pytest-and-test-reading.html">← Back: uv, pytest &amp; test reading</a>
+    <a href="0005-excel-boundaries-and-table-shaped-data.html">Next: Excel &amp; table data →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

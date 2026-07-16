@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Python Reading Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 1</p>
+  <h1>Python Reading Cheat Sheet</h1>
+  <p class="lede">The minimum syntax vocabulary to read (not yet write) <span class="filelink">src/contracts.py</span>
+  and <span class="filelink">src/excel_io.py</span>. Companion to
+  <a href="../lessons/0002-python-files-functions-and-data.html">Lesson 2</a>.</p>
+
+  <h2>Reading a function definition</h2>
+  <pre><code>def load_excel(file, sheet_name: int | str = 0) -> pd.DataFrame:
+    """Load an Excel file (path or file-like object) into a DataFrame."""
+    return pd.read_excel(file, sheet_name=sheet_name)</code></pre>
+  <table>
+    <tr><th>Piece</th><th>Meaning</th></tr>
+    <tr><td><code>def</code></td><td>Begins a function definition.</td></tr>
+    <tr><td><code>load_excel</code></td><td>The function's name — how you call it elsewhere.</td></tr>
+    <tr><td><code>file</code></td><td>A parameter with no type hint — any type is accepted.</td></tr>
+    <tr><td><code>sheet_name: int | str = 0</code></td><td>A parameter typed "int or str," defaulting to <code>0</code> if the caller omits it.</td></tr>
+    <tr><td><code>-&gt; pd.DataFrame</code></td><td>The type hint for what this function returns.</td></tr>
+    <tr><td><code>"""..."""</code></td><td>A docstring — documentation, not logic.</td></tr>
+    <tr><td><code>return</code></td><td>Hands a value back to whoever called the function; ends execution here.</td></tr>
+  </table>
+
+  <h2>The two containers</h2>
+  <table>
+    <tr><th>Syntax</th><th>Name</th><th>Ordered?</th><th>Access by</th></tr>
+    <tr><td><code>["a", "b", "c"]</code></td><td>list</td><td>Yes</td><td>position: <code>lst[0]</code></td></tr>
+    <tr><td><code>{"key": "value"}</code></td><td>dict</td><td>No (by key)</td><td>key: <code>d["key"]</code></td></tr>
+  </table>
+
+  <h2>Type hints you'll actually see in this repo</h2>
+  <table>
+    <tr><th>Hint</th><th>Reads as</th></tr>
+    <tr><td><code>str</code></td><td>a text value</td></tr>
+    <tr><td><code>int</code></td><td>a whole number</td></tr>
+    <tr><td><code>float</code></td><td>a decimal number</td></tr>
+    <tr><td><code>bool</code></td><td>True or False</td></tr>
+    <tr><td><code>list[str]</code></td><td>a list containing only strings</td></tr>
+    <tr><td><code>dict[str, int]</code></td><td>a dict whose keys are strings and values are ints</td></tr>
+    <tr><td><code>int | str</code></td><td>"this or that" — an int, or a string</td></tr>
+    <tr><td><code>date | None</code></td><td>a real date, or explicitly nothing (see below)</td></tr>
+    <tr><td><code>NotRequired[str]</code></td><td>(TypedDict only) — this key is allowed to be absent entirely</td></tr>
+  </table>
+
+  <h2>The None-sentinel default pattern</h2>
+  <p>You'll see this shape repeatedly (<span class="filelink">src/sample_data.py</span> uses it for
+  every date-dependent function):</p>
+  <pre><code>def generate_invoices(reference_date: date | None = None) -> pd.DataFrame:
+    if reference_date is None:
+        reference_date = date.today()</code></pre>
+  <p>Why not just write <code>reference_date: date = date.today()</code> directly? Because a
+  default argument value is computed exactly <em>once</em>, when the <code>def</code> line itself
+  runs — not on every call. A literal <code>date.today()</code> default would freeze to whichever
+  day the module happened to first load, and silently go stale after that. The <code>None</code>
+  sentinel defers the real computation into the function body, which reruns every call.</p>
+
+  <h2>A minimal class you'll recognize</h2>
+  <pre><code>class MissingColumnsError(Exception):
+    def __init__(self, file_label: str, missing_columns: list[str]) -> None:
+        ...
+        super().__init__(message)</code></pre>
+  <p>Read as: "a new, specific kind of error, built out of Python's built-in <code>Exception</code>."
+  <code>__init__</code> is the special method that runs when you create one (e.g.
+  <code>MissingColumnsError("orders file", ["sku"])</code>); <code>super().__init__(message)</code>
+  hands the final message text up to the built-in <code>Exception</code> machinery so
+  <code>str(error)</code> returns it.</p>
+
+  <h2>List comprehension, read left to right</h2>
+  <pre><code>missing = [column for column in required_columns if column not in df.columns]</code></pre>
+  <p>Say it as: "Build a new list called <code>missing</code>. For each <code>column</code> in
+  <code>required_columns</code>, include it only if that column is not in <code>df.columns</code>."</p>
+
+  <hr>
+  <p><a href="../lessons/0002-python-files-functions-and-data.html">← Back to Lesson 2</a></p>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — API Error Contract Pattern</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 4</p>
+  <h1>API Error Contract Pattern</h1>
+  <p class="lede">The uniform <code>{"detail": "string"}</code> shape, every source that has to
+  agree to produce it, and the testing gotcha that comes with proving it. Companion to
+  <a href="../lessons/0026-api-error-contracts-and-business-readable-failures.html">Lesson 33</a>.</p>
+
+  <div class="box primer">
+    <p class="box-label">A note on this document's status</p>
+    <p>Pre-study, same status as this workspace's other reference docs — a lookup tool, not yet
+    evidence of internalized understanding.</p>
+  </div>
+
+  <h2>The contract</h2>
+  <p>Every error response, from any endpoint, any layer: <code>{"detail": "&lt;business-readable
+  string&gt;"}</code>. No lists, no nested error objects, no raw exception text.</p>
+
+  <h2>Three sources, one shape</h2>
+  <table>
+    <tr><th>Source</th><th>Who raises it</th><th>Handled by</th><th>Status</th></tr>
+    <tr><td>Known business/input failure</td><td><code>HTTPException</code> raised in a router or <span class="filelink">backend/uploads.py</span></td><td>FastAPI's default handling (already correct)</td><td><code>400</code></td></tr>
+    <tr><td>FastAPI's own required-field validation</td><td><code>RequestValidationError</code>, raised automatically</td><td><span class="filelink">backend/errors.py</span>'s registered handler</td><td><code>400</code></td></tr>
+    <tr><td>An unanticipated bug</td><td>Any unhandled <code>Exception</code></td><td><span class="filelink">backend/errors.py</span>'s generic handler</td><td><code>500</code></td></tr>
+  </table>
+
+  <h2>400 vs. 500 decision rule</h2>
+  <p>Ask: whose fault is this, independent of severity? The client sent something this request can't
+  proceed with (fixable by the caller) → <code>400</code>. Something broke on the server regardless of
+  what was sent (never the caller's fault, message never disclosed) → <code>500</code>.</p>
+
+  <h2>Why FastAPI's own validation needed a handler</h2>
+  <p>FastAPI's automatic validation (fires when a required <code>File()</code>/<code>Form()</code>
+  field is entirely absent) returns <code>detail</code> as a <strong>list</strong> of structured
+  error objects by default — a different shape than every other error this API produces. A frontend
+  component expecting <code>detail</code> to always be a string would break exactly at the moment a
+  request was most simply malformed. <span class="filelink">backend/errors.py</span>'s
+  <code>RequestValidationError</code> handler exists solely to rewrite that list into the same
+  single-string shape.</p>
+
+  <h2>The <code>raise_server_exceptions</code> testing gotcha</h2>
+  <p>Starlette's <code>TestClient</code> defaults to <code>raise_server_exceptions=True</code> — an
+  unhandled exception propagates straight into the test as a real traceback, useful for debugging a
+  genuine bug. But that same default <em>bypasses</em> any registered exception handler meant to
+  convert the exception into a response. To actually test what a real client sees for an unexpected
+  server error, use a dedicated client:</p>
+  <pre><code>error_client = TestClient(app, raise_server_exceptions=False)</code></pre>
+  <p>Reserve this only for the specific test(s) exercising the generic-error handler itself — every
+  other test benefits from the convenient default, since it only changes behavior at the exact moment
+  an exception would otherwise propagate uncaught.</p>
+
+  <h2>HTTP contract testing vs. business-result testing</h2>
+  <table>
+    <tr><th></th><th>Business-result test (Tutorials 03-06)</th><th>HTTP contract test (<span class="filelink">tests/test_backend_errors.py</span>)</th></tr>
+    <tr><td>Proves</td><td>The business logic computed the right answer</td><td>The response's status code, header behavior, and body shape are reliable</td></tr>
+    <tr><td>Cares about SKUs/orders/dates?</td><td>Yes — that's the whole point</td><td>No — deliberately business-agnostic</td></tr>
+  </table>
+
+  <hr>
+  <p><a href="../lessons/0026-api-error-contracts-and-business-readable-failures.html">← Back to Lesson 33</a></p>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Result Envelope Pattern</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 2</p>
+  <h1>Result Envelope Pattern</h1>
+  <p class="lede">The one shape all three Track 2 modules share, side by side. Companion to
+  <a href="../lessons/0009-structured-errors-and-result-envelopes.html">Lesson 9</a>.</p>
+
+  <h2>The three envelopes</h2>
+  <table>
+    <tr><th>Module</th><th>Envelope type</th><th>Fields</th></tr>
+    <tr>
+      <td><span class="filelink">order_validation.py</span></td>
+      <td><code>OrderValidationResult</code></td>
+      <td><code>summary</code>, <code>valid_orders</code>, <code>errors</code></td>
+    </tr>
+    <tr>
+      <td><span class="filelink">inventory_allocation.py</span></td>
+      <td><code>InventoryAllocationResult</code></td>
+      <td><code>summary</code>, <code>allocation_results</code>, <code>backorders</code>,
+      <code>remaining_inventory</code>, <code>supplier_follow_ups</code></td>
+    </tr>
+    <tr>
+      <td><span class="filelink">payment_aging.py</span></td>
+      <td><code>PaymentAgingResult</code></td>
+      <td><code>summary</code>, <code>aging_rows</code>, <code>data_issues</code>,
+      <code>draft_messages</code></td>
+    </tr>
+  </table>
+
+  <h2>What every envelope has in common</h2>
+  <ul>
+    <li><strong>One function, one call, one dict back.</strong> No caller ever needs to call a
+    second function and stitch results together by hand.</li>
+    <li><strong>Always a <code>summary</code> key first</strong> — counts and totals, separate from
+    the detail rows. A KPI card and a detail table can each read only the part they need.</li>
+    <li><strong>Defined locally in the module, not in <span class="filelink">src/contracts.py</span>.</strong>
+    Each envelope is a bundle of contracts <em>already</em> defined there — it isn't a new
+    business-facing shape of its own, just a transport container for one function's return value.</li>
+    <li><strong>Field names read naturally for that module's domain</strong> — <code>valid_orders</code>
+    vs. <code>aging_rows</code> vs. <code>allocation_results</code>. The three envelopes don't share
+    a naming convention, and that's fine: nothing in this repo consumes them generically (by
+    reflecting over "every list field"), only ever by their own specific keys.</li>
+  </ul>
+
+  <h2>Why not a plain tuple?</h2>
+  <p>The spec files for all three modules originally suggested plain tuples of DataFrames
+  (<code>-&gt; tuple[pd.DataFrame, pd.DataFrame]</code>). A tuple is positional — nothing in the
+  code itself enforces "the first one is valid rows, the second is errors." A named dict key can't
+  be silently transposed the way tuple position can.</p>
+
+  <h2>Where each one gets its own deep read</h2>
+  <table>
+    <tr><th>Envelope</th><th>Full explanation</th></tr>
+    <tr><td><code>OrderValidationResult</code></td><td><a href="../../tutorials/03-order-validation-core/README.md#part-1--a-result-envelope-not-a-tuple">Tutorial 03, Part 1</a></td></tr>
+    <tr><td><code>InventoryAllocationResult</code></td><td><a href="../../tutorials/04-inventory-allocation-core/README.md#part-1--result-envelope-symmetry-with-phase-3">Tutorial 04, Part 1</a></td></tr>
+    <tr><td><code>PaymentAgingResult</code></td><td><a href="../../tutorials/05-payment-aging-core/README.md#part-1--result-envelope-one-payment-aging-result-instead-of-three-caller-stitched-outputs">Tutorial 05, Part 1</a></td></tr>
+  </table>
+
+  <hr>
+  <p><a href="../lessons/0009-structured-errors-and-result-envelopes.html">← Back to Lesson 9</a></p>
+
+</div>
+</body>
+</html>

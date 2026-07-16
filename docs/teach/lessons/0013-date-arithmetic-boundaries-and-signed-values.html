@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 13 — Date Arithmetic, Boundaries, and Signed Values</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 2 · Lesson 6 of 7</span>
+    <a href="0014-track-2-guided-test-trace.html">Next: Guided test trace →</a>
+  </div>
+
+  <p class="kicker">Track 2 — Business Rules &amp; Testing Discipline</p>
+  <h1>Date Arithmetic, Boundaries, and Signed Values</h1>
+  <p class="lede">
+    Your direct preparation for Tutorial 05. Payment aging is built almost entirely out of one
+    operation — subtracting two dates — and one decision: whether the result is allowed to be
+    negative. Both turn out to matter more than they first look.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p><a href="https://docs.python.org/3/library/datetime.html">Python — datetime, official docs</a>
+    — specifically the <code>timedelta</code> section, for what subtracting two dates actually
+    produces.</p>
+  </div>
+
+  <h2>Subtracting two dates</h2>
+  <p>In Python, subtracting one <code>date</code> from another doesn't give you a number directly —
+  it gives you a <code>timedelta</code>, an object representing a <em>duration</em>. To get a plain
+  integer day count, you ask it for <code>.days</code>:</p>
+  <pre><code>from datetime import date
+gap = date(2026, 7, 9) - date(2026, 6, 19)
+gap.days   # 20</code></pre>
+  <p>Real code from <span class="filelink">src/payment_aging.py</span> does exactly this:</p>
+  <pre><code>days_overdue = (effective_date - due_date_parsed.date()).days</code></pre>
+  <p>If <code>due_date_parsed</code> is <em>later</em> than <code>effective_date</code> — the
+  invoice isn't due yet — the subtraction still works, and <code>.days</code> comes back
+  <strong>negative</strong>. Nothing crashes; a negative day count is just as valid a
+  <code>timedelta</code> as a positive one.</p>
+
+  <h2>The decision: keep the sign, or floor it at zero?</h2>
+  <p>PA-003's rule text says "if <code>days_overdue &lt;= 0</code>, the invoice is not overdue" —
+  describing what to <em>do</em> with a non-positive value, not saying the value itself should
+  become <code>0</code>. This repo keeps the real, signed number. An invoice due in 5 days reports
+  <code>days_overdue = -5</code>, not <code>0</code>.</p>
+
+  <p>Here's why that choice matters, concretely. PA-005's "Watch" rule is "not overdue but due
+  within 7 days" — a genuine range: <code>-7 &lt;= days_overdue &lt;= 0</code>. If every
+  not-yet-due invoice were floored to <code>0</code>, an invoice due <em>tomorrow</em> and an
+  invoice due in <em>eight months</em> would report the exact same value — and there would be no
+  way, from that one field alone, to tell them apart. Watch would become impossible to express
+  correctly with the field this module already has.</p>
+
+  <div class="box primer">
+    <p class="box-label">Signed vs. floored, as a general idea</p>
+    <p>Flooring a quantity at zero is the right call when nothing downstream needs to know
+    <em>how far past zero</em> the real value would have gone. It's the wrong call the moment some
+    later rule genuinely needs that distance — which is exactly Watch's situation here. Before
+    flooring any computed value "to keep things simple," ask whether anything downstream would lose
+    information it actually needs.</p>
+  </div>
+
+  <h2>Why test exactly at 30, exactly at 31</h2>
+  <p>Open <span class="filelink">tests/test_payment_aging.py</span> and look again at the
+  parametrized boundary test from Lesson 10:</p>
+  <pre><code>(30, "1-30 Days", "Low"),
+(31, "31-60 Days", "Medium"),</code></pre>
+  <p>These two cases are one day apart on purpose. A bucket rule like
+  <code>_aging_bucket()</code>'s <code>if days_overdue &lt;= 30: return "1-30 Days"</code> has an
+  <strong>edge</strong> — the exact value where the answer flips. The classic bug here (an
+  "off-by-one") is writing <code>&lt; 30</code> where <code>&lt;= 30</code> was meant, or vice versa
+  — a mistake that <em>only</em> shows up for inputs sitting exactly on the boundary. A test using
+  <code>days_overdue = 45</code> ("comfortably inside 31-60 Days") would never catch that kind of
+  bug; only testing <em>at</em> 30 and <em>at</em> 31 does.</p>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What type of object does date(2026,7,9) - date(2026,6,19) produce, before calling .days?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">a plain Python int, already</button>
+        <button class="quiz-option" data-correct="true">a timedelta duration object</button>
+        <button class="quiz-option" data-correct="false">a formatted date string</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why would flooring days_overdue at 0 break the Watch rule specifically?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Watch never applies to future dates</button>
+        <button class="quiz-option" data-correct="true">every future date would look identical</button>
+        <button class="quiz-option" data-correct="false">pytest cannot assert on 0 exactly</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why test days_overdue = 30 and 31 specifically, instead of a single mid-range value like 45?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">45 is not a valid parametrize input</button>
+        <button class="quiz-option" data-correct="true">only the exact edge catches off-by-one bugs</button>
+        <button class="quiz-option" data-correct="false">pytest requires consecutive integers</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (4 minutes)</p>
+    <p>Open <span class="filelink">tests/test_payment_aging.py</span> and find
+    <code>test_watch_priority_due_within_seven_days</code> and
+    <code>test_due_today_is_current_and_watch</code>. Both exist even though Watch's range is a
+    single condition, <code>-7 &lt;= days_overdue &lt;= 0</code>. Which specific boundary value
+    does each of these two tests sit on? (Neither uses the value <code>-7</code> itself — find a
+    third test, if one exists, that does.)</p>
+  </div>
+
+  <p><a href="../reference/boundary-case-checklist.html">The Boundary Case Checklist reference</a>
+  collects every boundary this repo's three Track 2 modules test, in one table. For the full
+  reasoning behind keeping <code>days_overdue</code> signed, see
+  <a href="../../tutorials/05-payment-aging-core/README.md#part-5--signed-days_overdue-and-the-watch-window">Tutorial 05 Part 5</a>.</p>
+
+  <div class="ask-teacher">
+    If picking out a rule's boundary values still feels like guessing rather than reading the
+    <code>if</code> conditions directly, ask now with one specific function — Lesson 14's capstone
+    expects you to spot boundaries on your own, in a test you haven't seen yet.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0012-priority-ordered-processing-and-mutable-state.html">← Back: Priority-ordered processing</a>
+    <a href="0014-track-2-guided-test-trace.html">Next: Guided test trace →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

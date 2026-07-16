@@ -4,17 +4,29 @@ Runs the full chain internally -- orders + product master through
 `validate_orders` first, then the resulting valid orders through
 `allocate_inventory` with the inventory file -- because `allocate_inventory`
 requires already-valid orders, and that's what the UI workflow means by
-"allocate." Stateless per docs/adr/0006.
+"allocate." Stateless per docs/adr/0006, except a best-effort Saved Workflow
+Result on POST /allocate when a valid X-Session-Id is supplied -- see
+docs/adr/0007-session-scoped-workflow-result-persistence.md. Only the
+inventory_allocation result is persisted, never the internal validation
+byproduct (ADR 0007's "Write path" section) -- the caller never invoked or
+even received an order-validation workflow in this request.
 """
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Annotated
 
 import pandas as pd
-from fastapi import APIRouter, File, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 
+from backend.persistence import persist_workflow_result
+from backend.repositories.workflow_results import (
+    WorkflowResultsRepository,
+    get_workflow_results_repository,
+)
+from backend.session import get_session_id
 from backend.uploads import read_xlsx_upload
 from src.excel_io import MissingColumnsError
 from src.inventory_allocation import (
@@ -30,6 +42,7 @@ from src.report_export import export_inventory_allocation_report
 router = APIRouter(prefix="/api/inventory", tags=["inventory"])
 
 _XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+_WORKFLOW_TYPE = "inventory_allocation"
 
 
 def _run_allocation(
@@ -55,11 +68,16 @@ def _run_allocation(
 
 @router.post("/allocate")
 def allocate_inventory_endpoint(
+    response: Response,
     orders_file: Annotated[UploadFile, File()],
     product_master_file: Annotated[UploadFile, File()],
     inventory_file: Annotated[UploadFile, File()],
+    session_id: Annotated[uuid.UUID | None, Depends(get_session_id)],
+    repo: Annotated[WorkflowResultsRepository, Depends(get_workflow_results_repository)],
 ) -> InventoryAllocationResult:
-    return _run_allocation(orders_file, product_master_file, inventory_file)
+    result = _run_allocation(orders_file, product_master_file, inventory_file)
+    persist_workflow_result(response, repo, session_id, _WORKFLOW_TYPE, result)
+    return result
 
 
 @router.post("/allocate/report")

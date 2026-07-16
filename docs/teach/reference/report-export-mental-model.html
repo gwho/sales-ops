@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Report Export Mental Model</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 3</p>
+  <h1>Report Export Mental Model</h1>
+  <p class="lede">The Excel vocabulary and the four-step shape every <code>export_*_report</code>
+  function follows, in one place. Companion to
+  <a href="../lessons/0017-excel-workbooks-sheets-and-manifests.html">Lesson 17</a>.</p>
+
+  <h2>Vocabulary → real code</h2>
+  <table>
+    <tr><th>Word</th><th>Real identifier in <span class="filelink">report_export.py</span></th></tr>
+    <tr><td>Workbook</td><td><code>Workbook()</code>, built by <code>_new_workbook()</code></td></tr>
+    <tr><td>Worksheet (sheet)</td><td><code>wb.create_sheet(sheet_name)</code>, called once per
+    sheet</td></tr>
+    <tr><td>Row</td><td><code>ws.append([...])</code>, one call per row</td></tr>
+    <tr><td>Cell</td><td>one element of the list passed to <code>ws.append(...)</code>, always
+    passed through <code>_safe_cell_value</code> first</td></tr>
+    <tr><td>Header row</td><td>row 1 — always written from an explicit
+    <code>*_COLUMNS</code> constant, never from data</td></tr>
+    <tr><td>Sheet order</td><td><code>wb.sheetnames</code> — creation order, read only after every
+    sheet is already written</td></tr>
+    <tr><td>Manifest</td><td><code>ReportManifest</code>, built by <code>_build_manifest(...)</code>
+    from the real <code>wb.sheetnames</code></td></tr>
+  </table>
+
+  <h2>The four-step shape, every report</h2>
+  <p>Every <code>export_*_report</code> function — order validation, inventory allocation, payment
+  aging — follows the identical sequence:</p>
+  <pre><code>1. _new_workbook()                     — Workbook(), remove the default "Sheet"
+2. _write_summary_sheet(...) /
+   _write_detail_sheet(...) × N         — wb.create_sheet(name), in the exact
+                                           order sheets must appear
+3. _save_workbook_bytes(wb)             — io.BytesIO() → wb.save(buffer)
+                                           → buffer.getvalue()   (never a disk path)
+4. _build_manifest(..., wb.sheetnames)  — reads the REAL sheets just created
+
+   returns (workbook_bytes: bytes, manifest: ReportManifest)</code></pre>
+
+  <p>Understanding this shape once means understanding all three report types — they differ only
+  in which sheets get written in step 2, never in the surrounding shape.</p>
+
+  <h2>Where each report's sheet order actually comes from</h2>
+  <table>
+    <tr><th>Report</th><th>Sheets, in order</th></tr>
+    <tr><td>Order Validation</td><td><code>Summary</code>, <code>Valid Orders</code>,
+    <code>Validation Errors</code>, <code>Original Orders</code></td></tr>
+    <tr><td>Inventory Allocation</td><td><code>Allocation Summary</code>, <code>Allocation Results</code>,
+    <code>Backorders</code>, <code>Remaining Inventory</code>, <code>Supplier Follow-up</code></td></tr>
+    <tr><td>Payment Aging</td><td><code>Aging Summary</code>, <code>Follow-up List</code>,
+    <code>All Invoices with Aging</code>, <code>Data Issues</code>, <code>Draft Messages</code></td></tr>
+  </table>
+  <p>This exact order is a tested contract — <span class="filelink">tests/contract_fixtures.py</span>'s
+  <code>REPORT_MANIFEST_FIXTURES</code> — not an accident of which line happens to run first.</p>
+
+  <hr>
+  <p><a href="../lessons/0017-excel-workbooks-sheets-and-manifests.html">← Back to Lesson 17</a></p>
+
+</div>
+</body>
+</html>

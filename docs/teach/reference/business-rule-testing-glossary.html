@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Business Rule &amp; Testing Glossary</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 2</p>
+  <h1>Business Rule &amp; Testing Glossary</h1>
+  <p class="lede">The terms Lessons 8 and 11 introduce, compressed for lookup. Companion to
+  <a href="../lessons/0008-business-rules-vs-code-rules.html">Lesson 8</a> and
+  <a href="../lessons/0011-independent-rule-evaluation-and-data-issues.html">Lesson 11</a>.</p>
+
+  <div class="box primer">
+    <p class="box-label">A note on this document's status</p>
+    <p>This is a <em>pre-study</em> glossary, same status as Track 1's contracts glossary — terms
+    defined so you can start using them, not yet evidence you've internalized them. A term only gets
+    promoted into this workspace's permanent, evidence-gated glossary once you've demonstrated
+    understanding of it in conversation or an exercise.</p>
+  </div>
+
+  <h2>Terms</h2>
+
+  <p><strong>Business rule</strong>:<br>
+  A real-world policy the data must satisfy — "a customer name must not be blank," "a quantity must
+  be positive." Violating one is a data problem, fixable by whoever owns the data, not a bug in the
+  code that checks it.<br>
+  <em>Avoid</em>: "validation" alone as a substitute term — validation is the <em>act</em> of
+  checking rules; a business rule is the policy itself.</p>
+
+  <p><strong>Programming error</strong>:<br>
+  A mistake in the code itself, wrong regardless of what data it receives (a typo'd variable, an
+  off-by-one). Correctly surfaces as a crash during development, not as a business-readable message
+  — hiding one as "bad data" conceals a real bug.</p>
+
+  <p><strong>Row-level error</strong> (Order Validation's term, <code>ValidationErrorRow</code>):<br>
+  A business rule violation scoped to one input row, carrying enough context (which row, which
+  field, what's wrong) that a person can act on it without re-reading every other row.</p>
+
+  <p><strong>Data issue</strong> (Payment Aging's term, <code>PaymentDataIssueRow</code>):<br>
+  The Payment Aging module's equivalent of a row-level error — a per-row problem (a missing due
+  date, an invalid amount) reported softly, excluding that row from the aging output without
+  crashing the whole batch. Same shape and role as <code>ValidationErrorRow</code>, kept as a
+  separate contract per the Field Scope Boundary (different spec, different module).</p>
+
+  <p><strong>Independent rule evaluation</strong> (Shape 1, Lesson 11):<br>
+  Checking every applicable rule against an item regardless of what earlier rules found, so the item
+  can accumulate several simultaneous findings. Used when the output is a <em>list</em> of possibly
+  many true facts (order validation errors; payment data issues).</p>
+
+  <p><strong>First-match-wins dispatch</strong> (Shape 2, Lesson 11):<br>
+  A fixed, ordered sequence of checks where the first match returns immediately and later checks
+  never run. Used when the output is fundamentally a <em>single</em>, mutually exclusive label (a
+  follow-up priority; an aging bucket) — chain order becomes a real design decision.<br>
+  <em>Avoid</em>: calling this "validation" — it's a classification, not a check for correctness.</p>
+
+  <p><strong>Guard clause</strong>:<br>
+  A disqualifying condition checked early in a loop, using <code>continue</code> or <code>return</code>
+  to skip the rest of that iteration's processing. Structurally guarantees an item can't
+  accidentally end up processed by both the "disqualified" path and the "normal" path.</p>
+
+  <p><strong>Boundary case</strong>:<br>
+  An input sitting exactly at the edge where a rule's answer flips (e.g. <code>days_overdue = 30</code>
+  vs. <code>31</code>). The classic bug this catches — an "off-by-one" — only shows up for inputs
+  exactly on the edge, never for inputs comfortably inside a range. See
+  <a href="boundary-case-checklist.html">the Boundary Case Checklist</a>.</p>
+
+  <p><strong>Clamping</strong>:<br>
+  Forcing a computed value to stay within a valid range by replacing an out-of-range result with the
+  boundary itself (e.g. <code>max(value, 0.0)</code>). Trades away the ability to tell <em>how far</em>
+  past the boundary the real computation would have gone, in exchange for a simpler, always-valid
+  output.</p>
+
+  <p><strong>Signed value</strong>:<br>
+  A quantity that keeps a meaningful negative sign instead of being floored at zero — this repo's
+  <code>days_overdue</code> is the running example: negative means "not yet due," and that
+  distance-past-zero is exactly what a rule like Watch needs to work at all.</p>
+
+  <p><strong>Mutation</strong> (contrast with rebinding):<br>
+  Changing an existing object's contents in place (<code>chosen["qty"] -= 5</code>), visible to
+  everyone else already holding a reference to that same object — different from rebinding a
+  variable to point at a brand-new object, which nobody else's reference notices.</p>
+
+  <h2>Quick contrast table</h2>
+  <table>
+    <tr><th>Term</th><th>Answers</th><th>Shape of output</th></tr>
+    <tr><td>Row-level error / Data issue</td><td>"What's wrong with this one row?"</td><td>Zero or more entries, per row</td></tr>
+    <tr><td>Independent rule evaluation</td><td>"What are ALL the true facts?"</td><td>A list, possibly long</td></tr>
+    <tr><td>First-match-wins dispatch</td><td>"What is THE one label?"</td><td>Exactly one value</td></tr>
+    <tr><td>Guard clause</td><td>"Does this item belong in the normal path at all?"</td><td>A structural fork, not a value</td></tr>
+  </table>
+
+  <hr>
+  <p>
+    <a href="../lessons/0008-business-rules-vs-code-rules.html">← Back to Lesson 8</a> ·
+    <a href="../lessons/0011-independent-rule-evaluation-and-data-issues.html">← Back to Lesson 11</a>
+  </p>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 5 — Excel Boundaries and Table-Shaped Data</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 1 · Lesson 5 of 7</span>
+    <a href="0006-demo-data-vs-test-data.html">Next: Demo data vs. test data →</a>
+  </div>
+
+  <p class="kicker">Track 1 — Python, Data-as-Tables, and Contracts</p>
+  <h1>Excel Boundaries and Table-Shaped Data</h1>
+  <p class="lede">
+    An Excel file is a table: rows and columns, some cells blank. Once Python reads it, that table
+    becomes a <strong>DataFrame</strong> — the one new concept this lesson introduces, kept to the
+    smallest useful slice.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p><a href="https://pandas.pydata.org/docs/user_guide/10min.html">pandas — 10 Minutes to pandas</a>
+    (official quickstart). You only need the first third or so for Track 1 — rows, columns, and
+    basic filtering.</p>
+  </div>
+
+  <h2>A spreadsheet, described in Lesson 2's vocabulary</h2>
+  <p>Picture <span class="filelink">sample_data/sample_orders.xlsx</span> open in Excel: one row
+  per order, one column per field (<code>order_id</code>, <code>sku</code>, <code>quantity</code>,
+  and so on). In Lesson 2's terms, each <em>row</em> is naturally a dict —
+  <code>{"order_id": "SO-2026-001", "sku": "VIS-SLIT-001", "quantity": 3}</code> — and the whole
+  sheet is a <em>list</em> of those dicts, one per row. That's genuinely the mental model: a table
+  is a list of same-shaped dicts.</p>
+
+  <h2>DataFrame: pandas' name for "a table in memory"</h2>
+  <p><code>pandas</code> is a library for working with exactly this shape efficiently. When code
+  reads an Excel file, it gets back a <strong>DataFrame</strong> — pandas' name for a table: rows,
+  named columns, one type per column. Look at the function from Lesson 2 again:</p>
+
+  <pre><code>def load_excel(file, sheet_name: int | str = 0) -> pd.DataFrame:
+    """Load an Excel file (path or file-like object) into a DataFrame."""
+    return pd.read_excel(file, sheet_name=sheet_name)</code></pre>
+
+  <p><code>pd.read_excel(...)</code> does the actual reading; the function just hands back whatever
+  it produces. <code>pd.DataFrame</code> in the return-type hint is now legible: "this function
+  returns a table."</p>
+
+  <p>Three operations cover everything Track 1 needs:</p>
+  <ul>
+    <li><code>df.columns</code> — the list of column names actually present, e.g.
+    <code>["order_id", "sku", "quantity"]</code>.</li>
+    <li><code>df["sku"]</code> — pull out one column's worth of values, top to bottom.</li>
+    <li><code>df[df["quantity"] == 0]</code> — filter: keep only rows where a condition is true.
+    Read the inner part first (<code>df["quantity"] == 0</code>, a yes/no answer per row), then
+    the outer <code>df[...]</code> as "keep only the rows that said yes."</li>
+  </ul>
+
+  <h2>A missing column is a real, checkable question</h2>
+  <p>Because <code>df.columns</code> is just a list of names, "does this file have the column I
+  need?" becomes a plain membership check — no special Excel-reading logic required. That's
+  exactly what this repo's validation function does:</p>
+
+  <pre><code>def validate_required_columns(
+    df: pd.DataFrame, required_columns: Iterable[str], file_label: str
+) -> None:
+    """Raise MissingColumnsError if any required column is absent from df."""
+    missing = [column for column in required_columns if column not in df.columns]
+    if missing:
+        raise MissingColumnsError(file_label, missing)</code></pre>
+
+  <p><code>[column for column in required_columns if column not in df.columns]</code> is a
+  <strong>list comprehension</strong> — a compact way to build a new list by filtering an existing
+  one. Read it as an English sentence, right to left after "for": "for each <code>column</code> in
+  <code>required_columns</code>, keep it if it's <em>not</em> in <code>df.columns</code>." The
+  result, <code>missing</code>, is the list of required names that genuinely aren't present — one
+  pass, every missing column found at once, not just the first.</p>
+
+  <h2>A blank cell becomes None</h2>
+  <p>An empty Excel cell doesn't vanish when read into a DataFrame — it becomes Python's
+  <code>None</code> (pandas often displays it as <code>NaN</code>, "not a number," for numeric
+  columns specifically, but the idea is the same: "no value here"). This matters because a
+  business rule can check for it directly: <code>df["sku"].isna()</code> asks, per row, "is this
+  cell blank?" — you'll see this exact pattern in Tutorial 02's discussion of intentionally
+  imperfect sample rows.</p>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What Python object does pd.read_excel(...) hand back after reading a spreadsheet?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">a nested list of raw strings</button>
+        <button class="quiz-option" data-correct="true">a pandas DataFrame table object</button>
+        <button class="quiz-option" data-correct="false">a single flat Python dict</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">How does validate_required_columns actually check whether a column is missing?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">it opens the raw xlsx file bytes</button>
+        <button class="quiz-option" data-correct="true">it checks membership in df.columns</button>
+        <button class="quiz-option" data-correct="false">it counts the DataFrame's row total</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (3 minutes)</p>
+    <p>Open <span class="filelink">tests/test_excel_io.py</span> and find
+    <code>test_load_excel_reads_rows_and_columns</code>. It writes a small DataFrame to a real
+    temporary <code>.xlsx</code> file, then reads it straight back with <code>load_excel</code>.
+    In one sentence: why prove the round trip through a <em>real file</em>, instead of just
+    checking that <code>pd.read_excel</code> was called correctly?</p>
+  </div>
+
+  <p>You're now ready for
+  <a href="../../tutorials/02-sample-data/README.md">Tutorial 02</a>'s treatment of
+  <span class="filelink">src/sample_data.py</span>, which builds DataFrames the same way this
+  lesson describes — a list of row-dicts handed to <code>pd.DataFrame(rows)</code> — before writing
+  them out as real <code>.xlsx</code> files.</p>
+
+  <div class="ask-teacher">
+    If list comprehensions or the None/blank-cell idea feel shaky, ask now — Lesson 6 reads several
+    more comprehension-style test assertions without re-explaining the syntax.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0004-contracts-typeddict-and-json-shapes.html">← Back: Contracts &amp; TypedDict</a>
+    <a href="0006-demo-data-vs-test-data.html">Next: Demo data vs. test data →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

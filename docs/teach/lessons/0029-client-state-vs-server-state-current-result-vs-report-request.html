@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 36 — Client State vs. Server State</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 4 · Reinforcement 6 of 7</span>
+    <a href="0030-track-4-guided-api-trace.html">Next: Capstone — guided API trace →</a>
+  </div>
+
+  <p class="kicker">Track 4 — Optional Reinforcement · 6 of 7</p>
+  <h1>Client State vs. Server State: <code>currentResult</code> vs. a Report Request</h1>
+  <p class="lede">
+    Lesson 30 taught that the server forgets every request the moment it responds. This lesson
+    is the natural follow-up question a learner always asks next: "then why does the page still
+    show my results after I click around?" The answer is the browser remembering, not the server —
+    and the distinction matters more than it sounds like it should.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">What you're rehearsing</p>
+    <p>Tutorial 07 Part 9, against <span class="filelink">app/order-validation/page.tsx</span> and
+    <span class="filelink">docs/architect/phase-10-fastapi-integration/decisions.md</span> #4 and #5.</p>
+  </div>
+
+  <h2>Two kinds of state, easy to conflate</h2>
+  <table>
+    <tr><th></th><th>Browser-owned state</th><th>Server-owned state</th></tr>
+    <tr><td>Where it lives</td><td>React <code>useState</code>, inside one page, inside one open tab</td><td>Nowhere, by default (Lesson 30) — Phase 10 has none at all</td></tr>
+    <tr><td>Survives a page refresh?</td><td>No</td><td>N/A — there isn't any to begin with</td></tr>
+    <tr><td>Visible to a second browser tab?</td><td>No</td><td>N/A</td></tr>
+    <tr><td>This project's real examples</td><td><code>currentResult</code>, <code>RequestStatus</code>, <code>ReportRequestState</code></td><td>None in Phase 10 — see the forward reference below</td></tr>
+  </table>
+
+  <p>Open <span class="filelink">app/order-validation/page.tsx</span>'s own state declarations:</p>
+  <pre><code>const [status, setStatus] = useState&lt;RequestStatus&gt;("idle");
+const [currentResult, setCurrentResult] = useState&lt;OrderValidationResult | null&gt;(null);
+const [errorDetail, setErrorDetail] = useState&lt;string | null&gt;(null);
+
+const [reportStatus, setReportStatus] = useState&lt;ReportRequestState&gt;("idle");
+const [reportErrorDetail, setReportErrorDetail] = useState&lt;string | null&gt;(null);</code></pre>
+  <p>Every one of these lives entirely inside this one page's React component tree. Refresh the
+  browser tab and every one of them resets to its initial value — not because the server forgot
+  anything (Lesson 30: the server never knew any of this existed in the first place), but because
+  the browser tab itself, the only place any of it was ever stored, was thrown away and rebuilt from
+  scratch.</p>
+
+  <div class="box primer">
+    <p class="box-label">The trap this lesson exists to prevent</p>
+    <p>It's tempting to reason: "the dashboard still shows my last result, so the server must
+    remember it." That's backwards. <code>currentResult</code> surviving between a "Run Validation"
+    click and scrolling down to read the table isn't evidence of any server memory — it's ordinary
+    React state, living exactly as long as the tab stays open on that page. The moment you navigate
+    away and back, or refresh, that state is gone, and the only way to see results again is to
+    submit a fresh request — because there was never anything on the server side holding onto it.</p>
+  </div>
+
+  <h2><code>RequestStatus</code> vs. <code>ReportRequestState</code> — two trackers, not one</h2>
+  <p>Notice the page tracks <em>two separate</em> status enums, not one shared "is anything
+  loading" flag: <code>RequestStatus</code> (<code>"idle" | "submitting" | "succeeded" |
+  "failed"</code>) for the JSON workflow request, and <code>ReportRequestState</code>
+  (<code>"idle" | "processing" | "failed"</code>) for the report download button. Running
+  validation and downloading a report are two genuinely independent requests — a user can download a
+  report without ever having clicked "Run Validation" on screen first, since the report endpoint
+  recomputes from the raw files regardless (Lesson 30). Merging these into one shared status would
+  make "the report download failed" and "the validation request failed" indistinguishable in the
+  UI, when they're answering two different questions about two different requests.</p>
+
+  <div class="box primer">
+    <p class="box-label">Forward reference — later, deliberate persistence</p>
+    <p>A later phase of this project (Phase 12) deliberately adds real server-side state on top of
+    everything Track 4 taught — a Postgres row, keyed by an anonymous browser-held session
+    identifier, that remembers a session's <em>latest saved result per workflow</em>. That's a
+    genuinely new architectural decision, made explicitly and with its own ADR, not something Track
+    4's design was quietly already doing. Don't try to absorb it here — Track 6 teaches it properly,
+    once the Server/Client Component split (a separate prerequisite) is solid. The only thing worth
+    holding onto for now: Phase 10's state was <em>entirely</em> browser-local; anything
+    server-remembered afterward was added on purpose, later, and is visibly different in kind.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">A user runs validation, sees results, then refreshes the browser tab. What does the page show?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">The same results, restored from the server</button>
+        <button class="quiz-option" data-correct="true">The idle/empty state — <code>currentResult</code> reset to <code>null</code></button>
+        <button class="quiz-option" data-correct="false">An error, because the server lost the session</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does this page track <code>RequestStatus</code> and <code>ReportRequestState</code> as two separate values instead of one shared status?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">React requires a separate hook per button</button>
+        <button class="quiz-option" data-correct="true">Running validation and downloading a report are independent requests that can fail separately</button>
+        <button class="quiz-option" data-correct="false">TypeScript doesn't allow a union type with more than three values</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Is <code>currentResult</code> surviving between a "Run Validation" click and scrolling down the page evidence of server memory?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Yes — the server must be holding the session open</button>
+        <button class="quiz-option" data-correct="true">No — it's ordinary React state living only in the open browser tab</button>
+        <button class="quiz-option" data-correct="false">Only if the request used <code>POST</code>, not <code>GET</code></button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (10 minutes)</p>
+    <p>Run <code>npm run dev</code> and <code>uv run fastapi dev backend/main.py</code>, open
+    <code>/order-validation</code>, run validation on the sample data, and confirm results appear.
+    Then open the exact same URL in a <em>second</em>, completely separate browser tab. Predict, before
+    checking: does the second tab show the same results, an empty state, or something else — and
+    why, in one sentence tied to where <code>currentResult</code> actually lives?</p>
+  </div>
+
+  <p><strong>Failure mode named:</strong> assuming the server remembers a result just because the
+  browser still displays it on screen. The two are unrelated facts that happen to coincide while a
+  tab stays open — conflating them is exactly the misconception that makes Phase 12's real,
+  deliberate persistence layer (the forward reference above) look like "nothing new," when it's
+  actually the first server-side memory this project ever added.</p>
+
+  <div class="ask-teacher">
+    If "so what would it actually take to make results survive a refresh" feels like the obvious next
+    question, hold it — that's precisely Track 6's subject, and it'll land better once you've felt
+    the gap this lesson describes for yourself first.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0028-thin-api-adapters-and-framework-free-business-core.html">← Back: Thin API adapters &amp; the framework-free core</a>
+    <a href="0030-track-4-guided-api-trace.html">Next: Capstone — guided API trace →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

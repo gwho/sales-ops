@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 16 — Consuming Contracts Without Changing Them</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 3 · Lesson 2 of 7</span>
+    <a href="0017-excel-workbooks-sheets-and-manifests.html">Next: Excel workbooks, sheets &amp; manifests →</a>
+  </div>
+
+  <p class="kicker">Track 3 — Presentation Without Leakage</p>
+  <h1>Consuming Contracts Without Changing Them</h1>
+  <p class="lede">
+    Lesson 15 taught the rule: <span class="filelink">report_export.py</span> never recalculates.
+    This lesson is about a narrower, related question: when a presentation module needs to
+    <em>read</em> a contract someone else produced, where does that contract's type live, and what
+    is the consumer allowed to do with it?
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p>Builds directly on Track 2's own reference doc,
+    <a href="../reference/result-envelope-pattern.html">Result Envelope Pattern</a> — if the three
+    envelope shapes (<code>OrderValidationResult</code>, <code>InventoryAllocationResult</code>,
+    <code>PaymentAgingResult</code>) don't feel solid, revisit that page first. The new material
+    here comes from <span class="filelink">docs/plan/phase-6-excel-report-export/explanation.md</span>
+    §2 — a real mistake caught during development, not a decision that was obvious from the start.</p>
+  </div>
+
+  <h2>Producers and consumers</h2>
+  <p>Tutorials 03–05 are <strong>producer</strong> modules — each one builds its own envelope
+  (<code>OrderValidationResult</code>, and so on) and returns it. Every producer module owns the
+  shape of its own output. <span class="filelink">report_export.py</span> is this repo's first
+  <strong>consumer</strong> module — it never builds an envelope, it only ever receives one as a
+  parameter and reads from it.</p>
+
+  <h2>The <code>ImportError</code> that teaches the rule</h2>
+  <p>Open <span class="filelink">src/report_export.py</span> and find its import block:</p>
+
+  <pre><code>from src.contracts import ReportManifest
+from src.inventory_allocation import InventoryAllocationResult
+from src.order_validation import OrderValidationResult
+from src.payment_aging import PaymentAgingResult</code></pre>
+
+  <p>Only <code>ReportManifest</code> comes from <span class="filelink">src/contracts.py</span>.
+  The three envelope types each come from the module that actually produces them. This wasn't
+  obvious from the start: the first draft of this file imported all four types from
+  <code>src.contracts</code>, and the test suite failed immediately with
+  <code>ImportError: cannot import name 'InventoryAllocationResult' from 'src.contracts'</code> —
+  because that type has never lived there. <span class="filelink">contracts.py</span> only holds
+  the shared, spec-defined row/summary shapes; each envelope is defined locally, once, by the
+  module that builds it.</p>
+
+  <h2>Reading a contract without changing it</h2>
+  <p>Once a consumer imports a producer's type, it's read-only in a real sense: a consumer module
+  never adds a field to someone else's envelope just because it would be convenient. When
+  <span class="filelink">report_export.py</span>'s <code>Original Orders</code> sheet needed data
+  <code>OrderValidationResult</code> doesn't contain — the raw uploaded rows — it did not add a
+  <code>raw_orders</code> key to that contract. Instead, <code>export_order_validation_report</code>
+  takes a second, completely separate parameter:</p>
+
+  <pre><code>def export_order_validation_report(
+    result: OrderValidationResult,
+    original_orders_df: pd.DataFrame | None = None,
+    generated_at: datetime | None = None,
+) -> tuple[bytes, ReportManifest]:</code></pre>
+
+  <div class="box primer">
+    <p class="box-label">Why not just add the field?</p>
+    <p><code>OrderValidationResult</code> is also read by every other caller of
+    <code>validate_orders()</code> — a future FastAPI route, a future test, anything that only
+    cares about validation and never generates a report. Adding a <code>raw_orders</code> field to
+    the shared contract would mean every one of those callers now carries a payload only
+    <em>one</em> consumer actually needs. A separate parameter keeps the contract exactly what
+    Tutorial 03 defined it as, untouched by one particular consumer's presentation-layer needs.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Where does the OrderValidationResult type actually live?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">src/contracts.py, with every other shape</button>
+        <button class="quiz-option" data-correct="true">src/order_validation.py, its producer</button>
+        <button class="quiz-option" data-correct="false">src/report_export.py, its only consumer</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Original Orders needs raw uploaded rows OrderValidationResult doesn't have. What's the right fix?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Add a raw_orders field to the contract</button>
+        <button class="quiz-option" data-correct="true">Pass a separate parameter instead</button>
+        <button class="quiz-option" data-correct="false">Re-upload the file inside report_export.py</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">If a fourth business module were added later, where should its envelope type start out?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Always immediately in contracts.py</button>
+        <button class="quiz-option" data-correct="true">In its own module, like the other three</button>
+        <button class="quiz-option" data-correct="false">Inside report_export.py, its consumer</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (5 minutes)</p>
+    <p>Run <code>uv run python -c "from src.contracts import OrderValidationResult"</code> in a
+    terminal and read the exact error. Then open
+    <span class="filelink">src/report_export.py</span>'s import block and write down the one line
+    that imports the same type correctly. What does the error message tell you about
+    <em>where</em> Python actually looked before giving up?</p>
+  </div>
+
+  <p>This same rule is why <a href="../reference/result-envelope-pattern.html">the Result Envelope
+  Pattern reference</a> lists "defined locally in the module, not in contracts.py" as a property
+  every envelope shares — Lesson 9 taught it from the producer's side; this lesson taught it from
+  the consumer's. <a href="../reference/contract-consumer-pattern.html">The Contract Consumer
+  Pattern reference</a> generalizes both sides into one page. Next: what a workbook, a sheet, and a
+  manifest actually are, before Lesson 18 gets into the values that go inside a cell.</p>
+
+  <div class="ask-teacher">
+    If the producer/consumer split still feels arbitrary — why not just put every type in one
+    file? — ask now. Lesson 17 assumes you can explain, in your own words, why that would make
+    <span class="filelink">contracts.py</span> a worse file to read, not a more convenient one.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0015-presentation-layer-vs-business-logic.html">← Back: Presentation layer vs. business logic</a>
+    <a href="0017-excel-workbooks-sheets-and-manifests.html">Next: Excel workbooks, sheets &amp; manifests →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

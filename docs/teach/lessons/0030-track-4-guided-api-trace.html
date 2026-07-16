@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 37 — Track 4 Guided API Trace</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 4 · Reinforcement 7 of 7</span>
+    <span>Track complete</span>
+  </div>
+
+  <p class="kicker">Track 4 — Optional Reinforcement · 7 of 7 (Capstone)</p>
+  <h1>Guided Trace: Two Real Requests, Start to Finish</h1>
+  <p class="lede">
+    No new concepts — this is rehearsal, exactly like Lessons 7, 14, and 21's capstones before it.
+    Two real operations, traced from a user's click to the last thing that changes on screen. Predict
+    each step yourself before revealing it; skipping straight to the reveal defeats the point.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">What you're rehearsing</p>
+    <p>No new external resource — this lesson exercises Lessons 31 through 36 together against
+    Tutorial 07's own "Full data flow" and "A second trace" sections. If any single step feels
+    impossible to predict, that's a signal to revisit the specific lesson it depends on, not to push
+    through.</p>
+  </div>
+
+  <h2>Trace 1 — "Run Validation"</h2>
+  <p>Predict each numbered step yourself first — what function runs, what it does, what it hands to
+  the next step — then reveal.</p>
+
+  <ol>
+    <li>User selects both files; clicks "Run Validation."</li>
+    <li><code>handleRunValidation()</code> runs.</li>
+    <li><code>runValidation(orders, productMaster)</code> builds a <code>FormData</code>.</li>
+    <li><code>postJSON("/api/orders/validate", formData)</code> sends the request.</li>
+    <li>FastAPI's <code>validate_orders_endpoint</code> binds the two files by parameter name.</li>
+    <li><code>_load_and_validate</code> runs the adapter.</li>
+    <li><code>validate_orders(orders_df, product_master_df)</code> runs.</li>
+    <li>The route returns <code>OrderValidationResult</code>.</li>
+    <li><code>postJSON</code> resolves in the browser.</li>
+    <li>The page re-renders from <code>currentResult</code>.</li>
+  </ol>
+
+  <details>
+  <summary>Reveal: the full chain, with the file/function behind every step</summary>
+  <p><strong>1.</strong> Both <code>File</code> objects already sit in
+  <code>app/order-validation/page.tsx</code>'s <code>ordersFile</code>/<code>productMasterFile</code>
+  state (Lesson 36). <strong>2.</strong> <code>handleRunValidation()</code> checks <code>canSubmit</code>
+  and calls <code>runValidation(ordersFile, productMasterFile)</code> — explicit parameters, not read
+  from state inside <code>runValidation</code> itself (Tutorial 07 Part 9's timing-bug reasoning).
+  <strong>3.</strong> <code>runValidation</code> sets <code>status = "submitting"</code>, builds a
+  <code>FormData</code> with keys <code>orders_file</code>/<code>product_master_file</code> — the
+  exact strings <code>backend/routers/orders.py</code>'s parameters expect (Lesson 32).
+  <strong>4.</strong> <code>postJSON</code> calls <code>postFormData</code>, which does a plain
+  <code>fetch(..., { method: "POST", body: formData })</code> — no manual <code>Content-Type</code>
+  (Lesson 32's multipart-boundary warning). <strong>5.</strong> FastAPI matches the multipart part
+  names to <code>Annotated[UploadFile, File()]</code> parameters of the same name (Lesson 32).
+  <strong>6.</strong> Both files go through <code>read_xlsx_upload(file, label, loader)</code>
+  (Lesson 32) — extension check, then <code>load_orders</code>/<code>load_product_master</code>
+  (Tutorial 03). <strong>7.</strong> The exact tested function from Tutorial 03 runs — zero new
+  business logic anywhere in <code>backend/</code> (Lesson 35). <strong>8.</strong>
+  <code>-&gt; OrderValidationResult</code> is the real <code>TypedDict</code>, serialized by
+  Pydantic v2 with no parallel schema (Lesson 35). <strong>9.</strong> <code>postJSON</code>'s
+  promise resolves with the parsed JSON; <code>runValidation</code> calls
+  <code>setCurrentResult(result)</code> and <code>setStatus("succeeded")</code> — ordinary React
+  state, forgotten by the server the instant step 8's response was sent (Lesson 30, Lesson 36).
+  <strong>10.</strong> The Summary/Validation Errors/Valid Orders sections re-render from
+  <code>currentResult</code> — a React state update, not a page reload. Nothing from this chain is
+  stored anywhere server-side; the next click reruns all ten steps from scratch.</p>
+  </details>
+
+  <h2>Trace 2 — "Download Inventory Allocation Report"</h2>
+  <p>Same exercise, a different endpoint shape (Lesson 31's "Report Artifact," not "Workflow
+  Result") and a chained business call (Tutorial 07 Part 6). Predict first.</p>
+
+  <ol>
+    <li>User already has all three files selected; clicks "Download Report."</li>
+    <li><code>handleDownloadReport()</code> runs.</li>
+    <li>A fresh <code>FormData</code> is built from the same three files.</li>
+    <li><code>postReport("/api/inventory/allocate/report", formData, ...)</code> sends it.</li>
+    <li>FastAPI's <code>allocate_inventory_report_endpoint</code> receives it.</li>
+    <li><code>_run_allocation</code> runs — <em>two</em> business functions, not one.</li>
+    <li><code>export_inventory_allocation_report(result, ...)</code> runs.</li>
+    <li>The route returns raw <code>.xlsx</code> bytes plus headers.</li>
+    <li><code>postReport()</code> reads the blob and headers.</li>
+    <li><code>downloadBlob(...)</code> triggers the save.</li>
+  </ol>
+
+  <details>
+  <summary>Reveal: the full chain, with the file/function behind every step</summary>
+  <p><strong>1.</strong> The same <code>File</code> objects already sitting in
+  <code>app/inventory-allocation/page.tsx</code>'s component state — nothing re-selected.
+  <strong>2.</strong> <code>handleDownloadReport()</code> confirms all three files are present, sets
+  <code>reportStatus = "processing"</code> (Lesson 36's separate <code>ReportRequestState</code>).
+  <strong>3.</strong> A completely independent <code>FormData</code> is built — not a reference to
+  whatever was submitted to <code>POST /allocate</code> earlier (Lesson 31's Report Artifact
+  contract: it never accepts a prior result). <strong>4.</strong> <code>postReport</code> sends it
+  through the same <code>postFormData</code> mechanics as any other request (Lesson 32, Lesson 34).
+  <strong>5.</strong> <code>allocate_inventory_report_endpoint</code>
+  (<span class="filelink">backend/routers/inventory.py</span>) calls <code>_run_allocation</code>.
+  <strong>6.</strong> <code>_run_allocation</code> re-runs the full chain from raw files:
+  <code>validate_orders()</code> first, producing a fresh <code>valid_orders_df</code>, then
+  <code>allocate_inventory(valid_orders_df, inventory_df)</code> (Tutorial 07 Part 6) — genuinely
+  recomputed, not reused from the earlier <code>POST /allocate</code> call, because the server has
+  no memory of that call ever happening (Lesson 30, Lesson 36). <strong>7.</strong> Tutorial 06's
+  report-export function runs completely unchanged — this endpoint is the first place in the
+  codebase that calls it from something other than a test. <strong>8.</strong>
+  <code>Response(content=workbook_bytes, headers={"Content-Disposition": ..., "X-Report-Id": ...,
+  "X-Generated-At": ...})</code> — never a <code>TypedDict</code>, never JSON (Lesson 31).
+  <strong>9.</strong> <code>postReport()</code> reads exactly the three headers
+  <code>expose_headers</code> allows cross-origin JS to see (Lesson 34). <strong>10.</strong>
+  <code>URL.createObjectURL</code> → hidden <code>&lt;a download&gt;</code> → <code>.click()</code>
+  → <code>URL.revokeObjectURL</code> (Lesson 34) — the browser's save dialog appears, and nothing
+  about the generated file is stored anywhere server-side once step 8's response was sent.</p>
+  </details>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">In Trace 2, why does <code>_run_allocation</code> call <code>validate_orders()</code> again instead of reusing the result from an earlier <code>POST /allocate</code> call?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Because <code>allocate_inventory</code> requires a fresh network round trip each time</button>
+        <button class="quiz-option" data-correct="true">Because the server has no memory of any earlier request — every request supplies its own complete input</button>
+        <button class="quiz-option" data-correct="false">Because the earlier result would be cached and stale</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Both traces call <code>postFormData</code> under the hood. What's the actual difference between what <code>postJSON</code> and <code>postReport</code> each do with that same response?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Nothing — they're identical aside from the URL</button>
+        <button class="quiz-option" data-correct="true"><code>postJSON</code> parses a JSON body; <code>postReport</code> reads header metadata and a binary blob</button>
+        <button class="quiz-option" data-correct="false"><code>postReport</code> retries automatically on failure</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">After Trace 1 completes and the page shows results, what does the server currently know about that request?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">The full <code>OrderValidationResult</code>, kept in memory for this session</button>
+        <button class="quiz-option" data-correct="true">Nothing — it was forgotten the instant the response was sent</button>
+        <button class="quiz-option" data-correct="false">Just the <code>order_id</code>s, for audit purposes</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Interview drill (90 seconds, out loud or timed in writing)</p>
+    <p>Answer, in under 90 seconds: <strong>"Why not generate a report once, save it, and let the
+    user fetch it later by ID?"</strong> A complete answer names all four of: what has to be
+    <em>stored</em> and where; who is responsible for <em>cleanup/expiry</em> of that storage; what
+    serves as the report's <em>identity</em> and whether it needs any access check; and how the
+    trust-boundary problem (Lesson 30, Tutorial 07 Part 3) reappears the moment a client's own copy
+    of a result could be substituted for a fresh recomputation. If your answer doesn't mention all
+    four, reread Lesson 30 and Tutorial 07 Part 2/3 before trying again — this is the single question
+    most likely to come up if this project's architecture is ever discussed in an interview.</p>
+  </div>
+
+  <p>That's every concept Track 4 set out to teach: the endpoint map (31), the FormData/UploadFile
+  bridge (32), the uniform error contract (33), CORS's two separate permissions (34), the
+  adapter/business-rule boundary (35), and browser-owned vs. server-owned state (36) — all
+  reassembled here into two real requests, start to finish. You should now be able to explain, from
+  memory and without notes, why this backend has no <code>run_id</code>, why report endpoints
+  re-accept files, why <code>backend/</code> stays thin, and why browser details like multipart
+  boundaries and CORS exposed headers were never trivia.</p>
+
+  <div class="ask-teacher">
+    If either trace still required checking the reveal more than once, that's useful signal, not
+    failure — ask now which specific lesson (31-36) the shaky step depends on, and revisit that one
+    lesson specifically rather than rereading this whole capstone again.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0029-client-state-vs-server-state-current-result-vs-report-request.html">← Back: Client state vs. server state</a>
+    <span>Track complete</span>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

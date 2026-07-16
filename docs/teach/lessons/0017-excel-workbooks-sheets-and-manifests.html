@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 17 — Excel Workbooks, Sheets &amp; Manifests</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 3 · Lesson 3 of 7</span>
+    <a href="0018-serialization-boundaries-and-safe-cell-values.html">Next: Serialization boundaries &amp; safe cell values →</a>
+  </div>
+
+  <p class="kicker">Track 3 — Presentation Without Leakage</p>
+  <h1>Excel Workbooks, Sheets &amp; Manifests</h1>
+  <p class="lede">
+    Before reading any more <span class="filelink">report_export.py</span> code, you need six
+    words this module uses constantly: workbook, sheet, row, cell, header row, and manifest. None
+    of them are exotic — but one of them (manifest) is this project's own term, and the way this
+    module builds it teaches a general lesson about where metadata should come from.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p><a href="https://openpyxl.readthedocs.io/en/stable/">openpyxl documentation</a> (official) —
+    the library <span class="filelink">report_export.py</span> is built on. You don't need to read
+    it cover to cover; skim enough to recognize <code>Workbook</code>, <code>Worksheet</code>, and
+    <code>cell</code> as real objects this library gives you, not this repo's own invention.</p>
+  </div>
+
+  <h2>Six words, one table</h2>
+  <table>
+    <tr><th>Word</th><th>What it means</th></tr>
+    <tr><td><strong>Workbook</strong></td><td>The whole <code>.xlsx</code> file — one Python object,
+    <code>openpyxl.Workbook()</code>.</td></tr>
+    <tr><td><strong>Worksheet (sheet)</strong></td><td>One tab inside the workbook — <code>"Summary"</code>,
+    <code>"Valid Orders"</code>, and so on. A workbook holds many.</td></tr>
+    <tr><td><strong>Row</strong></td><td>One horizontal line inside a sheet — row 1 is almost always
+    the header row in this project's reports.</td></tr>
+    <tr><td><strong>Cell</strong></td><td>One single value at a specific row/column position — the
+    smallest unit this module ever writes to.</td></tr>
+    <tr><td><strong>Header row</strong></td><td>Row 1: the column labels a human reads before any
+    data — see Lesson 19 for why this repo never lets it be an accident.</td></tr>
+    <tr><td><strong>Manifest</strong></td><td>This project's own term (<code>ReportManifest</code>) —
+    a small record describing what a generated report contains: its ID, type, filename, timestamp,
+    and sheet names. Not an openpyxl concept — this repo's own invention, built <em>from</em> a real
+    workbook after the fact.</td></tr>
+  </table>
+
+  <h2>Building a workbook, one sheet at a time</h2>
+  <p>Open <span class="filelink">src/report_export.py</span> and find:</p>
+
+  <pre><code>def _new_workbook() -> Workbook:
+    wb = Workbook()
+    wb.remove(wb.active)
+    return wb</code></pre>
+
+  <p><code>Workbook()</code> actually ships with one sheet already created, always named
+  <code>"Sheet"</code> — <code>wb.remove(wb.active)</code> deletes it immediately, before any real
+  sheet exists. Every other sheet in this module is added with
+  <code>wb.create_sheet(sheet_name)</code>, and every row is added with <code>ws.append([...])</code>
+  — one list per row, one value per cell in that row.</p>
+
+  <h2>Deriving the manifest from the real workbook</h2>
+  <p>Open <span class="filelink">src/report_export.py</span> again, near the end of
+  <code>export_order_validation_report</code>:</p>
+
+  <pre><code>    sheet_names = wb.sheetnames
+    workbook_bytes = _save_workbook_bytes(wb)
+    manifest = _build_manifest(
+        "order_validation", "order_validation_report.xlsx", sheet_names, effective_generated_at
+    )</code></pre>
+
+  <p><code>wb.sheetnames</code> reads back the workbook's <em>actual</em> sheets, in the exact
+  order every <code>wb.create_sheet(...)</code> call already ran — openpyxl preserves creation
+  order, it never alphabetizes or reorders. That list is handed straight into
+  <code>_build_manifest</code>. There is no second, separately-typed list of sheet names anywhere
+  in this function that the manifest could possibly disagree with.</p>
+
+  <div class="box primer">
+    <p class="box-label">Single source of truth</p>
+    <p>The rejected alternative is a hardcoded list, typed out once alongside the
+    <code>wb.create_sheet(...)</code> calls: <code>manifest_sheets = ["Summary", "Valid Orders", ...]</code>.
+    A developer adding a new sheet later would have to remember to update <em>two</em> places — the
+    real calls, and this parallel list — and nothing would stop them from updating one and
+    forgetting the other. Deriving from <code>wb.sheetnames</code> instead makes that whole category
+    of bug structurally impossible: there's only one list, read twice, not two lists that are
+    supposed to agree.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">After three wb.create_sheet(...) calls, in what order does wb.sheetnames list them?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Alphabetical order</button>
+        <button class="quiz-option" data-correct="true">The exact order they were created</button>
+        <button class="quiz-option" data-correct="false">Reverse creation order</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does _build_manifest read wb.sheetnames instead of a separately-typed list of names?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">openpyxl requires it that way</button>
+        <button class="quiz-option" data-correct="true">So the manifest can't disagree with reality</button>
+        <button class="quiz-option" data-correct="false">A hardcoded list is slower to read</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">In this repo's vocabulary, what does "manifest" refer to?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Another word for a worksheet</button>
+        <button class="quiz-option" data-correct="false">The raw uploaded spreadsheet file</button>
+        <button class="quiz-option" data-correct="true">A record describing a report's contents</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (5 minutes)</p>
+    <p>Run this, deliberately naming the sheets out of alphabetical order:</p>
+    <pre><code>uv run python -c "from openpyxl import Workbook; wb = Workbook(); wb.remove(wb.active); wb.create_sheet('B Sheet'); wb.create_sheet('A Sheet'); print(wb.sheetnames)"</code></pre>
+    <p>Confirm the printed order is <code>["B Sheet", "A Sheet"]</code> — creation order, not
+    alphabetical — the exact fact this lesson's manifest discussion depends on.</p>
+  </div>
+
+  <p><a href="../reference/report-export-mental-model.html">The Report Export Mental Model
+  reference</a> collects this lesson's vocabulary and the four-step shape every
+  <code>export_*_report</code> function follows, for quick lookup before Tutorial 06. Next: what
+  actually happens when a Python <code>None</code> or a pandas <code>NaN</code> tries to become a
+  cell value.</p>
+
+  <div class="ask-teacher">
+    If "workbook" and "worksheet" still feel interchangeable, say so before Lesson 18 — the next
+    lesson assumes you can point at a specific cell and name which sheet, row, and workbook it
+    belongs to without hesitating.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0016-consuming-contracts-without-changing-them.html">← Back: Consuming contracts without changing them</a>
+    <a href="0018-serialization-boundaries-and-safe-cell-values.html">Next: Serialization boundaries &amp; safe cell values →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

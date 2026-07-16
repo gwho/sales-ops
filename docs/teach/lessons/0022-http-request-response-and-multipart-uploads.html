@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 29 — HTTP Request/Response and Multipart Uploads</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 4 · L4.1 of 2</span>
+    <a href="0023-statelessness-and-trust-boundaries.html">Next: Statelessness &amp; trust boundaries →</a>
+  </div>
+
+  <p class="kicker">Track 4 — HTTP APIs &amp; Statelessness</p>
+  <h1>HTTP Request/Response and Multipart Uploads</h1>
+  <p class="lede">
+    Two short concept lessons (L4.1, L4.2) stand between you and Tutorial 07, where this repo's
+    tested Python core gets wrapped in a real HTTP API. This one is the vocabulary: what a request
+    and a response actually are, what a status code promises, and why uploading a file needs a
+    different kind of request body than a login form. Deliberately light on code — Tutorial 07 is
+    where these ideas meet real FastAPI/TypeScript.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary sources</p>
+    <p><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview">MDN — An overview
+    of HTTP</a> (official, vendor-neutral) — the best plain-language HTTP primer available.
+    <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status">MDN — HTTP response
+    status codes</a> — reference for this lesson's 200/400/404/500 vocabulary.</p>
+  </div>
+
+  <h2>A request, a response — the whole model</h2>
+  <p>Every HTTP interaction is exactly one round trip: a <strong>client</strong> (a browser, a
+  mobile app, another server) sends a <strong>request</strong> to a URL; a <strong>server</strong>
+  sends back exactly one <strong>response</strong>. That's the entire shape — no hidden third
+  message, no server-initiated message the client didn't ask for.</p>
+
+  <table>
+    <tr><th></th><th>A request has</th><th>A response has</th></tr>
+    <tr><td>Always</td><td>A method (what kind of action), a URL (what it's about)</td>
+    <td>A status code (what happened)</td></tr>
+    <tr><td>Usually</td><td>Headers (metadata), sometimes a body (data being sent)</td>
+    <td>Headers, usually a body (data being returned)</td></tr>
+  </table>
+
+  <h2>GET vs. POST, in one sentence each</h2>
+  <table>
+    <tr><th>Method</th><th>Means</th></tr>
+    <tr><td><code>GET</code></td><td>"Give me something" — no body needed, safe to repeat, safe to
+    bookmark or cache.</td></tr>
+    <tr><td><code>POST</code></td><td>"Here's something, do something with it" — carries a body,
+    not assumed safe to repeat blindly (submitting a form twice can create two orders).</td></tr>
+  </table>
+  <p>A URL you can paste into a browser's address bar and press Enter is always a <code>GET</code>
+  — that's literally all a browser address bar knows how to send.</p>
+
+  <h2>Status codes as one-word verdicts</h2>
+  <p>A status code is the response's headline — before reading a single byte of the body, it tells
+  you which of four broad outcomes happened:</p>
+  <table>
+    <tr><th>Code</th><th>Verdict</th></tr>
+    <tr><td><code>200</code></td><td>OK — worked, here's the result.</td></tr>
+    <tr><td><code>400</code></td><td>Bad Request — the <em>client</em> sent something the server
+    can't use (a missing field, a malformed file). Fixable by the caller.</td></tr>
+    <tr><td><code>404</code></td><td>Not Found — this URL doesn't correspond to anything.</td></tr>
+    <tr><td><code>500</code></td><td>Internal Server Error — something broke on the
+    <em>server's</em> side. Not the caller's fault, and the server should never explain exactly
+    what broke to a stranger on the internet.</td></tr>
+  </table>
+  <p>Notice the split: <code>4xx</code> codes mean "you (the caller) did something this request
+  can't proceed with"; <code>5xx</code> codes mean "I (the server) failed regardless of what you
+  sent." Tutorial 07 leans on this split directly — a business-rule problem like a malformed
+  spreadsheet is always a <code>400</code>, never a <code>500</code>.</p>
+
+  <h2>What "an API endpoint" actually is</h2>
+  <p>Every URL you've ever visited in a browser returns HTML — a page meant to be rendered. An
+  <strong>API endpoint</strong> is just a URL that returns something else instead: structured data
+  (almost always JSON today) or a raw file, meant to be read by <em>code</em>, not rendered by a
+  browser. Same request/response model, same status codes — only the body's shape changes.</p>
+
+  <h2>Multipart uploads — why a file needs a different body shape</h2>
+  <p>A simple form field ("What's your name?") fits naturally as plain text in a request body. A
+  file doesn't — it's binary data, potentially large, and a request often needs to send
+  <em>several</em> things at once (a file <em>and</em> a couple of text fields). The body shape
+  built for this is called <strong>multipart/form-data</strong>: the body is split into named
+  "parts," each with its own small header, separated by a boundary marker the browser generates
+  automatically. You never construct this by hand — in browser code, wrapping your data in a
+  <code>FormData</code> object and handing it to <code>fetch()</code> is what makes the browser
+  build a correct multipart body, boundary and all.</p>
+
+  <div class="box primer">
+    <p class="box-label">Why this detail matters later</p>
+    <p>Tutorial 07 names a real, easy-to-hit mistake: manually setting a request's
+    <code>Content-Type</code> header when sending a <code>FormData</code> body. The browser needs to
+    write that header itself, because it has to include the exact boundary string it chose while
+    building the body — overwrite it by hand and the boundary is gone, and the server can no longer
+    tell where one part ends and the next begins.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">A user uploads a spreadsheet missing a required column. What status code should the server return?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">500 — the server couldn't process it</button>
+        <button class="quiz-option" data-correct="true">400 — the client's file was the problem</button>
+        <button class="quiz-option" data-correct="false">200 — with an error message in the body</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Can a plain browser address-bar URL ever send a POST request?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Yes, for URLs ending in an action word</button>
+        <button class="quiz-option" data-correct="true">No — typing/pasting a URL only ever sends GET</button>
+        <button class="quiz-option" data-correct="false">Only if the site allows it</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does a file upload need multipart/form-data instead of a plain text body?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Files are always encrypted in transit</button>
+        <button class="quiz-option" data-correct="true">It can carry binary data and several named parts at once</button>
+        <button class="quiz-option" data-correct="false">GET requests require it by law</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Tiny exercise (5 minutes)</p>
+    <p>Open your browser's DevTools (Network tab), visit any website, and click on the first
+    document request. Find: the request method, the response status code, and one response header.
+    Then answer without looking anything up: if that same site had a login form, would submitting
+    it most likely be a <code>GET</code> or a <code>POST</code> — and why?</p>
+  </div>
+
+  <p>With request/response, status codes, and multipart uploads in place, the next lesson covers
+  the other half of Tutorial 07's core idea: what it means for a server to <em>forget</em> every
+  request the moment it responds, and why that's a deliberate design choice here, not a
+  limitation.</p>
+
+  <div class="ask-teacher">
+    If "the server forgets everything" already sounds surprising or wrong for how you'd expect a
+    real app to work, hold that thought — that exact reaction is what Lesson 30 addresses head-on.
+  </div>
+
+  <div class="nav nav-bottom">
+    <span>← You are here</span>
+    <a href="0023-statelessness-and-trust-boundaries.html">Next: Statelessness &amp; trust boundaries →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>
