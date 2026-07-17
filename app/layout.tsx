@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
-import { AppShell } from "@/components/layout/AppShell";
-
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
@@ -15,6 +13,8 @@ export const metadata: Metadata = {
     "Order validation, inventory allocation, payment aging, and report export dashboard.",
 };
 
+// Global providers only -- (public) and (workspace) route groups each supply
+// their own chrome (public header/footer vs. AppShell's sidebar/top header).
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,7 +26,7 @@ export default function RootLayout({
         className="min-h-screen bg-background font-sans text-text-primary"
         suppressHydrationWarning
       >
-        <AppShell>{children}</AppShell>
+        {children}
       </body>
     </html>
   );

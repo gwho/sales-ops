@@ -52,3 +52,11 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
+
+/* Smooth in-page scroll for the public landing page's anchor nav
+   (Section ids match PublicHeader's links). Respects reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
