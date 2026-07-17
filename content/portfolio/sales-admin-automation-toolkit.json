@@ -1,0 +1,94 @@
+{
+  "hero": {
+    "badge": "Portfolio Case Study",
+    "title": "Sales Admin Automation Toolkit",
+    "subtitle": "Practical Excel-based sales operations workflows automated with Python and a web dashboard — order validation, inventory allocation, and payment aging, built to demonstrate end-to-end process thinking.",
+    "primaryCtaLabel": "Open Dashboard",
+    "primaryCtaHref": "/dashboard",
+    "secondaryCtaLabel": "View Workflows",
+    "secondaryCtaAnchor": "workflows"
+  },
+  "workflows": [
+    {
+      "tag": "Workflow 01",
+      "title": "Order Validation",
+      "description": "Checks incoming orders against business rules — missing fields, invalid SKUs, quantity limits — before they reach fulfilment.",
+      "icon": "clipboard-check"
+    },
+    {
+      "tag": "Workflow 02",
+      "title": "Inventory Allocation",
+      "description": "Allocates available stock to open orders by priority tier, delivery date, SKU demand, and warehouse location.",
+      "icon": "package-check"
+    },
+    {
+      "tag": "Workflow 03",
+      "title": "Payment Aging",
+      "description": "Calculates days outstanding on open invoices and surfaces follow-up priority for the accounts team.",
+      "icon": "receipt-text"
+    },
+    {
+      "tag": "Workflow 04",
+      "title": "Excel Report Export",
+      "description": "Generates formatted workbooks — order summaries, aging reports, allocation logs — from each workflow's results.",
+      "icon": "file-spreadsheet"
+    }
+  ],
+  "workflowSequence": [
+    {
+      "id": "order-validation",
+      "steps": [
+        { "icon": "upload", "label": "Orders Excel" },
+        { "icon": "check-circle-2", "label": "Order Validation" },
+        { "icon": "clipboard-list", "label": "Valid Orders" }
+      ]
+    },
+    {
+      "id": "inventory-allocation",
+      "steps": [
+        { "icon": "clipboard-list", "label": "Valid Orders + Inventory" },
+        { "icon": "package-check", "label": "Allocation" },
+        { "icon": "truck", "label": "Backorders / Supplier Follow-up" }
+      ]
+    },
+    {
+      "id": "payment-aging",
+      "steps": [
+        { "icon": "receipt-text", "label": "Invoices" },
+        { "icon": "clock", "label": "Payment Aging" },
+        { "icon": "alert-circle", "label": "Draft Reminders" }
+      ]
+    },
+    {
+      "id": "reports",
+      "steps": [
+        { "icon": "check-circle-2", "label": "Workflow Outputs" },
+        { "icon": "file-spreadsheet", "label": "Excel Reports" }
+      ]
+    }
+  ],
+  "businessValues": [
+    {
+      "heading": "Catch order-entry issues earlier",
+      "body": "Validation runs before orders are passed to fulfilment, aiming to reduce rework caused by missing or incorrect data."
+    },
+    {
+      "heading": "Apply consistent allocation rules",
+      "body": "Priority, delivery window, SKU demand, and warehouse capacity are applied through defined, testable rules rather than ad hoc judgement."
+    },
+    {
+      "heading": "Track overdue payments by priority",
+      "body": "A payment aging view shows outstanding invoices by days overdue, so follow-up can be prioritized by risk."
+    },
+    {
+      "heading": "Export reports in a familiar format",
+      "body": "Formatted Excel workbooks match the structure operations teams already work with."
+    }
+  ],
+  "techTags": ["Python", "FastAPI", "Next.js", "PostgreSQL", "Excel Automation", "Dashboard", "Report Export"],
+  "boundaryPoints": [
+    "All data in this demo is fictional and generated for portfolio purposes only.",
+    "This is not a full ERP, WMS, CRM, or accounting system — it demonstrates specific workflow automation patterns.",
+    "Figures, SKUs, customer names, and invoice references are placeholders."
+  ]
+}

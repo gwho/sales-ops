@@ -188,18 +188,40 @@ Navigation follows the same precedent Tracks 2/3 established: `0024` starts its 
 
 ## Track 5 — UI Components & Next.js
 
-**Prerequisite lessons:**
+**Status: prerequisite lessons shipped (2026-07-17)** as `docs/teach/lessons/0031`–`0034`, from a
+fully-specified `/tutorial` task file at
+`docs/tutorials/tutoiral-ideas/track-5-ui-components-nextjs-ideas.md`. Unlike Tracks 1–3, this
+prerequisite set shipped close to literally four lessons for four syllabus items (the same
+close-to-literal pattern Track 4's `0022`/`0023` used) rather than a finer split — the task file's
+own brief scoped each lesson tightly and reserved code depth for the Tutorials themselves. The
+mapping:
+
+| Sketch | Shipped as |
+|---|---|
+| L5.1 (browser output, component as a framework-free concept) | `0031-browser-output-and-components.html` |
+| L5.2 (React's minimum mental model) | `0032-react-minimum-mental-model.html` |
+| L5.3 (Server/Client Components) | `0033-server-and-client-components.html` |
+| L5.4 (design tokens and semantic styling) | `0034-design-tokens-and-semantic-styling.html` |
+
+**Prerequisite lessons (original syllabus sketch):**
 - **L5.1**: What a browser renders (HTML/CSS/JS, bare minimum) and what a UI "component" is as a concept, independent of any framework.
 - **L5.2**: React basics — components, props, state — the smallest mental model that makes the next lesson legible.
 - **L5.3**: Next.js App Router's Server Component vs. Client Component split, and *why* it exists (a server-rendered page can't access browser-only things like `localStorage`). This single rule recurs across four+ phases in this repo — it deserves its own dedicated lesson before the first case study, not a footnote.
 - **L5.4** *(before Phase 9 specifically)*: What a design-token system is and why "no hardcoded hex colors, no raw Tailwind color classes" is a real engineering rule, not a style preference.
 
-**Case-study checkpoints:**
-- `/tutorial docs/plan/phase-7-ui-contract-wireframe-planning` → **Tutorial 8**. Docs-only phase — read as a case study in "plan a UI's data shape without writing UI code yet," and the badge-label rule (every status label must trace to a real contract field, never an invented one).
-- `/tutorial docs/plan/phase-8-nextjs-frontend-foundation` → **Tutorial 9**. First real frontend code. Confirms L5.3 against the actual `app/` folder structure.
-- `/tutorial docs/plan/phase-9-reusable-ui-components-static-pages` → **Tutorial 10**. Component registry practice (`context/ui-registry.md`), the token discipline from L5.4 in action.
-- `/tutorial docs/plan/phase-10.2-portfolio-ui-polish` → **Tutorial 11** *(lighter — visual-only pass, good "easy win" after the denser Tutorial 10)*.
-- *(Second-wave, lower priority)*: `phase-9.1-visual-alignment-fixes`, `mobile-nav-shell-responsiveness` — same concept family, revisit once 8–11 feel solid.
+**Case-study checkpoints: shipped (2026-07-17)**, as `docs/tutorials/08-ui-contract-wireframe-planning/`
+through `11-portfolio-ui-polish/`, from the same task-file-driven session that shipped the four
+prerequisite lessons above (`docs/tutorials/tutoiral-ideas/track-5-ui-components-nextjs-ideas.md`).
+Track 5's full required arc — L5.1–L5.4 through Tutorial 11 — is now complete:
+- `/tutorial docs/plan/phase-7-ui-contract-wireframe-planning` → **Tutorial 8** (961 lines, 7 Parts, all 15 `ai-discussion-topics.md` questions woven in). Docs-only phase — read as a case study in "plan a UI's data shape without writing UI code yet," and the badge-label rule (every status label must trace to a real contract field, never an invented one).
+- `/tutorial docs/plan/phase-8-nextjs-frontend-foundation` → **Tutorial 9** (1204 lines, 8 Parts, all 24 questions). First real frontend code. Confirms L5.3 against the actual `app/` folder structure.
+- `/tutorial docs/plan/phase-9-reusable-ui-components-static-pages` → **Tutorial 10** (1058 lines, 9 Parts, all 17 questions). Component registry practice (`context/ui-registry.md`), the token discipline from L5.4 in action.
+- `/tutorial docs/plan/phase-10.2-portfolio-ui-polish` → **Tutorial 11** (1015 lines, 8 Parts, all 15 questions).
+- *(Second-wave, lower priority, deliberately deferred)*: `phase-9.1-visual-alignment-fixes`,
+  `mobile-nav-shell-responsiveness` — the task file that shipped Tutorials 8–11 explicitly reserves
+  these for *after* Tutorial 12 (Phase 12/Postgres) and Tutorial 13 (Phase 11/deployment) exist, so
+  they land as Tutorials 14–15 rather than colliding with those reserved numbers. Neither Tutorial
+  12 nor 13 exists yet as of this note — do not generate the retrospectives until they do.
 
 ---
 

@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 33 — Server and Client Components</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 5 · Lesson 3 of 4</span>
+    <a href="0034-design-tokens-and-semantic-styling.html">Next: Design Tokens →</a>
+  </div>
+
+  <p class="kicker">Track 5 — UI Components &amp; Next.js</p>
+  <h1>Server and Client Components</h1>
+  <p class="lede">
+    The single rule that recurs across more phases of this repo than almost anything else in
+    Track 5 — where a component's code actually runs, what's allowed to cross the boundary between
+    the two worlds, and why one specific browser API is the reason the dashboard has to break its
+    own "Server Component by default" pattern. This lesson must be solid before Tutorial 09, and
+    gets revisited in Tutorials 10 and 15.</p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p>This repo's installed copy of the Next.js docs,
+    <span class="filelink">node_modules/next/dist/docs/01-app/01-getting-started/05-server-and-client-components.md</span>
+    — read that file directly for the authoritative version of everything below. Public mirror:
+    <a href="https://nextjs.org/docs/app/getting-started/server-and-client-components">nextjs.org/docs/app/getting-started/server-and-client-components</a>.</p>
+  </div>
+
+  <h2>Two places code can run</h2>
+  <p>A Next.js App Router page is built from components, and every component runs in exactly one
+  of two environments:</p>
+  <table>
+    <tr><th>Environment</th><th>Runs where</th><th>Can do</th><th>Cannot do</th></tr>
+    <tr>
+      <td><strong>Server Component</strong> (the default)</td>
+      <td>On the server, before the page reaches the browser</td>
+      <td>Fetch data close to its source, use secrets/API keys safely, send less JavaScript to
+      the browser</td>
+      <td>Use state (<code>useState</code>), event handlers (<code>onClick</code>), or any
+      browser-only API</td>
+    </tr>
+    <tr>
+      <td><strong>Client Component</strong> (opt-in via <code>"use client"</code>)</td>
+      <td>In the browser (after an initial server-rendered pass)</td>
+      <td>State, event handlers, lifecycle hooks, browser-only APIs like <code>localStorage</code></td>
+      <td>Directly read secrets/API keys without exposing them to every visitor</td>
+    </tr>
+  </table>
+  <p>Every layout and page in this repo's <span class="filelink">app/</span> directory is a Server
+  Component unless its file starts with the <code>"use client"</code> directive on its own line,
+  above every import.</p>
+
+  <h2>Why the split exists at all</h2>
+  <p>This isn't an arbitrary Next.js rule — it reflects two genuinely different places where
+  JavaScript can execute, with genuinely different capabilities. A server process has no
+  <code>window</code>, no <code>localStorage</code>, no mouse to click — it produces markup once
+  and sends it. A browser tab has all of those, but can't safely hold a database password without
+  exposing it to whoever opens dev tools. Server Components let you write code that stays where
+  its capabilities make sense, rather than shipping every byte of JavaScript to every visitor
+  whether it's needed there or not.</p>
+
+  <h2>What's allowed to cross the boundary</h2>
+  <p>A Server Component can render a Client Component and pass it data as props — but only data
+  that can be <strong>serialized</strong>: turned into a plain data format (effectively, JSON) that
+  can travel from the server process to the browser. Strings, numbers, booleans, plain objects, and
+  arrays of those are serializable. A live JavaScript <em>function</em> is not — there's no way to
+  turn "a function that runs on the server" into a JSON value the browser could receive and
+  actually call.</p>
+
+  <div class="box primer">
+    <p class="box-label">Why a function prop can't cross the boundary</p>
+    <pre><code>// Server Component — this will fail:
+function OrdersPage() {
+  const columns = [
+    { header: "Status", render: (row) =&gt; formatStatus(row.status) }, // a function!
+  ];
+  return &lt;DataTable columns={columns} /&gt;; // DataTable is a Client Component
+}</code></pre>
+    <p><code>render</code> is a function value — it exists as compiled code on the server. Sending
+    it to the browser would mean sending server-side source code across the network and asking the
+    browser to run it as if it were local JavaScript, which Next.js has no mechanism for and will
+    reject at build time.</p>
+  </div>
+
+  <div class="say-avoid">
+    <div class="say-avoid-col say">
+      <p class="box-label">Correct framing</p>
+      <p>"A function can't be serialized, so it can't cross from a Server Component into a Client
+      Component as a prop — the data has to already be a plain value by the time it crosses."</p>
+    </div>
+    <div class="say-avoid-col avoid">
+      <p class="box-label">A framing to avoid</p>
+      <p>"Next.js just doesn't support passing functions as props." (True as a symptom, but it
+      obscures the real reason — the boundary is a serialization boundary, the same kind of
+      boundary Track 3's <code>_safe_cell_value</code> lesson covered on the Python/Excel side.)</p>
+    </div>
+  </div>
+
+  <h2>Why <code>localStorage</code> specifically forces a Client Component</h2>
+  <p><code>localStorage</code> is a browser-only API — it's a storage mechanism that belongs to
+  one specific browser tab, and it simply does not exist on a server process. A Server Component
+  runs before any browser is involved, so there is no <code>localStorage</code> for it to read at
+  that point in time — not "not allowed," but genuinely nonexistent in that environment. Any
+  component that needs to read or write <code>localStorage</code> must be a Client Component,
+  because only a Client Component's code runs somewhere <code>localStorage</code> actually
+  exists.</p>
+
+  <div class="box checkpoint">
+    <p class="box-label">Forward reference — worth remembering for Tutorial 12</p>
+    <p>This repo's own dashboard (Phase 12) stores each anonymous visitor's session identity in
+    <code>localStorage</code>. That single design choice is what <em>structurally forces</em> the
+    part of the dashboard that reads it into a Client Component — not a style preference, a direct
+    consequence of this lesson's rule. You don't need to trace that file yet; just recognize the
+    shape of the argument when Tutorial 12 revisits it.</p>
+  </div>
+
+  <h2>Retrieval check</h2>
+  <div class="box checkpoint">
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Which capability is only available in a Client Component?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Fetching data from a database</button>
+        <button class="quiz-option" data-correct="true">Using useState and onClick event handlers</button>
+        <button class="quiz-option" data-correct="false">Rendering HTML</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why can't a Server Component pass a function as a prop to a Client Component?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Functions are too large to send over the network</button>
+        <button class="quiz-option" data-correct="true">A function can't be serialized into a plain value the browser can receive</button>
+        <button class="quiz-option" data-correct="false">Client Components don't support arguments</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does reading localStorage require a Client Component?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">It's a Next.js licensing restriction</button>
+        <button class="quiz-option" data-correct="true">localStorage belongs to a browser tab and doesn't exist during server rendering</button>
+        <button class="quiz-option" data-correct="false">localStorage is deprecated in Server Components</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <h2>Tiny exercise (5 minutes)</h2>
+  <div class="box exercise">
+    <p class="box-label">Exercise</p>
+    <p>Open <span class="filelink">app/layout.tsx</span> and confirm out loud that it has no
+    <code>"use client"</code> line — it's a Server Component. Then open any file under
+    <span class="filelink">components/</span> that you'd guess needs interactivity (a button, a
+    table, an upload panel) and check whether it starts with <code>"use client"</code>. Predict
+    before you look, based only on this lesson's rule — does it need state, an event handler, or a
+    browser API? — then verify.</p>
+  </div>
+
+  <div class="ask-teacher">
+    If the serialization-boundary idea feels unfamiliar, it's worth connecting explicitly to
+    <a href="0018-serialization-boundaries-and-safe-cell-values.html">Lesson 18</a> from Track 3 —
+    same underlying concept (a boundary between two environments with different capabilities,
+    where only certain value shapes may cross), different pair of environments. Ask here if that
+    connection doesn't click on its own.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0032-react-minimum-mental-model.html">← Back: React's Minimum Mental Model</a>
+    <a href="0034-design-tokens-and-semantic-styling.html">Next: Design Tokens →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

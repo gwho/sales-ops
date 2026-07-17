@@ -502,6 +502,119 @@ Last updated: 2026-07-12 (Phase 10.2: per-bar hover/focus tooltip)
 Pattern notes:
 Plain CSS bar chart — `div` columns, height as a `%` of a fixed `h-32` container, 3 absolute-positioned `border-t border-border` guide lines at 25/50/75%. The formatted value always renders above the bar, never bar-only. **Zero guard:** if every value is 0, renders `EmptyState` instead of a row of degenerate flat bars. Subtitle text is deliberately neutral, no `$`/"Total Outstanding" framing, since no contract field carries a currency code (Field Scope Boundary, Phase 5). Used once today: `/dashboard`'s "Outstanding by Aging Bucket" card, sourced from `amountByAgingBucket()` in `lib/mock-data.ts`. **Phase 10.2:** stayed a Server Component — no local state needed, since each bar's tooltip is an independent pure-CSS `group-hover`/`group-focus` reveal (no cross-element coordination like the donut's shared hover state). Each bar column is `tabIndex={0}` with an `aria-label` (label, formatted amount, `%` of total across all buckets) and a `role="tooltip"` div positioned `absolute -top-2 -translate-y-full` above the column (not the bar itself, so it lands at a consistent height regardless of that bar's own height) showing the same three facts on hover or keyboard focus.
 
+## Landing (`components/landing/`)
+
+A deliberately distinct visual style from every other component in this registry, scoped
+entirely to the public portfolio landing page (`app/(public)/page.tsx`) and never reused
+on operational routes. Flat, bordered, no shadows, no rounded corners — an editorial
+case-study look, not the app's `Card`-based operational style. Shares this project's
+tokens, typography, and interaction-state conventions; the split is in composition
+(radius/shadow/dividers), not in the token palette. See
+`docs/architect/portfolio-landing-page/decisions.md` for the full reasoning.
+
+### Section / SectionLabel / SectionHeading
+
+File: `components/landing/Section.tsx`
+Last updated: 2026-07-17
+
+| Property | Class |
+| --- | --- |
+| Background | none (inherits `bg-background`) |
+| Border | `border-b border-border` (`Section` wrapper only) |
+| Border radius | none |
+| Text — primary | `SectionHeading`: `text-xl font-semibold text-text-primary md:text-2xl` |
+| Text — secondary | `SectionLabel`: `text-[10px] font-medium uppercase tracking-widest text-text-secondary` |
+| Spacing | `Section`: `mx-auto max-w-5xl px-6 py-12 md:py-16`, plus `scroll-mt-16` for anchor-nav offset under the sticky `PublicHeader` |
+| Hover/focus state | n/a |
+| Shadow | none |
+| Accent/status usage | none |
+
+Pattern notes:
+Server Components, no interactivity. Shared structural primitives for every landing
+section — intentionally does not use `font-mono`/`font-display` (the Figma prototype's
+CSS variables, never defined in this project's real token set); the "label" look is
+tracking/weight only, still `font-sans` (Inter). `scroll-mt-16` matches `PublicHeader`'s
+sticky height so anchor navigation doesn't hide a section's heading behind it.
+
+### Hero
+
+File: `components/landing/Hero.tsx`
+Last updated: 2026-07-17
+
+| Property | Class |
+| --- | --- |
+| Background | `bg-accent` (primary CTA) |
+| Border | `border-b border-border` (section); `border border-border` (badge, secondary CTA) |
+| Border radius | none |
+| Text — primary | `text-3xl font-semibold leading-tight text-text-primary md:text-4xl` |
+| Text — secondary | `text-base leading-relaxed text-text-secondary md:text-lg`; badge: `text-xs font-medium uppercase tracking-widest text-text-secondary` |
+| Spacing | `px-6 py-14 md:py-20`; CTA row `gap-3` |
+| Hover/focus state | primary CTA: `hover:opacity-90`; secondary CTA: `hover:bg-surface-muted`; both: `focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2` |
+| Shadow | none |
+| Accent/status usage | `bg-accent text-text-on-accent` (primary CTA only) |
+
+Pattern notes:
+Server Component. Primary CTA is a real `next/link` to `/dashboard` (`Link`, not `<a>`);
+secondary CTA is a native anchor (`href="#workflows"`) for same-page scroll, since no JS
+is needed for that. Content (`hero.title`/`subtitle`/CTA labels) is entirely
+content-driven from `content/portfolio/sales-admin-automation-toolkit.json`, never
+hardcoded here.
+
+### WorkflowsSection / WorkflowSequence / ValueSection / TechSection / BoundaryNote / ClosingCta
+
+Files: `components/landing/{WorkflowsSection,WorkflowSequence,ValueSection,TechSection,BoundaryNote,ClosingCta}.tsx`
+Last updated: 2026-07-17
+
+| Property | Class |
+| --- | --- |
+| Background | `bg-background` (cards); `bg-surface-muted` (workflow icon chip, `WorkflowSequence` step chips, `BoundaryNote` box); `bg-accent` (`ClosingCta` primary link) |
+| Border | `border border-border` (workflow cards, tech tags, `BoundaryNote` box, `WorkflowSequence` step chips); `gap-px bg-border` grid-line trick for `WorkflowsSection`'s card grid |
+| Border radius | none anywhere in this group |
+| Text — primary | `text-sm font-semibold text-text-primary` (workflow card titles, value headings) |
+| Text — secondary | `text-sm leading-relaxed text-text-secondary` (descriptions/body copy throughout) |
+| Spacing | grid `sm:grid-cols-2 lg:grid-cols-4` (workflows); `md:grid-cols-[1fr_2fr]` (value section) |
+| Hover/focus state | workflow cards: `hover:bg-surface-muted`; `ClosingCta` links: `hover:opacity-90` / `hover:bg-surface-muted`, both `focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2` |
+| Shadow | none |
+| Accent/status usage | `text-accent` (workflow icon chip icon color, `ValueSection` checkmark); `bg-accent` (`ClosingCta` primary link) |
+
+Pattern notes:
+All Server Components, all content-driven from the same portfolio JSON — no hardcoded
+copy in any of these files. Icons are `lucide-react` only, resolved via
+`components/landing/icon-map.tsx`'s exhaustive `Record<PortfolioIconName, LucideIcon>`
+(never inline SVG — a mistake made once during the build and caught immediately, see
+`docs/architect/portfolio-landing-page/discussion.md`). `WorkflowSequence` reuses the
+dashboard's original icon-chip-plus-arrow visual pattern (`ArrowRight` between steps) but
+is entirely content-driven (`workflowSequence` JSON field) instead of hardcoded — this is
+the relocated "How the Workflows Connect" content that used to live on `/dashboard`.
+`ClosingCta`'s links are real `next/link`s to `/dashboard`, `/inventory-allocation`,
+`/payment-aging` — never placeholder `href="#"`. The prototype's "Role Fit" section has
+no equivalent here at all — dropped entirely per an explicit decision, not reworded.
+
+### PublicHeader / PublicFooter
+
+File: `components/landing/{PublicHeader,PublicFooter}.tsx`
+Last updated: 2026-07-17
+
+| Property | Class |
+| --- | --- |
+| Background | `bg-background` (`PublicHeader`, sticky) |
+| Border | `border-b border-border` (`PublicHeader`) |
+| Border radius | none |
+| Text — primary | n/a |
+| Text — secondary | `text-xs font-medium uppercase tracking-widest text-text-secondary` (brand label); `text-xs text-text-secondary` (`PublicFooter`) |
+| Spacing | `h-14` header height (matches `Section`'s `scroll-mt-16`) |
+| Hover/focus state | anchor links: `hover:text-text-primary`; CTA: `hover:opacity-90`; all: `focus-visible:ring-2 focus-visible:ring-accent` |
+| Shadow | none |
+| Accent/status usage | `bg-accent text-text-on-accent` (Open Dashboard CTA) |
+
+Pattern notes:
+`PublicHeader` is `sticky top-0 z-10`, rendered by `app/(public)/layout.tsx` — the
+`(public)` route group's own minimal chrome, replacing `AppShell`'s sidebar/top-header for
+this one route. Nav anchors are `#workflows`/`#value`/`#tech`, matching `Section`'s `id`
+props on the landing page; no "Role Fit" anchor since that section doesn't exist.
+`PublicFooter` has no external links (GitHub, deployed URLs) — nothing was fabricated to
+fill space.
+
 ## Page composition notes (Phase 9.1)
 
 **`/dashboard` gained 4 new sections, still a Server Component.** "Inventory Shortage Alerts" (from `supplier_follow_ups`, plus the "Gap to Reorder Point" derived value — see `context/ui-contract-plan.md`'s Derived Display-Only Aggregates table) and "Payment Follow-up Items" (from `aging_rows` filtered to `follow_up_priority !== "None"`) render as **plain, non-sortable tables** using the `Table`/`TableHead`/`TableBody`/`TableRow`/`TableHeaderCell`/`TableCell` primitives directly — deliberately **not** `DataTable`, specifically so `/dashboard` doesn't inherit the "any page using `DataTable`'s column config must be a Client Component" constraint documented above. Dashboard summary tables don't need sorting; staying server-rendered is the better tradeoff here. A "How the Workflows Connect" section (compact icon-chip + `ArrowRight` flow rows, 4 rows matching the 4 real data flows: Orders→Validation→Valid Orders, Valid Orders+Inventory→Allocation→Backorders/Supplier Follow-up, Invoices→Aging→Draft Reminders, Outputs→Reports) and a "How This Demo Works" guide section (English only — bilingual deferred, see Open Questions in the Phase 9.1 session docs) round out the page. Both are explanatory-only: no new data, no fake metrics, no trend/history.
@@ -554,6 +667,18 @@ Plain CSS bar chart — `div` columns, height as a `%` of a fixed `h-32` contain
 
 **Sample-data fallback is per-workflow-type, independent per section, using the same `orderValidationResult`/`inventoryAllocationResult`/`paymentAgingResult`/`amountByAgingBucket` static imports the dashboard has used since Phase 9.** A session that's only run Order Validation shows that workflow live and the other two as sample — never all-or-nothing. Marked via a small "Sample data" `Badge` (`tone="neutral" dot={false}`): on `MetricCard`'s new `sample` prop for the 5 Overview cards (2 order-validation, 2 allocation, 1 aging), and via `TableSectionHeading`'s existing `action` slot for the two chart cards and two tables (replacing that slot's normal `Link`/nothing, one or the other, never both).
 
-**`X-Persisted: false` gets a small inline `PersistenceNotice`, never a success equivalent.** All 3 workflow pages now destructure `{ data, persisted }` from `postJSON` (previously just the raw result) and render `<PersistenceNotice />` only when `persisted === "false"` — `"true"` and `"skipped"` (the latter effectively unreachable from the real frontend, since `lib/session-id.ts` always attaches a header) render nothing new, matching this project's no-success-chrome convention. Discoverability of "runs feed the dashboard" lives in `/dashboard`'s own "How This Demo Works" copy, not in per-run UI on the workflow pages.
+**`X-Persisted: false` gets a small inline `PersistenceNotice`, never a success equivalent.** All 3 workflow pages now destructure `{ data, persisted }` from `postJSON` (previously just the raw result) and render `<PersistenceNotice />` only when `persisted === "false"` — `"true"` and `"skipped"` (the latter effectively unreachable from the real frontend, since `lib/session-id.ts` always attaches a header) render nothing new, matching this project's no-success-chrome convention. Discoverability of "runs feed the dashboard" lived in `/dashboard`'s own "How This Demo Works" copy — that section was removed in the Portfolio Landing Page pass (see below); the equivalent conceptual explanation now lives on the public landing page instead, not in per-run UI on the workflow pages.
 
 **Do not reintroduce the old "async Server Component + `force-dynamic`" plan for `/dashboard`.** That framing came from the *paused, superseded* SQLite-based Phase 11 plan (`docs/archive/phase-11-sql-reporting-sqlite-plan.md`), which assumed a global, non-session-scoped query. It does not apply to Phase 12's session-scoped design and should not be revived by a future session skimming old docs.
+
+## Page composition notes (Portfolio Landing Page)
+
+**New route groups split the app into `(public)` and `(workspace)`.** `app/(public)/layout.tsx` wraps only `/` with `PublicHeader`/`PublicFooter` — no `AppShell` sidebar. `app/(workspace)/layout.tsx` wraps `/dashboard` and the three workflow pages + `/reports` with the existing `AppShell`. Root `app/layout.tsx` now holds only global providers (font, `<html>`/`<body>`) — no chrome of its own. Route groups don't change URLs; `/dashboard` is still `/dashboard`, and navigation between `/` and `/dashboard` stays client-side (one shared root layout).
+
+**`/` is now the public portfolio case-study landing page** (`app/(public)/page.tsx`), replacing the old `redirect("/dashboard")` root page. Built entirely from `components/landing/` (see the Landing section above) and `content/portfolio/sales-admin-automation-toolkit.json` (typed via `types/portfolio-content.ts`, loaded via `lib/content/portfolio.ts`) — no hardcoded copy in the page itself.
+
+**`/dashboard` lost two long sections, gained one accurate compact notice.** "How the Workflows Connect" (the icon-chip flow diagram) and "How This Demo Works" (the multi-paragraph guide) were both removed from `app/(workspace)/dashboard/page.tsx`. The flow diagram relocated to the landing page as `WorkflowSequence`, content-driven from the same JSON. In their place, `/dashboard` has one `<p>`: "Workflow results are stored under an anonymous session associated with this browser. Sections labelled 'Sample data' show fictional fallback records until that workflow has been run." — corrected wording from an earlier draft that said results are "saved to this browser only," which overstated the mechanism (the session *ID* lives in `localStorage`; the saved *results* live in Postgres per Phase 12).
+
+**No Role Fit section exists anywhere in the public app.** The Figma prototype this was built from had one (mapping the project to specific hiring roles); it was deliberately excluded and not replaced — that content is private positioning logic that belongs in a separate, git-free workspace, not the public repo. See `docs/architect/portfolio-landing-page/decisions.md` for the full reasoning.
+
+**`tsconfig.json` now excludes `career_os`** (`"exclude": ["node_modules", "career_os"]`), found necessary when `tsc --noEmit` started erroring on an unrelated private sub-project pulled in by the unscoped `include` glob. This directly reinforces the same privacy boundary this feature's content-sourcing decisions were built around.
