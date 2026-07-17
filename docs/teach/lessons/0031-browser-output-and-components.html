@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 31 — Browser Output and Components</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 5 · Lesson 1 of 4</span>
+    <a href="0032-react-minimum-mental-model.html">Next: React's Minimum Mental Model →</a>
+  </div>
+
+  <p class="kicker">Track 5 — UI Components &amp; Next.js</p>
+  <h1>What a Browser Renders, and What a Component Is</h1>
+  <p class="lede">
+    Every lesson so far has stayed on the Python side of this repo. Track 5 is where the frontend
+    starts — and before anything about React or Next.js makes sense, three older, framework-free
+    ideas have to be solid: what HTML, CSS, and JavaScript each actually do, and what a
+    "component" means as a concept, independent of any specific tool that implements it.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p>MDN, <a href="https://developer.mozilla.org/en-US/docs/Learn_web_development/Getting_started/Your_first_website">"Your first website"</a>
+    and <a href="https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Structuring_content">"Structuring content with HTML"</a>
+    — the standard, vendor-neutral reference for exactly this split. Read the first if you've
+    never opened an HTML file before; skim the second if you have.</p>
+  </div>
+
+  <h2>Three jobs, three languages</h2>
+  <p>A browser turns a text file into a picture on screen using three separate technologies, each
+  with one job:</p>
+  <table>
+    <tr><th>Language</th><th>Job</th><th>Answers the question</th></tr>
+    <tr><td>HTML</td><td>Structure</td><td>What <em>is</em> this piece of content — a heading, a
+    list, a button, a table?</td></tr>
+    <tr><td>CSS</td><td>Presentation</td><td>How should it <em>look</em> — color, spacing, size,
+    layout?</td></tr>
+    <tr><td>JavaScript</td><td>Behavior</td><td>What should happen when the user <em>does</em>
+    something — click, type, scroll?</td></tr>
+  </table>
+  <p>This split isn't specific to React or Next.js — it's the browser's own division of labor, and
+  it predates every JavaScript framework by decades. A React component still ultimately produces
+  HTML, still gets its look from CSS, and still runs JavaScript for behavior; React just changes
+  <em>how</em> those three things get written and combined, not what each one is responsible for.</p>
+
+  <h2>A component, before any framework exists</h2>
+  <p>A <strong>component</strong> is a reusable, self-contained unit of UI — a chunk of structure,
+  presentation, and behavior bundled together and given a name, so it can be reused wherever that
+  same piece of UI is needed. A button that shows a label and responds to a click is a component
+  whether it's written as a hand-rolled HTML/CSS/JS snippet, a React function, or a Next.js file —
+  the concept exists independently of any of those.</p>
+
+  <div class="box primer">
+    <p class="box-label">A component without React — plain HTML/CSS/JS</p>
+    <pre><code>&lt;!-- structure --&gt;
+&lt;button class="badge badge--warning" id="statusBadge"&gt;Backordered&lt;/button&gt;
+
+/* presentation */
+.badge { padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.85rem; }
+.badge--warning { background: #fff3cd; color: #7a5b00; }
+
+// behavior
+document.getElementById("statusBadge").addEventListener("click", () =&gt; {
+  console.log("Status badge clicked");
+});</code></pre>
+    <p>Nothing here is React. It's still a component in every meaningful sense: one reusable unit,
+    one name, structure + presentation + behavior bundled together. This project's real
+    <span class="filelink">components/workflow/StatusBadge.tsx</span> (Track 5's Tutorial 10) does
+    the same job — it just expresses it as a typed React function instead of a raw DOM snippet.</p>
+  </div>
+
+  <div class="say-avoid">
+    <div class="say-avoid-col say">
+      <p class="box-label">Correct framing</p>
+      <p>"A component is React's <em>way of organizing</em> structure, presentation, and behavior
+      together — the idea predates React."</p>
+    </div>
+    <div class="say-avoid-col avoid">
+      <p class="box-label">A framing to avoid</p>
+      <p>"A component is a React thing." (This makes L5.2 harder — you'll be learning React's
+      syntax for an idea you already understand, not the idea itself.)</p>
+    </div>
+  </div>
+
+  <h2>Retrieval check</h2>
+  <div class="box checkpoint">
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Which language answers "what should happen when the user clicks this button?"</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">HTML</button>
+        <button class="quiz-option" data-correct="false">CSS</button>
+        <button class="quiz-option" data-correct="true">JavaScript</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Is "component" a concept that belongs specifically to React?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Yes — it was invented by the React team</button>
+        <button class="quiz-option" data-correct="true">No — it's a general UI concept; React is one way of expressing it</button>
+        <button class="quiz-option" data-correct="false">Only for Next.js App Router projects</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <h2>Tiny exercise (5 minutes)</h2>
+  <div class="box exercise">
+    <p class="box-label">Exercise</p>
+    <p>Open <span class="filelink">app/globals.css</span> and find any one CSS rule. Say out loud
+    which of the three jobs (structure, presentation, behavior) it belongs to, and why it couldn't
+    belong to either of the other two. Then open
+    <span class="filelink">components/workflow/StatusBadge.tsx</span> (you don't need to
+    understand the React syntax yet) and just point at — don't read closely — the parts that look
+    like they're doing structure versus behavior. You're building a landmark for L5.2, not
+    analyzing the file yet.</p>
+  </div>
+
+  <div class="ask-teacher">
+    If any of the three jobs feels blurry — for instance, whether inline event handling counts as
+    "behavior" even when it's one line inside an HTML-looking tag — ask here before L5.2. That
+    exact blurriness is what JSX (L5.2) deliberately reintroduces on purpose, and it helps to
+    notice the seam before React hides it.
+  </div>
+
+  <div class="nav nav-bottom">
+    <span>← You are here</span>
+    <a href="0032-react-minimum-mental-model.html">Next: React's Minimum Mental Model →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

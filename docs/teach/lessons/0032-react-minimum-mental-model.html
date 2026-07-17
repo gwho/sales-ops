@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 32 — React's Minimum Mental Model</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 5 · Lesson 2 of 4</span>
+    <a href="0033-server-and-client-components.html">Next: Server and Client Components →</a>
+  </div>
+
+  <p class="kicker">Track 5 — UI Components &amp; Next.js</p>
+  <h1>React's Minimum Mental Model</h1>
+  <p class="lede">
+    Just enough React to read this repo's frontend — component functions, JSX, props, state,
+    events, and the one rule that makes all of it move: a state change triggers a re-render.
+    Tiny, invented examples first; this repo's real components wait for Tutorial 10.</p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p><a href="https://react.dev/learn/your-first-component">"Your First Component"</a> and
+    <a href="https://react.dev/learn/state-a-components-memory">"State: A Component's Memory"</a>
+    on react.dev — the official React documentation, written for exactly this on-ramp.</p>
+  </div>
+
+  <h2>A component is a function that returns UI</h2>
+  <p>In React, a component is a JavaScript function whose job is to return a description of what
+  should appear on screen, written in a syntax called JSX (HTML-like markup inside JavaScript).</p>
+  <div class="box primer">
+    <p class="box-label">The smallest possible component</p>
+    <pre><code>function Greeting() {
+  return &lt;p&gt;Hello, sales admin.&lt;/p&gt;;
+}</code></pre>
+    <p>That's it — a function, named with a capital letter (React's convention for telling
+    components apart from plain HTML tags), returning JSX. Using it elsewhere looks like using an
+    HTML tag: <code>&lt;Greeting /&gt;</code>.</p>
+  </div>
+
+  <h2>Props: how a parent hands data to a child</h2>
+  <p>A component becomes reusable once it can vary based on the data it's given. That data is
+  called <strong>props</strong> (short for "properties") — read-only values passed in from
+  whatever rendered the component, the same way an HTML tag's attributes configure it.</p>
+  <div class="box primer">
+    <p class="box-label">A component with props</p>
+    <pre><code>function Greeting({ name }) {
+  return &lt;p&gt;Hello, {name}.&lt;/p&gt;;
+}
+
+// used as:
+&lt;Greeting name="sales admin" /&gt;
+&lt;Greeting name="warehouse coordinator" /&gt;</code></pre>
+    <p>Same component, two different rendered outputs — that's the entire point of props. A
+    component never modifies its own props; if it needs to change, that's what state is for.</p>
+  </div>
+
+  <h2>State: a value a component remembers between renders</h2>
+  <p><strong>State</strong> is data a component owns and can change over time — unlike a prop,
+  which only ever flows in from outside. React's <code>useState</code> gives a component a piece
+  of memory and a function to update it.</p>
+  <div class="box primer">
+    <p class="box-label">A component with state</p>
+    <pre><code>function Counter() {
+  const [count, setCount] = useState(0);
+  return (
+    &lt;button onClick={() =&gt; setCount(count + 1)}&gt;
+      Clicked {count} times
+    &lt;/button&gt;
+  );
+}</code></pre>
+    <p><code>count</code> is the current value; <code>setCount</code> is the only sanctioned way to
+    change it. Calling <code>setCount</code> doesn't just update a variable somewhere — it's a
+    signal to React that this component needs to run again.</p>
+  </div>
+
+  <h2>Events: user actions become function calls</h2>
+  <p>JSX attaches behavior with camelCase handler props — <code>onClick</code>, <code>onChange</code>
+  — each taking a function to call when that event happens. This is the same "behavior" job
+  JavaScript owned in <a href="0031-browser-output-and-components.html">Lesson 31</a>, just
+  written inline as a JSX attribute instead of a separate <code>addEventListener</code> call.</p>
+
+  <h2>The one rule that makes it all move: render-after-state-change</h2>
+  <div class="box checkpoint">
+    <p class="box-label">The core loop</p>
+    <p>Call a state setter (like <code>setCount</code>) → React re-runs that component's function
+    → the function returns new JSX describing the updated UI → React updates only the parts of the
+    real page that actually changed. Nothing on screen updates because you "changed a variable" —
+    it updates because you called the state setter, which schedules a re-render.</p>
+  </div>
+
+  <div class="say-avoid">
+    <div class="say-avoid-col say">
+      <p class="box-label">Correct framing</p>
+      <p>"The UI updates because I called <code>setCount</code>, which tells React to re-run the
+      component and produce new JSX."</p>
+    </div>
+    <div class="say-avoid-col avoid">
+      <p class="box-label">A framing to avoid</p>
+      <p>"The UI updates because <code>count</code> changed." (This skips the actual mechanism —
+      directly mutating a variable that <code>useState</code> gave you, without calling its setter,
+      does <em>not</em> update the screen. This is a very common early bug.)</p>
+    </div>
+  </div>
+
+  <h2>Retrieval check</h2>
+  <div class="box checkpoint">
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What's the difference between a prop and a piece of state?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Props are for numbers, state is for text</button>
+        <button class="quiz-option" data-correct="true">Props flow in from a parent and are read-only; state is owned and changeable by the component itself</button>
+        <button class="quiz-option" data-correct="false">There's no real difference, just different names</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What actually causes React to update the screen?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Directly reassigning a state variable</button>
+        <button class="quiz-option" data-correct="true">Calling the state setter function, which triggers a re-render</button>
+        <button class="quiz-option" data-correct="false">The browser automatically detecting any JavaScript change</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <h2>Tiny exercise (7 minutes)</h2>
+  <div class="box exercise">
+    <p class="box-label">Exercise</p>
+    <p>On paper or in a scratch file, write a component <code>WorkflowStatus({ label })</code>
+    that renders its <code>label</code> prop inside a <code>&lt;span&gt;</code>. Then add one piece
+    of state, <code>expanded</code>, defaulting to <code>false</code>, and an
+    <code>onClick</code> handler on the span that flips it. Don't worry about actually rendering
+    something different based on <code>expanded</code> yet — the goal is just correctly wiring
+    <code>useState</code> and an event handler together, predicting out loud what happens on each
+    click before you'd run it.</p>
+  </div>
+
+  <div class="ask-teacher">
+    If the render-after-state-change loop still feels like a black box — especially "why does
+    directly mutating state not work" — ask here before Lesson 33. Server Components (next lesson)
+    only make sense once you're confident this loop is a client-side, in-the-browser mechanism.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0031-browser-output-and-components.html">← Back: Browser Output and Components</a>
+    <a href="0033-server-and-client-components.html">Next: Server and Client Components →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

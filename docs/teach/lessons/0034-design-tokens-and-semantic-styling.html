@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 34 — Design Tokens and Semantic Styling</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 5 · Lesson 4 of 4</span>
+    <a href="../../tutorials/08-ui-contract-wireframe-planning/README.md">Next: Tutorial 08 →</a>
+  </div>
+
+  <p class="kicker">Track 5 — UI Components &amp; Next.js</p>
+  <h1>Design Tokens and Semantic Styling</h1>
+  <p class="lede">
+    The last prerequisite before Tutorial 10 — what a design token is, how a CSS custom property
+    becomes a Tailwind utility class, and why this repo's rule against hardcoded hex values and raw
+    Tailwind palette classes is a real engineering constraint, not a style preference someone
+    could reasonably ignore under a deadline.</p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p>Tailwind CSS v3's own docs —
+    <a href="https://v3.tailwindcss.com/docs/theme">"Theme Configuration"</a> and
+    <a href="https://v3.tailwindcss.com/docs/customizing-colors">"Customizing Colors"</a>. This
+    repo pins Tailwind 3.4 deliberately (see
+    <span class="filelink">context/library-docs.md</span>) — read the v3 docs, not v4's, since the
+    two configuration systems differ.</p>
+  </div>
+
+  <h2>A CSS custom property: one value, one name</h2>
+  <p>CSS has always supported <strong>custom properties</strong> (informally, "CSS variables") —
+  a named value declared once and reused anywhere:</p>
+  <div class="box primer">
+    <p class="box-label">A raw CSS custom property</p>
+    <pre><code>:root {
+  --accent: 221 83% 53%;
+}
+
+.button {
+  background: hsl(var(--accent));
+}</code></pre>
+    <p>Change <code>--accent</code>'s value once, and every rule referencing <code>var(--accent)</code>
+    updates together. This is plain CSS — nothing here is Tailwind-specific yet.</p>
+  </div>
+
+  <h2>Tailwind's job: turn a variable into a utility class</h2>
+  <p>Tailwind CSS doesn't replace CSS custom properties — it generates small, single-purpose
+  utility classes (<code>bg-accent</code>, <code>text-accent</code>) that reference them, so you
+  style elements by composing class names in markup instead of writing new CSS rules by hand.
+  Tailwind's <code>theme.extend.colors</code> config is where a project tells Tailwind which
+  custom property each color name should resolve to.</p>
+
+  <div class="box primer">
+    <p class="box-label">This repo's actual wiring — three files, one value</p>
+    <pre><code>/* app/globals.css */
+:root {
+  --accent: 221 83% 53%;
+}
+
+// tailwind.config.ts
+colors: {
+  accent: {
+    DEFAULT: "hsl(var(--accent))",
+  },
+}
+
+// any component
+&lt;button className="bg-accent"&gt;Save&lt;/button&gt;</code></pre>
+    <p>Three files, one value: the CSS variable holds the actual color, the Tailwind config maps a
+    class name to that variable, and the component only ever writes the class name. See
+    <span class="filelink">context/ui-tokens.md</span> for this repo's full token list and
+    <span class="filelink">tailwind.config.ts</span> for the real mapping — both files this exact
+    excerpt is drawn from.</p>
+  </div>
+
+  <h2>What makes a token <em>semantic</em></h2>
+  <p>A <strong>design token</strong> is a named value standing in for a raw design decision — a
+  color, a spacing size, a font size — so code refers to the name, never the raw value directly.
+  A token is <strong>semantic</strong> when its name describes the token's <em>role</em>
+  (<code>accent</code>, <code>surface</code>, <code>danger</code>) rather than its literal
+  appearance (<code>blue-600</code>, <code>white</code>, <code>red-200</code>). Tailwind ships
+  with a large built-in palette of appearance-named classes — <code>bg-blue-600</code> is valid
+  Tailwind out of the box — but this repo's token layer exists specifically to replace that
+  built-in palette with role-named alternatives.</p>
+
+  <h2>Why this repo forbids both hardcoded hex and raw Tailwind palette classes</h2>
+  <p>Two different things are banned, for two related but distinct reasons:</p>
+  <table>
+    <tr><th>Banned</th><th>Why</th></tr>
+    <tr>
+      <td>A hardcoded hex value (<code>style={{ color: "#a8351f" }}</code>)</td>
+      <td>Bypasses the token system entirely — nothing connects this color to any named concept,
+      so a future rebrand or dark-mode pass can't find or update it systematically.</td>
+    </tr>
+    <tr>
+      <td>A raw Tailwind palette class (<code>bg-blue-600</code>)</td>
+      <td>Names an <em>appearance</em>, not a <em>role</em> — it says nothing about
+      <em>why</em> this element is blue, so a reviewer can't tell whether it's meant to be "the
+      accent color" or just happened to look right once. If the accent color ever changes,
+      every literal <code>bg-blue-600</code> has to be found and edited by hand, one at a time.</td>
+    </tr>
+  </table>
+
+  <div class="say-avoid">
+    <div class="say-avoid-col say">
+      <p class="box-label">Correct framing</p>
+      <p>"<code>bg-accent</code> says <em>why</em> this element is that color — because it's this
+      project's accent role. Change <code>--accent</code> once, and every accent-colored element
+      updates together."</p>
+    </div>
+    <div class="say-avoid-col avoid">
+      <p class="box-label">A framing to avoid</p>
+      <p>"It's basically the same either way — <code>bg-blue-600</code> and <code>bg-accent</code>
+      both just make something blue." (True today, by coincidence — this repo's accent token
+      currently resolves to a blue. The whole point of a semantic name is that this coincidence
+      isn't load-bearing; a raw palette class hardcodes the coincidence, a semantic token doesn't.)</p>
+    </div>
+  </div>
+
+  <h2>Retrieval check</h2>
+  <div class="box checkpoint">
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What makes a token name "semantic" rather than "appearance-based"?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Semantic tokens use hex values instead of HSL</button>
+        <button class="quiz-option" data-correct="true">It names the value's role (accent, danger) instead of its literal look (blue-600, red-200)</button>
+        <button class="quiz-option" data-correct="false">Semantic tokens are only used for text, not backgrounds</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">If this project's accent color needed to change from blue to green, what would have to change under the token system described here?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Every component file using bg-accent, one at a time</button>
+        <button class="quiz-option" data-correct="true">One CSS custom property value in app/globals.css</button>
+        <button class="quiz-option" data-correct="false">The Tailwind package itself would need to be reinstalled</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <h2>Tiny exercise (5 minutes)</h2>
+  <div class="box exercise">
+    <p class="box-label">Exercise</p>
+    <p>Open <span class="filelink">context/ui-tokens.md</span> and pick any one token, say
+    <code>--danger</code>. Trace it by hand through the three-file pattern above: find its
+    declaration in <span class="filelink">app/globals.css</span>, its color-name mapping in
+    <span class="filelink">tailwind.config.ts</span>, and then search the codebase (any method —
+    <code>grep</code>, your editor's search) for one real component that uses the resulting
+    utility class. Say out loud what role that color is playing at the spot you found, before
+    checking whether "danger" actually fits.</p>
+  </div>
+
+  <div class="ask-teacher">
+    Tutorial 10 covers a real, harder edge of this same rule — a domain word like "High" priority
+    meaning two visually different things in two different contexts, both legitimately using the
+    token system. If the idea of one word needing two separate tone mappings sounds strange right
+    now, that's expected; ask here if it still doesn't click after Tutorial 10 covers it directly.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0033-server-and-client-components.html">← Back: Server and Client Components</a>
+    <span>Track 5 prerequisites complete — on to Tutorial 08</span>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

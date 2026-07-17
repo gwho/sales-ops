@@ -138,3 +138,86 @@
   - No learning records written — correctly so, per this file's standing rule: this is lesson
     authorship, not evidence of the user having completed the exercises or answered the retrieval
     checks yet.
+- 2026-07-17 (later session): shipped Track 5's four prerequisite lessons (`0031`–`0034`) from a
+  fully-specified task file at
+  `docs/tutorials/tutoiral-ideas/track-5-ui-components-nextjs-ideas.md`, which also specifies the
+  four core Track 5 `/tutorial` outputs (Tutorials 08–11) to generate afterward via the separate
+  `tutorial` skill. Confirmed via `ls docs/teach/lessons/` that `0031` was genuinely the next free
+  number (the task file's own claim that "the current lesson chain ends at `0030`" checked out
+  against the real directory) before naming any files.
+  - **Scope/pacing confirmed with the user first, via `AskUserQuestion`**, given the batch's total
+    size (4 lessons + 4 full code-grounded tutorials, each historically 1,000–1,600+ lines): user
+    chose one continuous run rather than pausing between lessons and tutorials, or between each
+    individual tutorial.
+  - Content shipped close to literally one lesson per syllabus item (L5.1→`0031`, L5.2→`0032`,
+    L5.3→`0033`, L5.4→`0034`), the same close-to-literal pattern Track 4's `0022`/`0023` used —
+    not the finer 7-lesson expansion Tracks 1–3 used — because the task file's own brief scoped
+    each lesson tightly (a "tiny exercise," not a deep dive) and explicitly reserves code depth
+    for the Tutorials themselves.
+  - `0033` (Server/Client Components) is the load-bearing lesson of this set — flagged in
+    `ROADMAP.md` as required before Tutorial 09 and revisited in Tutorials 10 and 15 (Track 5's
+    Phase 12/Postgres forward-reference already exists in `ROADMAP.md`'s Track 6 entry). Grounded
+    directly in this repo's installed copy of the Next.js docs
+    (`node_modules/next/dist/docs/01-app/01-getting-started/05-server-and-client-components.md`),
+    read in full before writing, per this workspace's standing "read the real doc, don't rely on
+    parametric recall" rule — same posture the task file's own shared instructions require for
+    the Tutorials.
+  - All external URLs (two MDN pages, two react.dev pages, one react.dev RSC reference, the public
+    Next.js Server/Client Components page, two Tailwind v3 docs pages) were verified live with
+    `curl -L` before citing — all returned clean `200`s, no redirects to chase this time (contrast
+    the Track 4 session's MDN redirects, noted above).
+  - Navigation: `0031` starts its own chain with `← You are here`, matching every earlier track's
+    first-lesson precedent. `0034`'s forward link points at the *future* path
+    `docs/tutorials/08-ui-contract-wireframe-planning/README.md` (corrected once, mid-session,
+    away from an initial accidental link to the task-file itself) — the file didn't exist yet at
+    the moment `0034` was written, but does by the time this same session finishes the batch.
+  - No learning records written — correctly so, per this file's standing rule.
+- 2026-07-17 (same session, continued): generated Track 5's four required `/tutorial` outputs —
+  `docs/tutorials/08-ui-contract-wireframe-planning/` through `11-portfolio-ui-polish/` — via the
+  separate `tutorial` skill, invoked once per phase in the order the task file specified
+  (phase-7 → phase-8 → phase-9 → phase-10.2), each call passed the task file's full per-tutorial
+  brief (teaching goal, exact read list, recommended Parts, question-to-Part mapping, trace/
+  challenge specs) as args, not just the plan-folder path. User chose "all in one continuous run"
+  when asked about pacing beforehand, given the batch's size (4 lessons + 4 tutorials, each
+  historically 1,000+ lines).
+  - **A critical discovery made early and handled throughout**: this session's own working tree
+    has real, uncommitted, in-progress work — a landing-page/route-group restructuring
+    (`app/(public)/`, `app/(workspace)/`, `components/landing/`, `lib/content/`) that isn't part of
+    any committed phase. Caught by comparing `git status --short` against what `app/page.tsx`
+    should contain per `plan.md`, and finding `app/page.tsx` literally deleted in the working tree.
+    Every tutorial in this batch was written citing `git show HEAD:<path>` (the last *committed*
+    state) for every file touched by that restructuring, never the uncommitted working-tree
+    version — each tutorial's own opening caveat names this explicitly so a reader who opens the
+    real files and sees a different `app/` layout isn't confused. This is the correct extension of
+    the shared brief's own "cite current, stable, committed code, not deleted stubs" rule to a case
+    the brief didn't explicitly anticipate: uncommitted, *unstable* current-tree state is not
+    "current stable" either.
+  - Beyond that one restructuring, several individual files had genuinely evolved past their
+    origin-phase description in `explanation.md`/`plan.md`, independent of the uncommitted work
+    above — each handled the same way (cite current code, name the later commit/phase explicitly,
+    correct the stale prose rather than silently reproducing it): `scripts/generate_mock_data.py`
+    now reads real `sample_data/*.xlsx` through the full business-rule pipeline instead of
+    `tests/contract_fixtures.py` (changed in commit `745ac10`, after Phase 8); the
+    `REPORT_MANIFEST_FIXTURES` `report_id` bug Tutorial 08 Part 7 covers as "found but deliberately
+    left unfixed" in Phase 7 was genuinely fixed in a later, separate commit (`aca6762`), verified
+    via `git log -S` before writing that Part; `AppShell.tsx`/`TopHeader.tsx` are now full Client
+    Components with a mobile drawer (the `mobile-nav-shell-responsiveness` work), not Phase 9's
+    original plain-Server-Component shell; `DataTable` now explicitly defers filtering to callers
+    (a Phase 9.1 revision of Phase 9's original "sort only" scope); `UploadPanel` now hands its
+    selected `File` up via `onFileChange` (a Phase 10 addition, per the component's own docstring);
+    and Phase 12 moved the dashboard's live KPI/chart/table sections out of `app/dashboard/page.tsx`
+    into a new Client Component, `components/dashboard/DashboardLiveSections.tsx` — Tutorial 11's
+    full data-flow trace and every dashboard-visual code excerpt cite that current file, not
+    Phase 10.2's original (now-relocated) code.
+  - Every one of these forward-references and corrections was verified against real evidence before
+    being stated as fact — `git log --oneline`/`git log -S`/`git show HEAD:<path>`/direct file
+    reads — never inferred from the plan/explanation docs' prose alone, consistent with this
+    workspace's standing "verify, don't trust stale docs" rule (already established for the
+    Track 4 session's MDN redirects and the Track 2 session's PA-006/PA-007 correction).
+  - Question-to-Part mapping preserved all questions from every phase's `ai-discussion-topics.md`
+    per the task file's explicit instructions: Tutorial 8 (15/15), Tutorial 9 (24/24), Tutorial 10
+    (17/17), Tutorial 11 (15/15) — 71 questions total, zero dropped, none answered in a separate
+    quiz section (every one is a `**Checkpoint:**` inside the Part it maps to, per the `tutorial`
+    skill's own quality rules).
+  - No learning records written — correctly so, per this file's standing rule: this is lesson/
+    tutorial authorship, not evidence of the user having worked through any of it yet.
