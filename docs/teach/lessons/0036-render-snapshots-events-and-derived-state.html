@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 36 — Render Snapshots, Events, and Derived State</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 5 · Reinforcement 2 of 9</span>
+    <a href="0037-effects-cleanup-and-async-ui.html">Next: Effects, Cleanup, and Async UI →</a>
+  </div>
+
+  <p class="kicker">Track 5 — Optional Reinforcement · 2 of 9</p>
+  <h1>Render Snapshots, Events, and Derived State</h1>
+  <p class="lede">
+    Lesson 32 gave you the core loop: call a setter → React re-runs the component → new JSX. This
+    lesson doesn't repeat that loop — it opens up what happens to your variables in between those
+    two steps, using the real state in <span class="filelink">order-validation/page.tsx</span>
+    instead of invented examples.</p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p><a href="https://react.dev/learn/state-as-a-snapshot">"State as a Snapshot"</a> on
+    react.dev — the official explanation of what this lesson's first section covers. For the
+    derived-value section, <a href="https://react.dev/learn/you-might-not-need-an-effect">"You
+    Might Not Need an Effect"</a> — read only its early sections on computing values during
+    rendering; the Effect-specific parts of that page wait for Lesson 37.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Why this matters</p>
+    <p>All three mission drivers apply: you can explain in an interview why a value read
+    immediately after a setter call doesn't show the new value yet; the "compute it during render,
+    don't copy it into state" instinct is portable to any React codebase; and recognizing which of
+    this repo's values are genuinely stateful versus merely derived is what keeps you from adding a
+    redundant, driftable copy when you extend it.</p>
+  </div>
+
+  <h2>Render is a function of state — a snapshot, not a live variable</h2>
+  <p>Inside any single render, every state variable a component reads is a plain, fixed binding —
+  not a live reference to some mutable box that updates the instant you call its setter. Calling a
+  setter doesn't change the value in the function that's currently running; it schedules another
+  render with the new value. That binding is fixed for this render, but if the value is an object,
+  the object itself isn't automatically frozen — mutating its fields directly would change it
+  without ever handing React a new value to render, which is exactly why this repo always replaces
+  state objects wholesale instead of editing them in place (more on that below). Here's the shared
+  helper both submission paths call to actually run Order Validation:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">app/(workspace)/order-validation/page.tsx</span>, lines 172–191</p>
+    <pre><code>async function runValidation(orders: File, productMaster: File) {
+    setStatus("submitting");
+    setErrorDetail(null);
+    setPersisted(null);
+    try {
+      const formData = new FormData();
+      formData.set("orders_file", orders);
+      formData.set("product_master_file", productMaster);
+      const { data: result, persisted: persistedOutcome } = await postJSON&lt;OrderValidationResult&gt;(
+        "/api/orders/validate",
+        formData,
+      );
+      setCurrentResult(result);
+      setPersisted(persistedOutcome);
+      setStatus("succeeded");
+    } catch (error) {
+      setErrorDetail(error instanceof ApiError ? error.message : "Something went wrong. Please try again.");
+      setStatus("failed");
+    }
+  }</code></pre>
+    <p>If a debug line read <code>console.log(status)</code> immediately after
+    <code>setStatus("submitting");</code> on line 173, it would print whatever <code>status</code>
+    was <em>before</em> this call — not <code>"submitting"</code>. <code>status</code> here is the
+    value React handed this render's copy of <code>runValidation</code> when it was created;
+    calling <code>setStatus</code> schedules a fresh render with a fresh value, it doesn't reach
+    backward and edit the constant this function already closed over.</p>
+  </div>
+  <p>The same function shows the companion idea, immutable updates: <code>setCurrentResult(result)</code>
+  replaces the entire previous result with a brand-new object parsed fresh from the response. Nowhere
+  in this repo does a handler do something like reassigning a field on the old <code>currentResult</code>
+  in place — every update is "here is a whole new value," never "mutate the one you already had."</p>
+
+  <h2>A genuine event, not an effect</h2>
+  <p><code>runValidation</code> contains event-driven work, but it isn't itself the
+  <strong>event handler</strong> — it's a shared async helper. <code>handleRunValidation</code> and
+  <code>handleRunSampleData</code> are the actual handlers, each wired to a click, and each calling
+  <code>runValidation</code> once it has the files it needs:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">app/(workspace)/order-validation/page.tsx</span>, lines 324–326</p>
+    <pre><code>&lt;Button onClick={handleRunValidation} disabled={!canSubmit || status === "submitting" || sampleDataLoading}&gt;
+  {status === "submitting" ? "Validating…" : "Run Validation"}
+&lt;/Button&gt;</code></pre>
+  </div>
+  <p>Notice this entire file's imports: <code>import { useMemo, useState } from "react";</code> —
+  no <code>useEffect</code>, anywhere in the page. That's not an omission; it's correct. Every
+  piece of work on this page — running validation, fetching sample files, downloading a report —
+  is caused by one specific user action. Nothing here needs to happen just because the component
+  appeared, or because some value changed regardless of what caused the change. That second kind
+  of work — synchronizing with something outside React whenever a condition holds, not because of
+  one specific click — is what an Effect is for, and it's what Lesson 37 (not yet generated)
+  covers next, tracing <span class="filelink">DashboardLiveSections.tsx</span>, a component that
+  genuinely needs one.</p>
+
+  <h2>Derived values that don't need to be state</h2>
+  <p>Not everything a component computes has to live in <code>useState</code>. This page derives
+  several values fresh on every render, straight from state it already has:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">app/(workspace)/order-validation/page.tsx</span>, lines 169–170</p>
+    <pre><code>const canSubmit = ordersFile !== null &amp;&amp; productMasterFile !== null;
+  const currentStep = status === "succeeded" ? 2 : canSubmit ? 1 : 0;</code></pre>
+  </div>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">app/(workspace)/order-validation/page.tsx</span>, lines 263–264</p>
+    <pre><code>const errorFiltersActive = errorSeverity !== "All" || errorSearch !== "";
+  const orderFiltersActive = orderPriority !== "All" || orderSearch !== "";</code></pre>
+  </div>
+  <p>None of these four are <code>useState</code>. They're plain <code>const</code>s, recalculated
+  every time the component re-renders, directly from state that already exists
+  (<code>ordersFile</code>, <code>productMasterFile</code>, <code>status</code>,
+  <code>errorSeverity</code>, <code>errorSearch</code>, and so on). Because they're recomputed
+  every render instead of stored, there is exactly one source of truth for each — a value like
+  <code>canSubmit</code> can never fall out of sync with the files it's checking, because it's
+  never anything other than "the answer, computed right now."</p>
+
+  <div class="say-avoid">
+    <div class="say-avoid-col say">
+      <p class="box-label">Correct framing</p>
+      <p>"<code>canSubmit</code> is computed fresh every render from <code>ordersFile</code> and
+      <code>productMasterFile</code> — there's nothing to keep in sync, because it isn't a
+      separate copy of anything."</p>
+    </div>
+    <div class="say-avoid-col avoid">
+      <p class="box-label">A framing to avoid</p>
+      <p>"I'll give <code>canSubmit</code> its own <code>useState</code> and update it with an
+      Effect whenever the files change." (This creates a second, Effect-synchronized copy of
+      information the component already has. It costs an extra render pass every time the files
+      change, and if the Effect's dependency array is ever written slightly wrong, that copy can
+      drift out of sync with the files permanently — a bug a plain derived <code>const</code>
+      cannot have, because it's recalculated from scratch every render.)</p>
+    </div>
+  </div>
+
+  <h2>Retrieval check</h2>
+  <div class="box checkpoint">
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Inside <code>runValidation</code>, right after <code>setStatus("submitting")</code> runs, what does the local <code>status</code> variable equal for the rest of that function call?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">"succeeded", since the setter updates it the instant it is called</button>
+        <button class="quiz-option" data-correct="true">Still whatever it was before — the value snapshotted for this render</button>
+        <button class="quiz-option" data-correct="false">"idle", because every setter call resets all other state to default</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does <code>order-validation/page.tsx</code> never import <code>useEffect</code>?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">The App Router forbids useEffect inside any page component that defines table columns</button>
+        <button class="quiz-option" data-correct="true">Every piece of work here is caused by a click, not external synchronization</button>
+        <button class="quiz-option" data-correct="false">useMemo already removes the need for useEffect in this kind of component</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What's the risk of giving <code>canSubmit</code> its own <code>useState</code>, kept in sync via an Effect?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="true">An extra render pass, and a real chance of permanent drift</button>
+        <button class="quiz-option" data-correct="false">None at all — state is always safer than a derived value</button>
+        <button class="quiz-option" data-correct="false">TypeScript refuses to compile a boolean derived from two state values</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <h2>Tiny exercise (7 minutes)</h2>
+  <div class="box exercise">
+    <p class="box-label">Exercise — predict, then let the console confirm</p>
+    <p>Before touching anything: <span class="filelink">order-validation/page.tsx</span> line 170
+    defines <code>currentStep</code>. Its inputs, <code>status</code> and <code>canSubmit</code>,
+    start from the <code>useState</code> declarations on lines 150–153 (<code>ordersFile</code>
+    and <code>productMasterFile</code> both start <code>null</code>; <code>status</code> starts
+    <code>"idle"</code>). Predict, out loud, what <code>currentStep</code> equals on the very
+    first render of the page, before any file has been chosen — <code>0</code>, <code>1</code>, or
+    <code>2</code> — and explain why from the expression itself, not by guessing.</p>
+    <p>Then verify a second, closely related prediction with the running app: add
+    <code>console.log("status inside runValidation:", status);</code> as a new line directly after
+    <code>setStatus("submitting");</code> on line 173. Before running anything, predict what that
+    line will print the very first time you click "Run sample data" on a freshly loaded page — the
+    same reasoning from this lesson's first section, applied to a real click instead of a
+    walkthrough. Save, open the browser console, click "Run sample data" once, and check. Then
+    undo the edit with your editor's Undo (Cmd/Ctrl+Z), the same safe cleanup
+    <a href="0035-tsx-and-typed-component-props.html">Lesson 35</a>'s exercise used — not
+    <code>git checkout --</code>, which would discard any other unstaged changes in the file too.</p>
+  </div>
+
+  <div class="ask-teacher">
+    If both predictions matched what you saw, the snapshot model has landed. If the console line
+    surprised you, reread "Render is a function of state" above before continuing to Lesson 37,
+    which builds directly on the event-vs-synchronization distinction from this lesson's second
+    section.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0035-tsx-and-typed-component-props.html">← Back: TSX and Typed Component Props</a>
+    <a href="0037-effects-cleanup-and-async-ui.html">Next: Effects, Cleanup, and Async UI →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

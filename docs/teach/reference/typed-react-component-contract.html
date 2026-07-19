@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Typed React Component Contract</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <p class="kicker">Reference · Track 5</p>
+  <h1>Typed React Component Contract</h1>
+  <p class="lede">A prop-typing cheat sheet for this repo's own components. Companion to
+  <a href="../lessons/0035-tsx-and-typed-component-props.html">Lesson 35</a>; extends Track 1's
+  <a href="contracts-typeddict-glossary.html">Contracts &amp; TypedDict Glossary</a> from the Python
+  side to the TSX side.</p>
+
+  <h2>Inline type vs. named alias</h2>
+  <table>
+    <tr><th>Shape</th><th>When this repo uses it</th><th>Example</th></tr>
+    <tr><td>Inline object type</td><td>A single well-known prop (most often <code>children</code>)
+    with nothing beyond its type worth documenting.</td><td><code>{ children: ReactNode }</code> —
+    <span class="filelink">app/(workspace)/layout.tsx</span>,
+    <span class="filelink">app/(public)/layout.tsx</span></td></tr>
+    <tr><td>Named type alias (<code>XxxProps</code>)</td><td>Several fields, reuse across call sites,
+    or a shape worth naming and documenting as a unit — a judgment call, not a field-count
+    threshold.</td><td><code>MetricCardProps</code>,
+    <code>UploadPanelProps</code>, <code>StatusBadgeProps</code></td></tr>
+  </table>
+
+  <h2>What a trailing <code>?</code> actually does</h2>
+  <ul>
+    <li>Widens the field's type to include <code>undefined</code> — it does not create a default.</li>
+    <li>A default only exists if the component's own destructuring supplies one:
+    <code>tone = "neutral"</code>, <code>accept = ".xlsx"</code>.</li>
+    <li>An optional field with no destructured default is literally <code>undefined</code> inside the
+    component when a caller omits it — the component's own logic must handle that case (e.g.
+    <code>UploadPanel</code>'s <code>sampleFileName ?</code> check).</li>
+  </ul>
+
+  <h2>The four prop shapes this repo actually uses</h2>
+  <table>
+    <tr><th>Shape</th><th>Type</th><th>Real example</th></tr>
+    <tr><td>Plain value</td><td><code>label: string</code></td><td><code>MetricCardProps.label</code></td></tr>
+    <tr><td>Renderable content</td><td><code>icon?: ReactNode</code></td><td><code>MetricCardProps.icon</code>
+    — anything JSX can render: string, number, element, array, or nothing</td></tr>
+    <tr><td>Literal union</td><td><code>tone?: Tone</code> where
+    <code>Tone = "success" | "warning" | "danger" | "info" | "neutral"</code></td>
+    <td><span class="filelink">components/workflow/StatusBadge.tsx</span> — a fixed, compiler-checked
+    vocabulary instead of open-ended <code>string</code></td></tr>
+    <tr><td>Callback</td><td><code>onFileChange?: (file: File | null) =&gt; void</code></td>
+    <td><code>UploadPanelProps.onFileChange</code> — parent owns the state, child just calls the
+    function it was handed</td></tr>
+  </table>
+
+  <h2>The one rule that resolves "can this prop be a function?"</h2>
+  <p>Not "are function props allowed" (they are) — the real question is which two environments the
+  prop is crossing. A function prop is fine between two Client Components (same environment, the
+  browser). A function prop cannot cross from a Server Component into a Client Component, because a
+  server-side function value can't be serialized into something the browser can receive — see
+  <a href="../lessons/0033-server-and-client-components.html">Lesson 33</a>.</p>
+
+  <div class="box primer">
+    <p class="box-label">Quick check before adding a new prop to any component here</p>
+    <p>1. Does it need a name of its own (2+ fields) or is inline fine (children only)?
+    2. Should it be required or optional — and if optional, does it need a real default or is
+    <code>undefined</code> a legitimate "not supplied" state the component already handles?
+    3. Is its type the narrowest honest description (a literal union of the real allowed values), or
+    did it default to <code>string</code>/<code>any</code> out of convenience?
+    4. If it's a callback, confirm both ends of the prop live in the same Server/Client environment.</p>
+  </div>
+
+  <hr>
+  <p><a href="../lessons/0035-tsx-and-typed-component-props.html">← Back to Lesson 35</a></p>
+
+</div>
+</body>
+</html>
