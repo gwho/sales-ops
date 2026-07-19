@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 38 — List Keys, Identity, Generics, and Memoized Derivations</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 5 · Reinforcement 4 of 9</span>
+    <span>Lesson 39 not yet generated</span>
+  </div>
+
+  <p class="kicker">Track 5 — Optional Reinforcement · 4 of 9</p>
+  <h1>List Keys, Identity, Generics, and Memoized Derivations</h1>
+  <p class="lede">
+    Two forward references finally get paid off here. Lesson 35 previewed
+    <code>DataTable&lt;T&gt;</code>'s generic type parameter without teaching it. Lesson 37 reserved
+    <code>useMemo</code> for this lesson. Both turn out to depend on the same underlying idea as
+    list keys and immutable sorting: knowing which value is <em>which</em>, across a render, a
+    sort, or a call site.</p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p><a href="https://react.dev/learn/rendering-lists">"Rendering Lists"</a> on react.dev, for
+    keys. <a href="https://www.typescriptlang.org/docs/handbook/2/generics.html">The TypeScript
+    Handbook's "Generics"</a> page, for how a type parameter carries a relationship between input
+    and output types. <a href="https://react.dev/reference/react/useMemo">The
+    <code>useMemo</code> API reference</a>, specifically its point that <code>useMemo</code> is a
+    performance optimization only — code must stay correct with it removed.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Why this matters</p>
+    <p>All three mission drivers apply: you can explain in an interview why a bad key or a missing
+    memo dependency produces a bug that neither TypeScript nor a green build catches; the
+    generic-component pattern and the "memoization must not change semantics" rule are both
+    portable to any React/TypeScript codebase; and picking a correct row key or dependency array is
+    exactly the kind of small, easy-to-get-wrong decision you'll face extending this repo's own
+    tables.</p>
+  </div>
+
+  <h2>Generics: one component, many row shapes</h2>
+  <p><span class="filelink">order-validation/page.tsx</span> renders two completely different row
+  shapes through the same component. Each starts by fixing what <code>T</code> is, at the column
+  list itself:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">app/(workspace)/order-validation/page.tsx</span>, lines 46, 48–54</p>
+    <pre><code>const ERROR_COLUMNS: DataTableColumn&lt;ValidationErrorRow&gt;[] = [
+  {
+    key: "order_id",
+    header: "Order ID",
+    render: (r) =&gt; &lt;span className="font-medium text-text-primary"&gt;{r.order_id ?? "—"}&lt;/span&gt;,
+    sortable: true,
+    sortValue: (r) =&gt; r.order_id ?? "",
+  },</code></pre>
+  </div>
+  <p>Writing <code>DataTableColumn&lt;ValidationErrorRow&gt;[]</code> fixes <code>T</code> to
+  <code>ValidationErrorRow</code> for this entire array — which is why <code>r</code> inside
+  <code>render</code> and <code>sortValue</code> is typed <code>ValidationErrorRow</code>
+  automatically, with no annotation written by hand. Try renaming <code>r.order_id</code> to a field
+  that doesn't exist on <code>ValidationErrorRow</code> and TypeScript rejects it at this exact
+  line — the same enforcement Lesson 35 covered for a plain object type, just carried through a
+  type parameter instead of hardcoded.</p>
+  <p>Where <code>T</code> actually gets supplied is the call site, not the component definition:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">app/(workspace)/order-validation/page.tsx</span>, lines 425–428</p>
+    <pre><code>&lt;DataTable
+  columns={ERROR_COLUMNS}
+  data={filteredErrors}
+  getRowKey={(r) =&gt; `${r.row_number}-${r.error_code}`}</code></pre>
+  </div>
+  <p>Nothing here writes <code>DataTable&lt;ValidationErrorRow&gt;</code> explicitly — TypeScript
+  infers it from what <code>columns</code> and <code>data</code> already are. Inside
+  <code>DataTable.tsx</code> itself, <code>column.render(row)</code> calls that same
+  <code>render</code> function back with whatever <code>row</code> is at this call site — still
+  <code>ValidationErrorRow</code>, the whole way through. That's the entire point of a type
+  parameter: one component definition, and the compiler re-derives the correct concrete type at
+  every call site instead of you writing <code>DataTable</code> once per row shape.</p>
+
+  <h2>Keys: identity among siblings, not a position label</h2>
+  <p>A <code>key</code> has to satisfy two separate requirements, not one: it must stay
+  <strong>stable</strong> for a given row across renders, and it must be <strong>unique among its
+  current siblings</strong>. <span class="filelink">DataTable.tsx</span> gets a candidate key from
+  a function the caller supplies, not from position in the array:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/tables/DataTable.tsx</span>, line 119</p>
+    <pre><code>&lt;TableRow key={getRowKey(row)} className={index % 2 === 1 ? "bg-surface-muted" : undefined}&gt;</code></pre>
+  </div>
+  <p>Notice <code>index</code> is right there, already destructured from the same
+  <code>.map((row, index) =&gt; ...)</code> call, and it's deliberately used only for the
+  zebra-stripe class, never the key — <code>index</code> satisfies neither requirement above once a
+  list can be sorted, since it's only stable as long as nothing ever moves.
+  <span class="filelink">order-validation/page.tsx</span> supplies
+  <code>getRowKey={(r) =&gt; `${r.row_number}-${r.error_code}`}</code> instead, built from the row's
+  own data. For this specific table, the concrete risk of an index key isn't that a cell would
+  display the wrong text — every cell here renders a plain value straight from its row prop, so
+  React would still paint the correct <code>error_message</code> in the correct position after a
+  sort. The real danger with position-based keys is anything that carries identity beyond what's
+  freshly rendered each time: an uncontrolled input's typed value, focus, a selection checkbox, an
+  in-progress animation, or state a row component keeps locally. None of that exists in this
+  particular table today, which is exactly why an index key's bug would stay latent here — but the
+  moment any cell in a reusable, sortable <code>DataTable&lt;T&gt;</code> gains that kind of state,
+  an index key would silently reattach it to whichever row now happens to sit at that position, not
+  the row a visitor was actually interacting with.</p>
+  <p>The composite key above is stable, but it isn't actually guaranteed unique — a real test
+  proves it:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">tests/test_order_validation.py</span>, lines 136–145</p>
+    <pre><code>def test_ov001_emits_one_error_per_missing_field_in_fixed_order():
+    result = validate_orders(
+        _orders_df(_order_row(customer_name="", priority="")), _product_master_df()
+    )
+    ov001_errors = _errors_by_code(result, "OV-001")
+    assert [error["error_message"] for error in ov001_errors] == [
+        "Customer name is missing.",
+        "Priority is missing.",
+    ]
+    assert result["summary"]["missing_field_count"] == 2</code></pre>
+  </div>
+  <p>Both of those errors share the same <code>row_number</code> and the same
+  <code>error_code</code> ("OV-001") — only <code>error_message</code> differs, because OV-001
+  emits one error per missing field on the same row. That makes
+  <code>getRowKey={(r) =&gt; `${r.row_number}-${r.error_code}`}</code> produce a genuine duplicate
+  key whenever a row is missing two or more required fields at once: stable, but not unique among
+  siblings. Folding <code>error_message</code> into the key
+  (<code>`${r.row_number}-${r.error_code}-${r.error_message}`</code>) would resolve this specific
+  collision as an interim fix — but the more robust repair is a dedicated identity field the
+  Python core emits per error, which would mean amending <code>ValidationErrorRow</code>'s
+  contract, a spec/ADR-level change (this repo's Field Scope Boundary rule) and not something a
+  frontend lesson gets to invent. This repo's real key, exactly as it stands today, has the latent
+  defect this section just described — this lesson is naming it, not fixing it.</p>
+  <p>The same identity-not-position principle shows up outside tables entirely —
+  <span class="filelink">DonutBreakdownChart.tsx</span> keys each chart segment by
+  <code>segment.label</code>, which genuinely is unique among that chart's small, fixed set of
+  category labels.</p>
+
+  <h2>A new array, then reordered: immutable sort in the wild</h2>
+  <p>Lesson 36 established that this repo replaces state wholesale rather than mutating it in
+  place. Sorting is where that rule meets a genuinely mutating method, <code>Array.prototype.sort</code>,
+  head-on:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/tables/DataTable.tsx</span>, lines 70–77</p>
+    <pre><code>const sorted = [...data].sort((a, b) =&gt; {
+      const va = sortValue(a);
+      const vb = sortValue(b);
+      if (va &lt; vb) return -1;
+      if (va &gt; vb) return 1;
+      return 0;
+    });
+    return sort.direction === "asc" ? sorted : sorted.reverse();</code></pre>
+  </div>
+  <p><code>.sort()</code> reorders an array in place and returns that same array — it does not
+  produce a new one. <code>[...data]</code> exists specifically to give it a fresh array to mutate,
+  so the <code>data</code> prop the caller passed in is never touched. If this line read
+  <code>data.sort(...)</code> instead, sorting the table would silently reorder
+  <code>filteredErrors</code> itself — a value <span class="filelink">order-validation/page.tsx</span>
+  still owns and reasons about elsewhere, now changed by a side effect three components away from
+  where it's defined.</p>
+
+  <h2><code>useMemo</code>: caching a computation, never changing what it computes</h2>
+  <p><code>sortedData</code> is the value being cached. React decides whether to reuse the cached
+  array or recompute by comparing each dependency-array entry to its value from the previous
+  render with <code>Object.is</code> — the same reference-equality check Lesson 37 used for state.
+  For objects and arrays, "changed" means <em>a different reference</em>, not
+  "different-looking contents":</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/tables/DataTable.tsx</span>, line 78</p>
+    <pre><code>}, [data, sort, columns]);</code></pre>
+  </div>
+  <p>Applied to this exact array: <code>columns</code> (<code>ERROR_COLUMNS</code>) is declared
+  with <code>const</code> at module scope, outside the component, so it's the same reference on
+  every render — it can never be the reason this memo recomputes. <code>data</code>
+  (<code>filteredErrors</code>) is itself already wrapped in its own <code>useMemo</code> back on
+  the page, so it only changes reference when <em>its</em> dependencies change. <code>sort</code>
+  is the one that actually moves: <code>toggleSort</code> calls <code>setSort</code> with a freshly
+  built object literal, <code>{ key: column.key, direction: ... }</code>, on every single click —
+  a brand-new reference every time, regardless of whether the key or direction actually differ
+  from before. In practice, clicking a sortable header is the only thing that ever legitimately
+  changes what this memo depends on.</p>
+  <p>That's exactly why <code>sort</code> has to be listed. If it were left out of the array,
+  clicking a column header would still update the <code>sort</code> state and still flip the
+  header's ▲/▼ indicator (read directly from state on every render, independent of this memo) —
+  but <code>sortedData</code> would normally keep returning the array cached from before the
+  click, since none of its listed dependencies changed reference. The rows on screen would
+  normally stay in whatever order they were already in. "Normally" matters here: the
+  <code>useMemo</code> reference itself is explicit that React may still discard a cached value for
+  its own reasons, and that the calculation can run an extra time under development Strict Mode —
+  <code>useMemo</code> is a cache with no durability guarantee, never a promise about exactly when
+  code runs. The underlying point stands regardless: memoization is only ever a cache in front of
+  a calculation, never a substitute for a correct dependency list — dropping a real input doesn't
+  skip "extra" work, it risks serving a stale answer.</p>
+
+  <div class="box checkpoint">
+    <p class="box-label">Three different "identity" ideas, not one mechanism</p>
+    <p>This lesson leaned on the word "identity" repeatedly, and it's worth being precise that the
+    three uses aren't the same mechanism wearing different names. Generics are a
+    <strong>compile-time</strong> relationship — TypeScript tracking which concrete type
+    <code>T</code> stands for at a given call site, checked and then erased before any code runs. A
+    <code>key</code> is a <strong>runtime</strong> claim about which rendered item a specific
+    business row <em>is</em>, independent of where it currently sits. A <code>useMemo</code>
+    dependency array is a third thing again: a <strong>reference-equality</strong> check — whether
+    a value is the very same object in memory as last render, not whether it represents the same
+    real-world thing. All three matter to this one file, and all three get called "identity" in
+    casual conversation about React — confusing any two of them is a fast way to reach for the
+    wrong fix.</p>
+  </div>
+
+  <div class="say-avoid">
+    <div class="say-avoid-col say">
+      <p class="box-label">Correct framing</p>
+      <p>"<code>useMemo</code> here is <em>only</em> caching — if I deleted the
+      <code>useMemo(...)</code> wrapper entirely and left the sort logic running plain on every
+      render, the table would still be correct, just doing unnecessary work on renders where
+      nothing sort-related changed."</p>
+    </div>
+    <div class="say-avoid-col avoid">
+      <p class="box-label">A framing to avoid</p>
+      <p>"I don't need to list <code>sort</code> as a dependency — it's not that important." (Every
+      value the memoized function actually reads has to be listed, or the memo can silently return
+      a stale result. There's no such thing as an optional dependency; there's only a dependency
+      array that's either accurate or wrong.)</p>
+    </div>
+  </div>
+
+  <h2>Retrieval check</h2>
+  <div class="box checkpoint">
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">In <code>&lt;DataTable columns={ERROR_COLUMNS} data={filteredErrors} .../&gt;</code>, how does TypeScript know <code>T</code> is <code>ValidationErrorRow</code> inside <code>DataTable</code>'s own code?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="true">It's inferred from the columns and data passed in here</button>
+        <button class="quiz-option" data-correct="false">DataTable's type parameter always defaults to ValidationErrorRow no matter what</button>
+        <button class="quiz-option" data-correct="false">A comment above the component tells TypeScript which type applies</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why can <code>getRowKey={(r) =&gt; `${r.row_number}-${r.error_code}`}</code> still produce a duplicate key today?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">row_number and error_code are never actually defined at the same time</button>
+        <button class="quiz-option" data-correct="true">One row can emit two OV-001 errors for two different missing fields</button>
+        <button class="quiz-option" data-correct="false">React silently appends a random suffix whenever two row keys collide</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">If <code>sortedData</code>'s dependency array were <code>[data, columns]</code> — missing <code>sort</code> — what would happen on the first header click?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">TypeScript would refuse to compile a useMemo with an incomplete array</button>
+        <button class="quiz-option" data-correct="true">The rows wouldn't reorder, since the prior cached array gets reused</button>
+        <button class="quiz-option" data-correct="false">React would throw a runtime error the moment sort changed unnoticed</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <h2>Tiny exercise (7 minutes)</h2>
+  <div class="box exercise">
+    <p class="box-label">Exercise — two small predictions, two different feedback loops</p>
+    <p><strong>Part 1 — typecheck.</strong> In <span class="filelink">order-validation/page.tsx</span>,
+    predict, out loud, what happens if you temporarily change one <code>ERROR_COLUMNS</code> row's
+    render function from <code>r.order_id</code> to a field name that doesn't exist on
+    <code>ValidationErrorRow</code>, such as <code>r.does_not_exist</code>. Will
+    <code>npm run typecheck</code> catch it, and if so, roughly what will the error mention — a
+    missing property, or something about <code>ReactNode</code>? Make the edit, run
+    <code>npm run typecheck</code>, compare against your prediction, then undo with your editor's
+    Undo (Cmd/Ctrl+Z).</p>
+    <p><strong>Part 2 — a running app, then the linter.</strong> In
+    <span class="filelink">components/tables/DataTable.tsx</span> line 78, temporarily change
+    <code>}, [data, sort, columns]);</code> to <code>}, [data, columns]);</code>. Predict, out
+    loud, what will visibly happen if you load the Order Validation page's sample data and click
+    the "Order ID" column header in the Validation Errors table. Save, try it in the running dev
+    app, and watch specifically whether the ▲/▼ indicator and the row order agree with each other.
+    Then, before undoing anything, run <code>npm run lint</code> — unlike
+    <code>npm run typecheck</code> in Part 1, this repo's ESLint configuration actually catches
+    this exact bug:</p>
+    <div class="box primer">
+      <p class="box-label">Real <code>npm run lint</code> output with the dependency removed</p>
+      <pre><code>components/tables/DataTable.tsx
+  78:6  warning  React Hook useMemo has a missing dependency: 'sort'. Either include it or remove the dependency array  react-hooks/exhaustive-deps</code></pre>
+    </div>
+    <p>Three checks, three different results, for the exact same bug: TypeScript sees nothing
+    wrong (a validly-typed array is still validly typed, whatever's missing from it); the browser
+    shows the visible consequence (rows that stop moving); ESLint's
+    <code>react-hooks/exhaustive-deps</code> rule is the one tool actually built to compare a
+    Hook's dependency array against what its function reads, and it names this bug directly. Undo
+    the edit — not <code>git checkout --</code>, which would discard any other unstaged changes in
+    the file too — and confirm both <code>npm run lint</code> and the table's sorting are clean
+    again.</p>
+  </div>
+
+  <div class="ask-teacher">
+    If you can explain why the header arrow and the row order can disagree with each other under a
+    broken dependency array, the memoization model has landed. If Part 1's error message surprised
+    you, reread "Generics" above — the type flowing through <code>render</code> is the same
+    mechanism Lesson 35 called a "contract," just parameterized instead of fixed. If any of the
+    three "identity" ideas in this lesson still feel like the same mechanism wearing different
+    names, ask here before Lesson 39 — that's worth resolving out loud, not just rereading past.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0037-effects-cleanup-and-async-ui.html">← Back: Effects, Cleanup, and Async UI</a>
+    <span>Next: Lesson 39 (not yet generated)</span>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

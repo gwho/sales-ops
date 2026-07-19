@@ -223,6 +223,36 @@ Track 5's full required arc — L5.1–L5.4 through Tutorial 11 — is now compl
   they land as Tutorials 14–15 rather than colliding with those reserved numbers. Neither Tutorial
   12 nor 13 exists yet as of this note — do not generate the retrospectives until they do.
 
+**Status: optional reinforcement in progress (2026-07-20, four of nine lessons)** — from a
+fully-specified task file at `docs/teach/lessons-ideas/track-5-reinforcement-ideas.md`, the same
+"follow the user's own spec closely" pattern the Track 2/3/4 `*-ideas.md` sessions used. This is
+**optional Track 5 reinforcement, not a change to the settled L5.1–L5.4 prerequisite shape
+above** — Track 5's "ready for Tutorial 08" status stands unchanged; these lessons exist only for
+retention *after* Tutorial 11, one concept each. The task file specs nine lessons
+(`0035`–`0043`) plus seven reference docs; four lessons have shipped so far, generated one at a
+time by request rather than as a single batch.
+
+| Lesson | Concept rehearsed |
+|---|---|
+| `0035-tsx-and-typed-component-props.html` | TSX as JSX-plus-typechecking; named vs. inline prop types; optional props and defaults; `ReactNode`/children; literal unions (`Tone`); callback prop signatures; why a function prop is fine between two Client Components but not across the Server→Client boundary (Lesson 33) |
+| `0036-render-snapshots-events-and-derived-state.html` | State as a fixed value captured for one render (not a live variable) using `runValidation`'s setter calls; immutable whole-object replacement (`setCurrentResult(result)`); a genuine click-caused event vs. the external-synchronization case an Effect exists for (forward reference to Lesson 37); derived `const`s (`canSubmit`, `currentStep`, `errorFiltersActive`, `orderFiltersActive`) computed fresh every render instead of copied into state |
+| `0037-effects-cleanup-and-async-ui.html` | `useEffect` as synchronization caused by rendering itself, not by a user action (reaching outside React is necessary but not sufficient — Lesson 36's click-triggered `runValidation` reaches outside React too, correctly, without an Effect), traced through `DashboardLiveSections.tsx`'s one real Effect; the empty dependency array as "runs once per mount in production, twice in development Strict Mode" and as the correct declaration that `status` is this Effect's own output, not an input (with the corrected, non-catastrophic account of what listing `status` would actually cause: one redundant re-fetch, not an infinite loop); the `cancelled` cleanup guard against a stale response from any cleaned-up Effect instance — unmount or a Strict Mode remount — landing on top of a newer one; the early `status === "loading"` return that prevents flashing sample data before live data resolves; a brief bridge back to `0036`/Tutorial 10's `useMemo`-derived `filteredErrors` as the render-time (non-Effect) side of the same dividing line |
+| `0038-list-keys-identity-generics-and-memoized-derivations.html` | The two forward references from `0035` (generics) and `0037` (`useMemo`) finally taught, alongside keys and immutable sorting, using `DataTable<T>` and its two `order-validation/page.tsx` call sites as one running example: tracing `T` from `DataTableColumn<ValidationErrorRow>[]` through `render(row)` to the call site's inferred type parameter; keys as two separate requirements — stable across reorders *and* unique among siblings — with index keys reframed as a latent correctness defect in a reusable sortable table (not a claim that this text-only table currently displays wrong data) and, critically, `getRowKey`'s own real composite key (`` `${r.row_number}-${r.error_code}` ``) shown to be stable but **not actually unique**, proven by a real test (`test_ov001_emits_one_error_per_missing_field_in_fixed_order`) where one row emits two same-code OV-001 errors — named as a genuine, unfixed defect in the current repo, not silently glossed over, with the real fix (a dedicated Python-emitted identity field) named as out of a frontend lesson's scope per Field Scope Boundary; `[...data].sort(...)` as immutable sort meeting a genuinely mutating array method; `useMemo`'s dependency array explained via `Object.is` reference equality specifically (`ERROR_COLUMNS`'s stable module-level reference, `filteredErrors`'s own memoization, `sort`'s fresh object literal on every click) rather than vague "when something changes" language; and a closing synthesis distinguishing three different senses of "identity" in the lesson (compile-time generics, runtime keys, reference-equality memo deps) so they aren't mistaken for one mechanism. The exercise's second part also runs `npm run lint` against the real, verified `react-hooks/exhaustive-deps` warning, alongside the typecheck and browser checks |
+
+New reference doc shipped alongside `0035`: `typed-react-component-contract.html`. `0036`, `0037`,
+and `0038` shipped without their own reference docs — the task file's
+`react-render-effect-decision-guide.html` reads as a synthesis of `0036`'s render/event material
+and `0037`'s Effect material specifically, and `list-identity-and-memoization-checklist.html` is
+`0038`'s intended companion per the task file's own reference-doc list, but neither was requested
+this session.
+
+Navigation follows the same precedent Track 4's `0024`–`0030` established: `0035` starts its own
+chain without rewiring `0034`'s existing "Next: Tutorial 08 →" — `0034` is untouched. Each shipped
+lesson's forward nav (top and bottom) is rewired from a plain non-linking placeholder to a real
+link as soon as the next lesson actually ships — `0035`→`0036`, `0036`→`0037`, and now
+`0037`→`0038`. Since `0039`–`0043` don't exist yet, `0038`'s own forward nav is the placeholder
+note, the same convention every prior lesson in this chain used while it was the newest one.
+
 ---
 
 ## Track 6 — Databases & Breaking Statelessness Deliberately

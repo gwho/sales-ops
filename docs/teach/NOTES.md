@@ -221,3 +221,300 @@
     skill's own quality rules).
   - No learning records written — correctly so, per this file's standing rule: this is lesson/
     tutorial authorship, not evidence of the user having worked through any of it yet.
+- 2026-07-18: started Track 5's optional reinforcement sequence, from a fully-specified task file
+  at `docs/teach/lessons-ideas/track-5-reinforcement-ideas.md` (same pattern as the Track 2/3/4
+  `*-ideas.md` sessions). **Scope/pacing confirmed with the user first, via `AskUserQuestion`**,
+  given the task file specs nine lessons (`0035`–`0043`) plus seven reference docs: user chose to
+  generate only the first lesson this round rather than the full batch or a 4-lesson sub-batch, to
+  check tone/depth/format fit before continuing. Shipped `0035-tsx-and-typed-component-props.html`
+  plus its companion reference doc, `typed-react-component-contract.html`.
+  - Confirmed `0035` was genuinely the next free number (`ls docs/teach/lessons/` stops at `0034`)
+    before naming any files, same check every prior track session has done first.
+  - Content follows the task file's brief closely: TSX as JSX-plus-typechecking, named vs. inline
+    prop types (`MetricCardProps`/`UploadPanelProps` vs. both route-group layouts' inline
+    `{ children: ReactNode }`), optional props and destructured defaults, `ReactNode`, literal
+    unions (`Tone`), and callback prop signatures — deliberately tied back to Lesson 33's
+    Server/Client serialization-boundary rule (a function prop is fine between two Client
+    Components; `UploadPanel` and every workflow page that renders it both already start with
+    `"use client"`). Generics were kept to a one-paragraph forward reference to the not-yet-written
+    Lesson 38, per the task file's explicit instruction not to teach them yet.
+  - Every code excerpt was pulled from the real current files with line numbers verified by direct
+    `Read` immediately before writing (`MetricCard.tsx`, `UploadPanel.tsx`, `StatusBadge.tsx`, both
+    route-group `layout.tsx` files, `order-validation/page.tsx`, `DashboardLiveSections.tsx`).
+    All excerpts are fully verbatim, with no `...`-trimmed lines inside any `<pre><code>` block —
+    an initial draft trimmed a couple of blocks for brevity, caught in review (see below) and
+    corrected to either the complete real excerpt or a shorter real call site that needed no
+    trimming at all.
+  - All three external URLs (`react.dev/learn/typescript`, and the TypeScript Handbook's "Object
+    Types" and "Everyday Types" pages) were fetched and confirmed live/on-topic before citing,
+    per this workspace's standing verify-before-cite rule.
+  - Navigation: since `0036`–`0043` don't exist yet, `0035`'s forward nav (top and bottom) is a
+    plain, non-linking note rather than a link that would 404 — the first deviation from every
+    prior track's practice of shipping a full chain with real forward links in one session, because
+    this is deliberately a single-lesson first pass. `ROADMAP.md` flags that `0035`'s forward nav
+    needs rewiring to a real link once `0036` ships. `0034` itself was left untouched, matching the
+    Track 4 precedent of a reinforcement chain starting its own "You are here" entry point.
+  - No learning records written — correctly so, per this file's standing rule.
+  - **Post-draft review pass (same day) caught and fixed seven issues** before treating `0035` as
+    done: (1) the sample-data paragraph conflated the workflow page's own "Run sample data" feature
+    with the dashboard's unrelated Phase-12 automatic sample *fallback* — reworded to distinguish
+    them; (2) the exercise told the learner to revert with `git checkout --`, which would silently
+    discard any other unstaged changes in that file — replaced with editor Undo as the default,
+    plus a `git diff` check-first warning if git is used instead; (3) three code blocks used `...`
+    to trim real content, violating this workspace's verbatim-excerpt rule — fixed by quoting the
+    complete function/comment in two cases and swapping to a shorter, already-complete real call
+    site (`UploadPanel`'s Product Master File usage, lines 314–320) in the third; (4) the generics
+    forward-reference misnamed `DataTable`'s second prop as `rows` — it's `data`, confirmed against
+    `DataTable.tsx` line 33; (5) all three retrieval-quiz option sets had a visibly longer, more
+    precise correct answer — rebalanced to near-equal length per option so length itself isn't a
+    tell; (6) added an explicit "Why this matters" box naming all three mission drivers, which the
+    lesson previously only gestured at implicitly; (7) the companion reference doc's inline-vs-named
+    table implied a mechanical field-count threshold ("one or two fields" vs. "several") that
+    contradicted the lesson's own "judgment call" framing — reworded to match.
+- 2026-07-19: shipped `0036-render-snapshots-events-and-derived-state.html`, the second lesson in
+  the same Track 5 optional reinforcement sequence, continuing the "one lesson at a time" pacing
+  the user chose for `0035`.
+  - Content follows the task file's brief: state as a render-time snapshot (not a live variable),
+    immutable whole-object replacement, event handlers as user-caused work contrasted with the
+    external-synchronization case an Effect exists for, and derived `const`s computed fresh every
+    render instead of copied into state. Deliberately kept to the density the reviewing pass on
+    `0035` recommended for this lesson: one render-timeline walkthrough (`runValidation`), one
+    derived-state contrast (`canSubmit`/`currentStep`/`errorFiltersActive`/`orderFiltersActive`),
+    three length-balanced retrieval checks, one predict-then-verify exercise — no separate section
+    for "component purity" or "immutable updates," folded into the render-timeline section instead
+    of given their own subsections, to avoid exceeding `0035`'s scope.
+  - Used the same source page as `0035` (`order-validation/page.tsx`) rather than switching files,
+    for continuity — every excerpt (`runValidation`, the Run Validation button, `canSubmit`/
+    `currentStep`, the two `FiltersActive` consts) is fully verbatim with line numbers verified by
+    direct `Read` immediately before writing. No `...`-trimmed excerpts.
+  - Deliberately did *not* teach `useMemo` even though `filteredErrors`/`filteredValidOrders` in
+    the same file use it — that's reserved for Lesson 38 per the task file's explicit sequencing
+    (memoization is a "bigger idea," not this lesson's derived-value point). The derived-value
+    examples chosen (`canSubmit`, `currentStep`, the two `FiltersActive` consts) are plain `const`s
+    with no memoization involved, so the lesson never has to gesture at `useMemo` to explain them.
+  - The exercise avoids React 18's automatic-batching-across-`await`-boundaries behavior entirely —
+    an earlier draft considered asking the learner to predict every render triggered by clicking
+    "Run sample data" end-to-end, which turned out to depend on subtle batching mechanics not
+    actually in this lesson's scope (or the task file's). Replaced with a single, fully
+    deterministic prediction inside one synchronous block (a `console.log` placed between two
+    setter calls that both run before any `await`), matching react.dev's own canonical "State as a
+    Snapshot" example instead of inventing a harder one.
+  - Both external URLs (`react.dev/learn/state-as-a-snapshot`, `react.dev/learn/you-might-not-need-an-effect`)
+    were fetched and confirmed live/on-topic before citing. The second citation is explicitly scoped
+    to "read only its early sections on computing values during rendering" — its Effect-specific
+    content is Lesson 37's citation to make, not this lesson's.
+  - Navigation: `0035`'s forward nav (both top and bottom) was rewired from its placeholder note to
+    a real link now that `0036` exists, per `ROADMAP.md`'s own note that this rewiring was pending.
+    `0036`'s forward nav is now the placeholder note, following the same convention.
+  - No reference doc shipped this round — the task file's `react-render-effect-decision-guide.html`
+    reads as a synthesis of this lesson's render/event material and Lesson 37's Effect material, so
+    it's deferred until `0037` ships rather than authored half-scoped now. Flagged in `ROADMAP.md`.
+  - No learning records written — correctly so, per this file's standing rule.
+  - **Post-draft review pass (same day) caught and fixed six issues** before treating `0036` as
+    done, the same pattern as `0035`'s review: (1) the `canSubmit` code block had raw `&&`, which
+    is invalid inside an HTML entity-parsing context — escaped to `&amp;&amp;` (still displays as
+    `&&` in the browser); (2) the lesson called `runValidation` itself "the event handler," but the
+    real handlers wired to `onClick` are `handleRunValidation`/`handleRunSampleData` — reworded in
+    both places `runValidation` was introduced to call it the shared helper those handlers call,
+    not the handler itself; (3) one in-body link pointed at `0037-effects-cleanup-and-async-ui.html`,
+    which doesn't exist yet — the top/bottom nav already used a non-linking placeholder for this,
+    the in-body reference didn't match; fixed to the same placeholder convention; (4) the "fixed
+    binding" framing of the snapshot section risked implying state objects are deeply frozen —
+    added a sentence clarifying the binding is fixed per-render but an object's fields aren't
+    automatically protected from direct mutation, which is *why* this repo always replaces objects
+    wholesale, tying forward into the immutable-update paragraph that follows; (5) all three
+    quizzes still had the correct answer as the longest option by 2–3 words — rebalanced to within
+    one word per set; (6) "run this component again soon" implied a timing guarantee setState
+    doesn't make — reworded to "schedules another render with the new value," which also avoids
+    pre-committing to language that would need walking back once batching comes up later.
+- 2026-07-19 (later, same day): shipped `0037-effects-cleanup-and-async-ui.html`, the third lesson
+  in the Track 5 optional reinforcement sequence, same one-at-a-time pacing.
+  - Content follows the task file's brief closely: `useEffect` as synchronization with something
+    genuinely outside React (a network fetch), not a general "run code later" hook; the empty
+    dependency array read two ways (runs once after mount, and can't loop on a value — `status` —
+    the Effect itself writes); the `cancelled` cleanup guard against updating an unmounted
+    component; and the early `status === "loading"` return that exists specifically to stop sample
+    data from flashing before live data resolves. All three of the task file's named failure modes
+    (unmounted-component updates, sample-data flashing, effect loops from depending on
+    self-written state) are addressed directly, one per major section, and each also has its own
+    retrieval-check question.
+  - Used `DashboardLiveSections.tsx` as the traced file, per the task file's explicit instruction —
+    the one component in this repo that genuinely needs an Effect. Every excerpt (the full
+    `useEffect` block, the loading/failed early-return branches with their ADR 0007 comment, the
+    three `IsSample` derived consts) is fully verbatim, line numbers verified by direct `Read`
+    immediately before writing. No `...`-trimmed excerpts.
+  - Added a short bridging section back to `order-validation/page.tsx`'s `useMemo`-wrapped
+    `filteredErrors` (Lesson 35 previewed `useMemo` without teaching it; this lesson still doesn't
+    teach its mechanics, only quotes its dependency array, `[errors, errorSeverity, errorSearch]`,
+    as one line of real, complete code to contrast against the Effect's `[]`) — this is the
+    concrete seed for the still-deferred `react-render-effect-decision-guide.html`, now that both
+    of its prerequisite lessons (`0036` render/event material, `0037` Effect material) exist.
+  - Applied `0036`'s review lessons proactively rather than waiting to be told: caught and fixed,
+    before calling the draft done, an in-body link to Lesson 42 written as a live `<a href>` even
+    though `0042` doesn't exist yet — converted to the same plain non-linking placeholder text
+    every other not-yet-generated forward reference in this sequence uses. Also verified via a
+    small script that no code block contains an unescaped raw `<` (the loading/failed branch's JSX
+    needed `&lt;`/`&gt;` escaping; the two plain-logic blocks didn't need any).
+  - The exercise (delete both `if (cancelled) return;` guards, predict whether `npm run typecheck`
+    still passes, verify, undo) was chosen specifically to be safe and deterministic — an earlier
+    idea (temporarily change the dependency array to `[status]` and actually reload the page to
+    watch it loop) was rejected the same way `0036`'s batching-heavy exercise idea was: it would
+    have worked, but only by live-triggering a runaway fetch loop against the local dev backend,
+    which isn't a safe or necessary way to prove the point. The shipped exercise instead makes a
+    forward connection to Lesson 42 (not yet generated): removing the guard doesn't change any
+    value's type, so the build stays green even though a real runtime bug now exists — a concrete,
+    safe instance of "a clean build doesn't prove runtime correctness."
+  - The one external URL (`react.dev/learn/synchronizing-with-effects`) was fetched and confirmed
+    live/on-topic before citing, per this workspace's standing verify-before-cite rule.
+  - Navigation: `0036`'s forward nav (top and bottom) was rewired from its placeholder to a real
+    link to `0037`, the same rewiring `0035` got when `0036` shipped. `0037`'s own forward nav is
+    now the placeholder, per the established convention.
+  - No reference doc shipped this round either — `react-render-effect-decision-guide.html` is now
+    genuinely ready to write (both `0036` and `0037` exist), but wasn't requested this session;
+    flagged as pending, not deferred-for-a-reason, in `ROADMAP.md`.
+  - No learning records written — correctly so, per this file's standing rule.
+  - **Post-draft review pass (same day) caught and fixed a conceptual error, not just wording** —
+    more substantive than either prior review. The lesson's central rule had been quietly wrong:
+    "reaching outside React needs an Effect" is **necessary but not sufficient** — Lesson 36's
+    `runValidation` already reaches outside React (a real HTTP request) and is correctly an event
+    handler, not an Effect, because that request is caused by a click, not by rendering. The actual
+    rule is *caused by rendering itself* vs. *caused by a user action*; "reaches outside React" was
+    never the discriminator. Fixed everywhere this appeared: the mission box, the section
+    introducing the Effect, the derived-value bridge section, the say/avoid box, and the closing
+    ask-teacher box — all now explicitly contrast the dashboard fetch against `runValidation`'s
+    click-triggered fetch rather than treating "outside React" alone as the trigger.
+  - **Also fixed a factual error in the dependency-array reasoning**, caught the same way: the
+    original draft claimed adding `status` to the Effect's dependency array would cause "an Effect
+    loop that never settles." Traced through by hand, that's wrong — `setStatus("loaded")` firing a
+    second, redundant Effect run would itself call `setStatus("loaded")` again with the *same*
+    value, which React bails out of re-rendering for (`Object.is` same-value check), so the cycle
+    stops after one wasted request, not infinitely. Rewrote the explanation around the actually
+    correct reason `status` doesn't belong in the array — it's this Effect's own *output*, not an
+    input to the synchronization — and added a one-sentence, clearly-hypothetical aside about what
+    a *genuine* infinite Effect loop looks like (no dependency array at all) without claiming this
+    file's code would produce one. Updated the matching quiz option and `ROADMAP.md`'s description
+    to match.
+  - **Broadened the cleanup-guard explanation and the Strict Mode claim**, which the original draft
+    got directionally right but incompletely: `[]` doesn't just mean "runs once" full stop — it
+    means once per mount in production, and twice (an extra setup → cleanup → setup cycle) under
+    development Strict Mode, specifically to stress-test cleanup logic. The `cancelled` guard's
+    real job is ignoring a stale result from *any* cleaned-up Effect instance, not only the
+    component-unmounted case — the Strict Mode double-invoke is the other concrete case it guards
+    against, and it doesn't cancel the underlying `fetch`, only the result. Verified this
+    specifically against the `useEffect` API reference's Caveats section (not just the
+    "Synchronizing with Effects" guide already cited) and added it as a second citation.
+  - **Fixed one factual slip**: the derived-value section had said `useMemo` was "previewed in
+    Lesson 35" — Lesson 35 previewed generics (`DataTable<T>`), not `useMemo`. Corrected to "reserved
+    for Lesson 38."
+  - **Sharpened the exercise's own explanation**: the original claimed removing the `cancelled`
+    guard changed "nothing about its type or usage" — untrue, `cancelled` genuinely becomes a
+    write-only variable, which is a real usage change. The actual reason `npm run typecheck` still
+    passes is that this repo's `tsconfig.json` doesn't enable `noUnusedLocals` (verified directly
+    against the file), so nothing in the toolchain is configured to catch a write-only local, let
+    alone the runtime bug itself. This makes the Lesson 42 forward-connection sharper and avoids
+    presenting a configuration-dependent result as if it were a universal TypeScript rule.
+  - Rebalanced the second quiz's option lengths to within one word (previously 11/13/10), same pass
+    that broadened its correct answer to "a stale response from a cleaned-up Effect instance," not
+    only "a component that's already gone."
+- 2026-07-20: shipped `0038-list-keys-identity-generics-and-memoized-derivations.html`, the fourth
+  lesson in the Track 5 optional reinforcement sequence, same one-at-a-time pacing. This is the
+  lesson `0035` (generics) and `0037` (`useMemo`) both explicitly forward-referenced without
+  teaching — both payoffs land here.
+  - Content follows the task file's brief: generics, list keys, immutable sorting, and memoized
+    derivations, unified around one running example — `DataTable<T>` plus its two
+    `order-validation/page.tsx` call sites — rather than four separate examples, to keep a
+    four-concept lesson from sprawling. Both of the task file's named tangible wins are addressed
+    directly: tracing `T` from `DataTableColumn<ValidationErrorRow>[]` through `render(row)` to a
+    call site's inferred type parameter, and choosing a row key
+    (`` getRowKey={(r) => `${r.row_number}-${r.error_code}`} ``) grounded in the fact that this
+    exact table is sortable, not a hypothetical — **later corrected by review, see below, to also
+    show this exact key is not actually unique**, not just presented as safe. All three named
+    failure modes (index keys on reorderable data, mutating the prop array via `.sort()`, treating
+    `useMemo` as semantics-changing rather than caching) get their own section and their own
+    retrieval-check question.
+  - Every excerpt (`ERROR_COLUMNS`' `order_id` column, the `<DataTable>` call site, `DataTable.tsx`'s
+    `TableRow key={getRowKey(row)}` line, its `[...data].sort(...)` block, and its
+    `[data, sort, columns]` dependency array) is fully verbatim, line numbers verified by direct
+    `Read` immediately before writing — including `DataTable.tsx` in full this time, not just the
+    portion read incidentally while authoring `0035`/`0036`. One excerpt (`ERROR_COLUMNS`' opening
+    plus its `order_id` column) deliberately skips a line (the `row_number` column) — the box label
+    states the discontinuous range explicitly (`lines 46, 48–54`) rather than implying false
+    contiguity, the same convention `0035`'s reviewed layouts excerpt established.
+  - Added `DonutBreakdownChart.tsx`'s `key={segment.label}` as a one-sentence second instance of
+    the same key-identity rule outside any table, confirmed by reading that file — kept brief
+    rather than expanded into its own section, since the task file's "chart segments" mention reads
+    as reinforcement, not a fourth full example to unpack.
+  - Caught and fixed one self-introduced authoring bug before treating the draft as done: the first
+    write of the "Keys" section's inline `getRowKey` code sample had literal backslash characters
+    before its backticks (`` \`...\` ``) — an artifact of drafting the snippet as if it needed
+    JS-string escaping, which plain HTML text never does. Verified via a grep for the literal
+    `` \` `` sequence, found one instance, fixed it, then re-verified none remained.
+  - The two-part exercise mirrors `0037`'s successful pattern (predict, edit, observe via a real
+    feedback loop, undo) but deliberately varies the feedback mechanism across its two parts rather
+    than reusing `npm run typecheck` twice: Part 1 is a `typecheck`-verified prediction (a
+    nonexistent field access on `ValidationErrorRow` inside a column's `render`), Part 2 is a
+    browser-observed prediction (temporarily drop `sort` from `DataTable.tsx`'s memo dependency
+    array and watch the header's ▲/▼ indicator visibly disagree with the actual row order after a
+    click) — chosen because it's safe, fully reversible, and directly demonstrates the "stale
+    cache, not a crash" failure mode without needing to touch application data or trigger any
+    network activity.
+  - All three external URLs (`react.dev/learn/rendering-lists`, the TypeScript Handbook's
+    "Generics" page, `react.dev/reference/react/useMemo`) were fetched and confirmed live/on-topic
+    before citing.
+  - Navigation: `0037`'s forward nav (top and bottom) was rewired from its placeholder to a real
+    link to `0038`. `0038`'s own forward nav is now the placeholder, per the established
+    convention.
+  - No reference doc shipped this round — `list-identity-and-memoization-checklist.html` is
+    `0038`'s named companion per the task file, and is now genuinely ready to write, but wasn't
+    requested this session; flagged as pending in `ROADMAP.md` alongside the still-pending
+    `react-render-effect-decision-guide.html`.
+  - No learning records written — correctly so, per this file's standing rule.
+  - **Post-draft review pass (same day) caught one critical and three substantive conceptual
+    issues**, the most significant of the four review passes across this sequence so far.
+    - **Critical, and the actual blocking issue**: the lesson had called
+      `` getRowKey={(r) => `${r.row_number}-${r.error_code}`} `` a "safe" key. It isn't —
+      `test_ov001_emits_one_error_per_missing_field_in_fixed_order` in
+      `tests/test_order_validation.py` (traced against `src/order_validation.py`'s OV-001 loop,
+      which passes the same `row_number` parameter to every missing-field error it emits for one
+      row) proves a single row can emit two same-`error_code` OV-001 errors, producing a genuine
+      duplicate key whenever a row is missing two or more required fields. Verified by reading the
+      test and the business-rule source directly, not by taking the finding on faith. Rewrote the
+      "Keys" section to teach two separate requirements (stable **and** unique among siblings, not
+      one bundled idea), reveal this repo's real key satisfies only the first, and propose an
+      interim fix (fold `error_message` into the key) while naming the actually-correct fix (a
+      dedicated Python-emitted identity field) as a contract change and therefore out of a
+      frontend lesson's scope per this repo's own Field Scope Boundary rule — a real repo defect
+      is now named honestly in the lesson, not silently presented as fine, and critically not
+      "fixed" by editing application code either, since lesson-authoring is never supposed to
+      change app code.
+    - Reframed the index-key danger from an overstated claim (implying this exact table would
+      display wrong data after a sort) to the accurate one: this table's stateless, pure-value
+      cells would still show correct text per row, because every cell renders straight from its
+      row prop; the actual risk is component/DOM-level state (uncontrolled inputs, focus,
+      selection, animation, local row state) reattaching to the wrong business row. Framed
+      explicitly as a latent defect in a reusable sortable table pattern, not a claim about this
+      table's current visible behavior.
+    - Rewrote the `useMemo` section around `Object.is` reference equality specifically, replacing
+      vague "when one of these three actually changes" language: `ERROR_COLUMNS` has a stable
+      module-scope reference, `filteredErrors` is itself already memoized by the page, and
+      `toggleSort`'s `setSort` call constructs a fresh object literal on every click — so `sort`'s
+      *reference* changes every time regardless of whether its fields differ, which is
+      meaningfully different from Lesson 37's primitive-string same-value bailout case and is now
+      stated correctly instead of glossed over. Also softened "only when"/"simply wouldn't move" to
+      "normally," with an explicit note (grounded in the `useMemo` reference itself) that React may
+      still discard a cached value on its own and that Strict Mode can run the calculation twice.
+    - Added a real `npm run lint` step to the exercise's Part 2 — verified directly by temporarily
+      removing `sort` from `DataTable.tsx`'s dependency array, running `npm run lint`, capturing
+      the actual warning (`react-hooks/exhaustive-deps`, "React Hook useMemo has a missing
+      dependency: 'sort'"), and reverting the file via `git checkout` before writing anything into
+      the lesson — not transcribed from the review's summary of the expected warning. This
+      completes a three-layer verification triad in one exercise (typecheck misses it, the browser
+      shows it, ESLint names it), bridging cleanly into Lesson 42.
+    - Minor fixes also applied: the closing `ask-teacher` box now explicitly invites follow-up
+      questions instead of only recommending rereading; and a new closing synthesis box
+      distinguishes the lesson's three different senses of "identity" (compile-time generics,
+      runtime keys, reference-equality memo deps) so a learner doesn't conflate them as one
+      mechanism, per the review's suggestion.
+    - `ROADMAP.md`'s `0038` row and this entry's own earlier bullet were both corrected to match —
+      the review explicitly asked that the incorrect "safe row key" claim not be left standing in
+      either tracking file.

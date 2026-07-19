@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 37 — Effects, Cleanup, and Async UI</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 5 · Reinforcement 3 of 9</span>
+    <a href="0038-list-keys-identity-generics-and-memoized-derivations.html">Next: List Keys, Identity, Generics, and Memoized Derivations →</a>
+  </div>
+
+  <p class="kicker">Track 5 — Optional Reinforcement · 3 of 9</p>
+  <h1>Effects, Cleanup, and Async UI</h1>
+  <p class="lede">
+    Lesson 36 ended on a promise: <span class="filelink">order-validation/page.tsx</span> never
+    needs <code>useEffect</code> because every piece of its work is caused by a click, but
+    <span class="filelink">DashboardLiveSections.tsx</span> genuinely does. This lesson traces that
+    one real Effect end to end — not as a general "run code later" hook, but as React's mechanism
+    for synchronizing with something outside itself.</p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p><a href="https://react.dev/learn/synchronizing-with-effects">"Synchronizing with Effects"</a>
+    on react.dev — covers both why Effects exist and, in its "Add cleanup if needed" section, the
+    exact cleanup pattern this lesson traces. For the development-only double-invoke behavior
+    specifically, the <a href="https://react.dev/reference/react/useEffect"><code>useEffect</code>
+    API reference</a>'s Caveats section is the precise source: Strict Mode runs one extra
+    setup → cleanup → setup cycle before the first real setup, specifically to stress-test cleanup
+    logic.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Why this matters</p>
+    <p>All three mission drivers apply: you can explain in an interview exactly why one network
+    request — this file's dashboard fetch — belongs in an Effect while a structurally similar one,
+    Lesson 36's <code>runValidation</code>, correctly lives in a click handler instead; that same
+    rendering-caused-vs-click-caused distinction is portable to any React codebase; and recognizing
+    which failure modes a clean build cannot catch is what lets you extend this repo's async UI
+    without silently reintroducing a bug this file already solved once.</p>
+  </div>
+
+  <h2>What actually needs an Effect: caused by rendering, not by a click</h2>
+  <p>Lesson 36's <code>runValidation</code> already reaches outside React — it calls
+  <code>postJSON</code>, a real HTTP request — and that's completely correct without an Effect,
+  because that request only ever starts in response to one specific click. Reaching outside React
+  isn't what makes an Effect necessary; being <em>caused by rendering itself</em>, rather than by a
+  user action, is. Loading a visitor's saved dashboard results needs one for exactly that reason:
+  the request has to start the moment this component appears on screen — nothing the visitor
+  clicks causes it, so there's no event handler for it to live in. This Effect is synchronization
+  <em>with</em> rendering, not a response <em>to</em> an action:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/dashboard/DashboardLiveSections.tsx</span>, lines 53–73</p>
+    <pre><code>useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const results = await getDashboardResults();
+        if (cancelled) return;
+        setLiveOrderValidation(results.order_validation);
+        setLiveInventoryAllocation(results.inventory_allocation);
+        setLivePaymentAging(results.payment_aging);
+        setStatus("loaded");
+      } catch (error) {
+        if (cancelled) return;
+        setErrorDetail(error instanceof ApiError ? error.message : "Something went wrong. Please try again.");
+        setStatus("failed");
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);</code></pre>
+  </div>
+  <p>The dependency array, <code>[]</code>, tells React "no reactive value read here should ever
+  cause this Effect to re-run — treat it as caused only by mounting." In production, that means it
+  runs exactly once, right after the first render. In development, React's Strict Mode
+  deliberately runs it twice — an extra setup → cleanup → setup cycle meant to surface exactly the
+  kind of cleanup bug the next section covers, before it ever reaches production.</p>
+  <p>There's a second reason <code>status</code> doesn't belong in that array, beyond timing:
+  <code>status</code> isn't an input to this synchronization, it's this Effect's own
+  <em>output</em> — the Effect is what decides its final value, by calling <code>setStatus</code>.
+  If <code>status</code> were listed as a dependency, the first <code>setStatus("loaded")</code>
+  call would count as a dependency change, and React would clean up this Effect instance and start
+  a new one — redundantly re-fetching a second time. That second run's own
+  <code>setStatus("loaded")</code> call matches the value already there, so React skips the
+  re-render it would otherwise cause, and the cycle stops there: one wasted request, not an
+  unbounded loop. (A truly non-terminating Effect loop is still possible — an Effect with no
+  dependency array at all runs after <em>every</em> render regardless of what changed, so a setter
+  call inside one of those really does retrigger forever — but that's not what adding
+  <code>status</code> here would do.) Either way, <code>[]</code> is the accurate declaration:
+  nothing this Effect reads from render should control when it runs.</p>
+
+  <h2>The <code>cancelled</code> guard: cleanup for work that might finish too late</h2>
+  <p>An Effect's return value, if it's a function, is its <strong>cleanup</strong> — React calls it
+  before every re-run of the Effect, and when the component unmounts. This Effect's cleanup does
+  one thing: <code>cancelled = true;</code>. It doesn't cancel the in-flight HTTP request itself —
+  the <code>fetch</code> keeps running regardless — it just marks this particular Effect
+  <em>instance's</em> eventual result as no longer wanted. Both <code>if (cancelled) return;</code>
+  checks exist because <code>getDashboardResults()</code> is asynchronous, so its response can
+  arrive after this specific Effect instance has already been cleaned up — not only because the
+  component unmounted (the visitor navigated away before the fetch finished), but also because
+  React started a newer setup in its place, which is exactly what happens once, deliberately,
+  during development Strict Mode's setup → cleanup → setup cycle mentioned above. Without the
+  guard, an obsolete response could still call <code>setStatus</code> and the other setters,
+  silently applying a stale result on top of whatever the current Effect instance's own request
+  returns.</p>
+
+  <h2>Why the loading branch returns before deciding sample vs. live</h2>
+  <p>The component's very first render — before the fetch has resolved either way — has to show
+  something. This repo makes a specific, deliberate choice about what:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/dashboard/DashboardLiveSections.tsx</span>, lines 75–92</p>
+    <pre><code>// First paint is always a skeleton, never sample-then-swap -- showing
+  // sample values immediately and replacing them on fetch return would
+  // flash content and blur "is this real or sample?" (ADR 0007).
+  if (status === "loading") {
+    return (
+      &lt;div className="mt-6"&gt;
+        &lt;LoadingState label="Loading your saved results…" /&gt;
+      &lt;/div&gt;
+    );
+  }
+
+  if (status === "failed") {
+    return (
+      &lt;div className="mt-6"&gt;
+        &lt;BusinessErrorMessage message={errorDetail ?? "Something went wrong. Please try again."} /&gt;
+      &lt;/div&gt;
+    );
+  }</code></pre>
+  </div>
+  <p>Once past both early returns, the component computes which sections are sample data by
+  checking whether the fetch actually returned something for each workflow:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/dashboard/DashboardLiveSections.tsx</span>, lines 94–96</p>
+    <pre><code>const orderValidationIsSample = liveOrderValidation === null;
+  const inventoryAllocationIsSample = liveInventoryAllocation === null;
+  const paymentAgingIsSample = livePaymentAging === null;</code></pre>
+  </div>
+  <p><code>liveOrderValidation</code> starts as <code>null</code> and only becomes non-null once
+  the fetch succeeds and finds a saved result. If the early return on line 78 didn't exist, this
+  component would reach these three lines <em>while still loading</em>, when every live value is
+  still <code>null</code> for the ordinary reason that nothing has arrived yet — and it would
+  render every KPI as sample data, then silently swap to live data a moment later. The early
+  return is what keeps "haven't fetched yet" from ever being mistaken for "genuinely has no saved
+  result."</p>
+
+  <h2>Not every derived value here needed an Effect</h2>
+  <p>The three <code>IsSample</code> consts above are computed the same way Lesson 36's
+  <code>canSubmit</code> was: plain, unmemoized, recalculated every render from state that already
+  exists. <span class="filelink">order-validation/page.tsx</span>'s <code>filteredErrors</code>
+  derives a different value the same way, just wrapped in <code>useMemo</code> (reserved for
+  Lesson 38 — its mechanics aren't needed for the point here) with a dependency array of
+  <code>[errors, errorSeverity, errorSearch]</code>. None of that is caused by rendering itself the
+  way this component's dashboard fetch is; it only recomputes because inputs it already has
+  changed, and it never reaches outside React to do it. That's the real dividing line running
+  through this lesson and Lesson 36 together: reaching outside React is necessary for needing an
+  Effect, but never sufficient by itself — <code>runValidation</code>'s click-triggered fetch
+  reaches outside React too, and correctly stays in an event handler, because what actually makes
+  an Effect the right tool is that rendering itself, not a click and not an already-available
+  value, is what causes the work.</p>
+
+  <div class="say-avoid">
+    <div class="say-avoid-col say">
+      <p class="box-label">Correct framing</p>
+      <p>"This Effect exists because fetching the visitor's saved results is caused by the
+      component appearing, not by anything the visitor clicks — everything else on this page is
+      either plain render-time computation or work a click handler already covers."</p>
+    </div>
+    <div class="say-avoid-col avoid">
+      <p class="box-label">A framing to avoid</p>
+      <p>"I'll just wrap this in <code>useEffect</code> to be safe." (An Effect is not a neutral
+      default. Every Effect this repo doesn't need but adds anyway is one more place a dependency
+      array can be wrong, one more cleanup function to get right, and one more render pass than a
+      plain derived value would have cost.)</p>
+    </div>
+  </div>
+
+  <h2>Retrieval check</h2>
+  <div class="box checkpoint">
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does this Effect's dependency array stay <code>[]</code> instead of including <code>status</code>?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Empty arrays are required whenever an Effect calls an async helper function</button>
+        <button class="quiz-option" data-correct="true">status is an output of this Effect, not an input to track</button>
+        <button class="quiz-option" data-correct="false">TypeScript automatically infers an empty array whenever no argument gets destructured</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What does the <code>cancelled</code> guard actually prevent?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">A duplicate network request from firing before the first one finishes</button>
+        <button class="quiz-option" data-correct="true">A stale response from a cleaned-up Effect instance overwriting a newer one</button>
+        <button class="quiz-option" data-correct="false">TypeScript from ever flagging results as possibly undefined at compile time</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What would happen without the early return on <code>status === "loading"</code>?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Nothing observable — the KPIs would just render a split second later</button>
+        <button class="quiz-option" data-correct="true">Every KPI would flash as sample data before swapping to live data</button>
+        <button class="quiz-option" data-correct="false">The component would fail to compile, since liveOrderValidation starts null</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <h2>Tiny exercise (7 minutes)</h2>
+  <div class="box exercise">
+    <p class="box-label">Exercise — predict, then let the build (not) catch it</p>
+    <p>Before touching anything: predict, out loud, whether deleting both
+    <code>if (cancelled) return;</code> lines above — one inside the <code>try</code> block, one
+    inside the <code>catch</code> block (lines 58 and 64 in the real file) — would cause
+    <code>npm run typecheck</code> to fail, and explain why from what those lines actually do — do
+    they affect any value's <em>type</em>, or only <em>when</em> a state update happens?</p>
+    <p>Then delete both lines for real, save, and run <code>npm run typecheck</code>. It should
+    still pass — <code>cancelled</code> now gets assigned but never read anywhere, yet this repo's
+    <code>tsconfig.json</code> doesn't enable <code>noUnusedLocals</code>, so TypeScript has no
+    rule that would catch an unused, write-only variable, let alone the actual runtime bug (a stale
+    response silently overwriting a newer one). This is the same point Lesson 42 (not yet
+    generated) will make more generally: a green build proves the code compiles under whatever
+    rules are actually turned on, not that its runtime behavior is correct. Undo the edit with your
+    editor's Undo (Cmd/Ctrl+Z) — not
+    <code>git checkout --</code>, which would discard any other unstaged changes in the file too —
+    and confirm <code>npm run typecheck</code> is still clean before moving on.</p>
+  </div>
+
+  <div class="ask-teacher">
+    If you can point to the exact line that's caused by rendering itself — not a click, not an
+    already-available value — and explain why the rest of this file doesn't need an Effect even
+    where it also reaches outside React (like <code>runValidation</code>'s click-triggered fetch
+    back in Lesson 36), this lesson has landed. If the typecheck result surprised you, reread "The
+    cancelled guard" above — the bug it prevents is a runtime one, not a type error, which is
+    precisely why the compiler stays silent about it.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0036-render-snapshots-events-and-derived-state.html">← Back: Render Snapshots, Events, and Derived State</a>
+    <a href="0038-list-keys-identity-generics-and-memoized-derivations.html">Next: List Keys, Identity, Generics, and Memoized Derivations →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

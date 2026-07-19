@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 35 — TSX and Typed Component Props</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 5 · Reinforcement 1 of 9</span>
+    <a href="0036-render-snapshots-events-and-derived-state.html">Next: Render Snapshots, Events, and Derived State →</a>
+  </div>
+
+  <p class="kicker">Track 5 — Optional Reinforcement · 1 of 9</p>
+  <h1>TSX and Typed Component Props</h1>
+  <p class="lede">
+    You've finished Tutorials 08–11 — you can read this repo's components and pages. This lesson
+    doesn't teach new React; it teaches the TypeScript layer sitting on top of the JSX Lesson 32
+    already covered, so a component's prop list reads as an enforceable contract instead of a pile
+    of names you copy without checking.</p>
+
+  <div class="cite">
+    <p class="box-label">Primary source</p>
+    <p><a href="https://react.dev/learn/typescript">"Using TypeScript" on react.dev</a> — the
+    official React docs' own page on typing props and children. For the two TypeScript mechanics
+    this lesson leans on hardest, the TypeScript Handbook is more precise:
+    <a href="https://www.typescriptlang.org/docs/handbook/2/objects.html">"Object Types"</a> (optional
+    properties) and
+    <a href="https://www.typescriptlang.org/docs/handbook/2/everyday-types.html">"Everyday Types"</a>
+    (literal types, union types).</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Why this matters</p>
+    <p>All three mission drivers apply here: you can name and defend a component's prop contract in
+    an interview; the same typed-props pattern is portable to any other React/TypeScript codebase,
+    not just this one; and reading a prop type correctly is what lets you extend this repo's
+    components without accidentally passing something the compiler would have caught for you.</p>
+  </div>
+
+  <h2>TSX: JSX with a type checker watching</h2>
+  <p>Every component file in this repo you've already read —
+  <span class="filelink">MetricCard.tsx</span>, <span class="filelink">UploadPanel.tsx</span>, every
+  page under <span class="filelink">app/</span> — has a <code>.tsx</code> extension, not
+  <code>.jsx</code>. <strong>TSX</strong> is exactly the JSX syntax Lesson 32 covered
+  (HTML-like markup inside a JavaScript function), compiled through TypeScript instead of plain
+  JavaScript. Nothing about how JSX itself works changes. What's new is that every prop a component
+  declares now has a <em>type</em>, and TypeScript checks every call site against it before the app
+  is even allowed to build.</p>
+
+  <h2>A prop type is a contract, not a comment</h2>
+  <p>Track 1's <a href="0004-contracts-typeddict-and-json-shapes.html">Lesson 4</a> covered this
+  exact idea on the Python side: a <code>TypedDict</code> declares a data shape up front, and code
+  elsewhere is checked against it rather than trusted to get it right by convention. A component's
+  prop type is the same idea, one layer up — it's the API contract for that component, and the
+  compiler enforces it on every caller, not just the ones a human reviewer happens to read closely.</p>
+
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/workflow/MetricCard.tsx</span>, lines 11–20</p>
+    <pre><code>type MetricCardProps = {
+  label: string;
+  value: string | number;
+  icon?: ReactNode;
+  tone?: Tone;
+  /** Dashboard-only (Phase 12): true when this card's value came from the
+   * static sample fallback rather than the visitor's own Saved Workflow
+   * Result -- see docs/adr/0007-session-scoped-workflow-result-persistence.md. */
+  sample?: boolean;
+};</code></pre>
+    <p>Five fields, three of them optional (the <code>?</code>). <code>value: string | number</code>
+    is a small union — this repo passes it a formatted string almost everywhere (Track 4's
+    <code>formatNumber</code>/<code>formatAmount</code> helpers), but the type honestly allows a raw
+    number too, since nothing about rendering a number inside a <code>&lt;span&gt;</code> requires it
+    to already be a string.</p>
+  </div>
+
+  <h2>Named alias vs. inline type: same mechanism, a size judgment call</h2>
+  <p><code>MetricCardProps</code> is a named type alias, declared once above the component and
+  referenced once below it. Compare that with how this repo's own route-group layouts type their
+  single most common prop:</p>
+
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">app/(workspace)/layout.tsx</span>, lines 5–7 (the complete function)</p>
+    <pre><code>export default function WorkspaceLayout({ children }: { children: ReactNode }) {
+  return &lt;AppShell&gt;{children}&lt;/AppShell&gt;;
+}</code></pre>
+    <p><span class="filelink">app/(public)/layout.tsx</span> opens with the identical signature
+    line, verbatim: <code>export default function PublicLayout({ children }: { children: ReactNode }) {</code>
+    (line 6) — its body differs (it also renders <code>PublicHeader</code>/<code>PublicFooter</code>),
+    but the prop type is exactly the same inline shape.</p>
+    <p>Neither layout bothers declaring a <code>WorkspaceLayoutProps</code> type — one field, used
+    once, written inline. <code>MetricCardProps</code> and <span class="filelink">UploadPanel.tsx</span>'s
+    <code>UploadPanelProps</code> get a named alias because they carry several fields worth naming as
+    a unit and documenting together. Both are the exact same TypeScript feature — an object type
+    describing a component's props — the choice between inline and named is a judgment call about
+    whether the shape is worth a name of its own, not a rule this repo enforces mechanically.</p>
+  </div>
+
+  <h2><code>ReactNode</code>: "anything React can render," typed</h2>
+  <p><code>children</code> in both layouts above is typed <code>ReactNode</code> — the type for
+  "whatever can legally appear inside JSX": a string, a number, another JSX element, an array of
+  those, or nothing at all. <span class="filelink">MetricCard.tsx</span>'s <code>icon?: ReactNode</code>
+  uses the same type for a different purpose — not children in the JSX-nesting sense, just "a prop
+  that holds renderable content," most often a small icon element like
+  <code>&lt;ClipboardList size={16} /&gt;</code>.</p>
+
+  <h2>Optional props: what <code>?</code> actually promises</h2>
+  <p><code>UploadPanelProps</code> has four optional fields:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/workflow/UploadPanel.tsx</span>, lines 13–31</p>
+    <pre><code>type UploadPanelProps = {
+  label: string;
+  requiredColumns: string[];
+  accept?: string;
+  /** Allowlisted backend/routers/templates.py key, e.g. "orders" -- omit to hide the Sample file link. */
+  sampleFileName?: string;
+  /** Hands the selected File to the parent page so it can be submitted with the Workflow Request. */
+  onFileChange?: (file: File | null) =&gt; void;
+  /**
+   * Displayed filename, controlled by the parent's own file state. Pages hold
+   * the File as the source of truth (native pick or "Run sample data" both
+   * flow through the same onFileChange -&gt; parent state), so passing this down
+   * keeps the panel's display in sync regardless of which path set the file --
+   * "Run sample data" bypasses the native &lt;input&gt;, so without this the panel
+   * would keep showing "Choose a file..." even after a sample file was loaded
+   * and submitted.
+   */
+  selectedFileName?: string | null;
+};</code></pre>
+  </div>
+  <p>A trailing <code>?</code> means the prop's real type is <code>string | undefined</code> (or
+  whatever the base type is, unioned with <code>undefined</code>) — it does <strong>not</strong> mean
+  "this prop has a default value." A default only exists if the component's own destructuring supplies
+  one:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/workflow/UploadPanel.tsx</span>, lines 39–46</p>
+    <pre><code>export function UploadPanel({
+  label,
+  requiredColumns,
+  accept = ".xlsx",
+  sampleFileName,
+  onFileChange,
+  selectedFileName,
+}: UploadPanelProps) {</code></pre>
+    <p><code>accept</code> gets a default (<code>".xlsx"</code>) — omit it at a call site and the
+    component sees <code>".xlsx"</code>. <code>sampleFileName</code>, <code>onFileChange</code>, and
+    <code>selectedFileName</code> get no default — omit them and the component sees literally
+    <code>undefined</code>, which its own logic then has to handle (the <code>sampleFileName ?</code>
+    check that hides the "Sample file" link entirely).</p>
+  </div>
+  <p>This repo's two real <code>&lt;MetricCard&gt;</code> call sites show the same choice from the
+  caller's side, for <code>MetricCardProps</code>' optional <code>sample?: boolean</code>:</p>
+  <div class="box primer">
+    <p class="box-label">Same prop, omitted vs. supplied</p>
+    <pre><code>// app/(workspace)/order-validation/page.tsx, lines 369–374 — sample omitted
+&lt;MetricCard
+  label="Total Orders"
+  value={formatNumber(currentResult.summary.total_orders)}
+  icon={&lt;ClipboardList size={16} /&gt;}
+  tone="info"
+/&gt;
+
+// components/dashboard/DashboardLiveSections.tsx, lines 112–118 — sample supplied
+&lt;MetricCard
+  label="Total Orders"
+  value={formatNumber(validation.total_orders)}
+  icon={&lt;ClipboardList size={16} /&gt;}
+  tone="info"
+  sample={orderValidationIsSample}
+/&gt;</code></pre>
+    <p>Both typecheck. The workflow page never uses the dashboard's automatic sample fallback
+    (Phase 12) — an uploaded file and a "Run sample data" click are both freshly processed by the
+    same validation call, so this card has nothing meaningful to pass for <code>sample</code> and
+    relies on <code>MetricCard</code>'s own default, <code>sample = false</code>. The dashboard
+    genuinely might be showing that Phase-12 fallback instead of the visitor's own saved result, so
+    it always supplies the real answer.</p>
+  </div>
+
+  <h2>Literal unions: a fixed vocabulary instead of open-ended <code>string</code></h2>
+  <p><code>tone?: Tone</code> on <code>MetricCardProps</code> isn't <code>tone?: string</code>.
+  <code>Tone</code> is a <strong>literal union</strong> — a type built from specific allowed string
+  values, not the general shape "some string":</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/workflow/StatusBadge.tsx</span>, line 5</p>
+    <pre><code>export type Tone = "success" | "warning" | "danger" | "info" | "neutral";</code></pre>
+  </div>
+  <p>Passing <code>tone="info"</code> typechecks because <code>"info"</code> is one of the five listed
+  values. Passing <code>tone="urgent"</code> would fail to compile — not at runtime, not in a code
+  review, but the moment TypeScript checks the call site — because <code>"urgent"</code> is not a
+  member of that union. A plain <code>string</code> type would have silently accepted the typo and let
+  it reach <code>CHIP_TONE_CLASSES[tone]</code>, where it would have looked up a key that doesn't
+  exist.</p>
+
+  <h2>Callback prop signatures</h2>
+  <p><code>onFileChange?: (file: File | null) =&gt; void</code> types a prop whose value is itself a
+  function: it takes one argument (<code>File | null</code> — a native browser type, not
+  React-specific), and returns nothing. This is exactly the "hand the parent a way to react" pattern —
+  the parent page owns the actual file state, and <code>UploadPanel</code> just calls whatever
+  function it was given whenever the native <code>&lt;input&gt;</code> fires:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">app/(workspace)/order-validation/page.tsx</span>, lines 314–320 — caller and callee, both Client Components</p>
+    <pre><code>&lt;UploadPanel
+  label="Product Master File"
+  requiredColumns={["sku", "product_name", "active"]}
+  sampleFileName="product-master"
+  onFileChange={setProductMasterFile}
+  selectedFileName={productMasterFile?.name ?? null}
+/&gt;</code></pre>
+  </div>
+  <div class="box checkpoint">
+    <p class="box-label">Why this doesn't contradict Lesson 33</p>
+    <p><a href="0033-server-and-client-components.html">Lesson 33</a> showed a function prop that
+    <em>couldn't</em> cross the Server→Client boundary, because a Server Component's function value
+    can't be serialized into something the browser can receive. This callback prop is fine for a
+    different reason: <span class="filelink">order-validation/page.tsx</span> starts with
+    <code>"use client"</code>, and so does <span class="filelink">UploadPanel.tsx</span> — both
+    already run in the browser, so nothing is crossing a Server→Client boundary at all. The rule was
+    never "function props are illegal," it was "function props can't cross that one specific
+    boundary."</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Forward reference — generics, previewed only</p>
+    <p><span class="filelink">components/tables/DataTable.tsx</span> is typed
+    <code>DataTable&lt;T&gt;</code> — a component whose prop types depend on a type parameter chosen
+    at each call site, so its <code>columns</code> and <code>data</code> props stay correctly linked
+    to whatever row shape a given page passes in. That's a genuinely different, bigger idea than
+    anything above, and it gets its own lesson — Lesson 38 in this same reinforcement sequence,
+    not yet generated. Nothing here requires understanding it yet.</p>
+  </div>
+
+  <div class="say-avoid">
+    <div class="say-avoid-col say">
+      <p class="box-label">Correct framing</p>
+      <p>"<code>tone?: Tone</code> is a compiler-enforced contract — passing anything outside those
+      five strings fails the build before the app ever runs."</p>
+    </div>
+    <div class="say-avoid-col avoid">
+      <p class="box-label">A framing to avoid</p>
+      <p>"The types are basically documentation — as long as I know what values make sense, it
+      doesn't really matter what I write in the type." (This is exactly backwards: an inaccurate
+      type is worse than no type, because it makes TypeScript actively vouch for call sites that are
+      actually wrong. The type isn't advisory — it's the thing the compiler checks against.)</p>
+    </div>
+  </div>
+
+  <h2>Retrieval check</h2>
+  <div class="box checkpoint">
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What does a trailing <code>?</code> on a prop's type actually mean?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">The prop always receives a default value that TypeScript supplies for you</button>
+        <button class="quiz-option" data-correct="true">The prop's real type includes undefined, and defaults come only from destructuring</button>
+        <button class="quiz-option" data-correct="false">The prop becomes entirely optional to read anywhere the component's code runs</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does <code>tone: Tone</code> catch a mistake that <code>tone: string</code> would not?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Tone runs a console warning at render time whenever a bad value appears</button>
+        <button class="quiz-option" data-correct="true">Tone is a union of five exact strings, so any other value fails to compile</button>
+        <button class="quiz-option" data-correct="false">String-typed props always render more slowly than literal union props do</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why is <code>onFileChange={setOrdersFile}</code> a legal function prop, given Lesson 33's rule about functions and the Server/Client boundary?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Next.js grants callback props a special exception for onChange-style event handlers</button>
+        <button class="quiz-option" data-correct="true">Both the page and UploadPanel already run as Client Components, so no boundary is crossed</button>
+        <button class="quiz-option" data-correct="false">File objects are serializable, so Lesson 33's boundary rule never applies to them</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <h2>Tiny exercise (7 minutes)</h2>
+  <div class="box exercise">
+    <p class="box-label">Exercise — predict, then let the compiler confirm</p>
+    <p>Before touching anything: look at <span class="filelink">order-validation/page.tsx</span>
+    lines 369–374 above and predict, out loud, whether each of these three edits would typecheck —
+    (1) changing <code>tone="info"</code> to <code>tone="urgent"</code>; (2) deleting the
+    <code>label</code> line entirely; (3) changing <code>icon={&lt;ClipboardList size={16} /&gt;}</code>
+    to <code>icon="a string instead"</code>.</p>
+    <p>Then make exactly one of those three edits for real, save the file, and run
+    <code>npm run typecheck</code> in the terminal. Read the error TypeScript reports — does it name
+    the field, the expected type, and the value you gave it? Undo the edit with your editor's Undo
+    (Cmd/Ctrl+Z) rather than a git command — this file may already have other unstaged changes of
+    yours, and <code>git checkout --</code> would discard all of them, not just this edit. If you do
+    want to confirm with git instead, run <code>git diff -- "app/(workspace)/order-validation/page.tsx"</code>
+    first and check that the only line shown is the one you just changed. Confirm
+    <code>npm run typecheck</code> is clean again before moving on.</p>
+  </div>
+
+  <div class="ask-teacher">
+    If predicting all three edits felt confident and the actual error message matched what you
+    expected, this lesson is solid. If any of the three surprised you, reread whichever section
+    above covers that specific field — optional props, literal unions, or ReactNode — before
+    continuing to Lesson 36.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0034-design-tokens-and-semantic-styling.html">← Back: Design Tokens and Semantic Styling</a>
+    <a href="0036-render-snapshots-events-and-derived-state.html">Next: Render Snapshots, Events, and Derived State →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

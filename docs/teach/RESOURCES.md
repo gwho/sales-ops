@@ -74,6 +74,39 @@ Curated for a learner with **zero assumed prior knowledge** of any of these tech
   Official docs; specifically the "Server and Client Components" page is the primary source for L5.3, the single most-repeated rule in this repo.
 - [TypeScript — Handbook (official)](https://www.typescriptlang.org/docs/handbook/intro.html)
   Use once JS/React basics are comfortable, before reading `types/dashboard.ts` etc. closely.
+- [React — Using TypeScript](https://react.dev/learn/typescript)
+  Official React docs' own page on typing component props and children with `ReactNode`. Primary
+  source for Lesson 35 (optional Track 5 reinforcement). Confirmed live and on-topic 2026-07-18.
+- [TypeScript Handbook — Object Types](https://www.typescriptlang.org/docs/handbook/2/objects.html)
+  and [Everyday Types](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html)
+  More precise than the Handbook's intro page for two specific mechanics: optional properties
+  (`Object Types`) and literal/union types (`Everyday Types`). Use for: Lesson 35's optional-prop
+  and `Tone`-style literal-union sections. Both confirmed live and on-topic 2026-07-18.
+- [React — State as a Snapshot](https://react.dev/learn/state-as-a-snapshot)
+  Primary source for Lesson 36 (optional Track 5 reinforcement) — state read within one render is a
+  fixed value, not a live reference. Confirmed live and on-topic 2026-07-19.
+- [React — You Might Not Need an Effect](https://react.dev/learn/you-might-not-need-an-effect)
+  Secondary source for Lesson 36's derived-value section only (compute during render vs. copy into
+  state). Confirmed live and on-topic 2026-07-19.
+- [React — Synchronizing with Effects](https://react.dev/learn/synchronizing-with-effects)
+  Primary source for Lesson 37 (optional Track 5 reinforcement) — what an Effect is for, and its
+  "Add cleanup if needed" section specifically, the cleanup pattern `DashboardLiveSections.tsx`
+  uses. Confirmed live and on-topic 2026-07-19.
+- [React — useEffect API reference](https://react.dev/reference/react/useEffect)
+  Secondary source for Lesson 37's Strict Mode claim specifically — its Caveats section is the
+  precise source for "one extra development-only setup → cleanup → setup cycle before the first
+  real setup." Added after a review pass caught the original draft's Strict Mode wording as
+  imprecise. Confirmed live and on-topic 2026-07-19.
+- [React — Rendering Lists](https://react.dev/learn/rendering-lists)
+  Primary source for Lesson 38 (optional Track 5 reinforcement) — why list items need a stable key
+  and why array index breaks under reordering. Confirmed live and on-topic 2026-07-20.
+- [TypeScript Handbook — Generics](https://www.typescriptlang.org/docs/handbook/2/generics.html)
+  Secondary source for Lesson 38 — what a type parameter is for (carrying a relationship between
+  input and output types), used to explain `DataTable<T>`. Confirmed live and on-topic 2026-07-20.
+- [React — useMemo API reference](https://react.dev/reference/react/useMemo)
+  Secondary source for Lesson 38 — `useMemo` as a performance optimization only, whose calculation
+  must stay correct even if the memoization were removed entirely. Confirmed live and on-topic
+  2026-07-20.
 - [Tailwind CSS v3 documentation](https://v3.tailwindcss.com/docs)
   Pinned to v3 docs specifically — this repo deliberately stays on Tailwind 3.4, not v4 (see `context/library-docs.md`). Use for: L5.4 (design tokens).
 
