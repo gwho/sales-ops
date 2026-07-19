@@ -563,7 +563,7 @@ hardcoded here.
 ### WorkflowsSection / WorkflowSequence / ValueSection / TechSection / BoundaryNote / ClosingCta
 
 Files: `components/landing/{WorkflowsSection,WorkflowSequence,ValueSection,TechSection,BoundaryNote,ClosingCta}.tsx`
-Last updated: 2026-07-17
+Last updated: 2026-07-19 (Landing Page Evidence and Technical Credibility: `WorkflowsSection` cards became real links)
 
 | Property | Class |
 | --- | --- |
@@ -573,7 +573,7 @@ Last updated: 2026-07-17
 | Text — primary | `text-sm font-semibold text-text-primary` (workflow card titles, value headings) |
 | Text — secondary | `text-sm leading-relaxed text-text-secondary` (descriptions/body copy throughout) |
 | Spacing | grid `sm:grid-cols-2 lg:grid-cols-4` (workflows); `md:grid-cols-[1fr_2fr]` (value section) |
-| Hover/focus state | workflow cards: `hover:bg-surface-muted`; `ClosingCta` links: `hover:opacity-90` / `hover:bg-surface-muted`, both `focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2` |
+| Hover/focus state | workflow cards: `hover:bg-surface-muted`, plus (as of this pass) `focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2`; `ClosingCta` links: `hover:opacity-90` / `hover:bg-surface-muted`, same focus-visible ring |
 | Shadow | none |
 | Accent/status usage | `text-accent` (workflow icon chip icon color, `ValueSection` checkmark); `bg-accent` (`ClosingCta` primary link) |
 
@@ -589,11 +589,99 @@ the relocated "How the Workflows Connect" content that used to live on `/dashboa
 `ClosingCta`'s links are real `next/link`s to `/dashboard`, `/inventory-allocation`,
 `/payment-aging` — never placeholder `href="#"`. The prototype's "Role Fit" section has
 no equivalent here at all — dropped entirely per an explicit decision, not reworded.
+**Landing Page Evidence and Technical Credibility (2026-07-19):** `WorkflowsSection`'s four
+cards were plain non-interactive `<div>`s with a hover affordance but no keyboard target — a
+look-interactive-but-isn't mismatch. Each card is now a full-card `next/link` to its real
+workflow route (`workflow.href`, typed as the closed union `PortfolioWorkflowHref` so an
+invalid internal destination is a compile error, not a runtime dead link), with the whole
+card staying the single focusable element — no nested interactive children, so its
+accessible name is the full title + description. See
+`docs/architect/landing-page-evidence-and-technical-credibility/decisions.md` #8.
+
+### ProofStrip
+
+File: `components/landing/ProofStrip.tsx`
+Last updated: 2026-07-19 (Landing Page Evidence and Technical Credibility: new)
+
+| Property | Class |
+| --- | --- |
+| Background | `bg-surface-muted` (thin strip, not a `Section`) |
+| Border | `border-b border-border` |
+| Border radius | none |
+| Text — primary | n/a |
+| Text — secondary | `text-xs text-text-secondary` |
+| Spacing | `px-6 py-4`, `gap-3` stacked / `gap-x-8 gap-y-2` row at `sm` |
+| Hover/focus state | none (static, non-interactive) |
+| Shadow | none |
+| Accent/status usage | `text-accent` (leading `Check` icon per statement) |
+
+Pattern notes:
+Server Component. Renders `portfolioContent.proofStrip` — durable, permanent-fact
+statements only, never a metric requiring an update cadence (test counts, ROI rejected on
+purpose, see `docs/architect/landing-page-evidence-and-technical-credibility/decisions.md`
+#4). Deliberately thinner than a `Section` (no `py-12/16`, no `SectionLabel`/`SectionHeading`)
+since it's a quick-scan strip, not a content section — sits directly under `Hero`, before
+`WorkflowsSection`.
+
+### ValidationEvidence
+
+File: `components/landing/ValidationEvidence.tsx`
+Last updated: 2026-07-19 (new)
+
+| Property | Class |
+| --- | --- |
+| Background | none (inherits `bg-background` via `Section`) |
+| Border | `border-b border-border` (via `Section`) |
+| Border radius | none |
+| Text — primary | `SectionHeading` default; `font-medium text-text-primary` (verified order ID, verified counts) |
+| Text — secondary | `text-sm leading-relaxed text-text-secondary` (prose) |
+| Spacing | `max-w-2xl`, `mt-3` between the two sentences (via `Section` defaults otherwise) |
+| Hover/focus state | none (static, no `role="alert"`, no live region — see pattern notes) |
+| Shadow | none |
+| Accent/status usage | `font-medium text-danger` (the quoted error message only) |
+
+Pattern notes:
+Server Component — must stay one; `lib/content/landing-evidence.ts` must never be imported
+into a Client Component. Composes `content/portfolio/...json`'s `validationEvidence` prose
+fragments with `lib/content/landing-evidence.ts`'s build-time-verified message/counts (real
+`SO-2026-010` duplicate-order case from `lib/mock-data.ts`) — neither the component nor the
+loader invents copy. The quoted message deliberately does **not** use `role="alert"`/`aria-live`:
+it's static, historical evidence decided at build time, not a live event happening in front
+of the user (the same distinction `PersistenceNotice` already draws by avoiding
+`BusinessErrorMessage`'s `role="alert"` for a non-live caveat). Full reasoning:
+`docs/architect/landing-page-evidence-and-technical-credibility/decisions.md` #1-3, #10.
+
+### TechnicalHighlight
+
+File: `components/landing/TechnicalHighlight.tsx`
+Last updated: 2026-07-19 (new)
+
+| Property | Class |
+| --- | --- |
+| Background | none (inherits `bg-background` via `Section`) |
+| Border | `border-b border-border` (via `Section`) |
+| Border radius | none |
+| Text — primary | `SectionHeading` default |
+| Text — secondary | `text-sm leading-relaxed text-text-secondary` |
+| Spacing | `max-w-2xl` (via `Section` defaults otherwise) |
+| Hover/focus state | none (static, non-interactive) |
+| Shadow | none |
+| Accent/status usage | none |
+
+Pattern notes:
+Server Component. New, standalone — `TechSection.tsx` stays focused on the tech-tag list
+only and was not extended to hold this. Renders `portfolioContent.technicalHighlight`
+(Phase 12 session-persistence explanation), placed after `BoundaryNote`, before
+`TechSection` — one secondary technical highlight after the business-evidence content, not
+in the hero. Wording adapted directly from `CONTEXT.md`'s vetted glossary ("Anonymous
+Session ID" vs. "Saved Workflow Result") rather than re-derived, to avoid repeating the
+exact overstatement `docs/architect/portfolio-landing-page/decisions.md` #6 already had to
+correct once ("saved to this browser only" was wrong).
 
 ### PublicHeader / PublicFooter
 
 File: `components/landing/{PublicHeader,PublicFooter}.tsx`
-Last updated: 2026-07-17
+Last updated: 2026-07-19 (Landing Page Evidence and Technical Credibility: mobile fix)
 
 | Property | Class |
 | --- | --- |
@@ -601,9 +689,9 @@ Last updated: 2026-07-17
 | Border | `border-b border-border` (`PublicHeader`) |
 | Border radius | none |
 | Text — primary | n/a |
-| Text — secondary | `text-xs font-medium uppercase tracking-widest text-text-secondary` (brand label); `text-xs text-text-secondary` (`PublicFooter`) |
-| Spacing | `h-14` header height (matches `Section`'s `scroll-mt-16`) |
-| Hover/focus state | anchor links: `hover:text-text-primary`; CTA: `hover:opacity-90`; all: `focus-visible:ring-2 focus-visible:ring-accent` |
+| Text — secondary | `text-xs font-medium uppercase tracking-widest text-text-secondary` (brand label, `min-w-0 whitespace-nowrap` wrapper); `text-xs text-text-secondary` (`PublicFooter`) |
+| Spacing | `h-14` header height (matches `Section`'s `scroll-mt-16`), `gap-3` between brand and nav |
+| Hover/focus state | anchor links: `hover:text-text-primary`; CTA: `hover:opacity-90`, `shrink-0 whitespace-nowrap`; all: `focus-visible:ring-2 focus-visible:ring-accent` |
 | Shadow | none |
 | Accent/status usage | `bg-accent text-text-on-accent` (Open Dashboard CTA) |
 
@@ -613,7 +701,17 @@ Pattern notes:
 this one route. Nav anchors are `#workflows`/`#value`/`#tech`, matching `Section`'s `id`
 props on the landing page; no "Role Fit" anchor since that section doesn't exist.
 `PublicFooter` has no external links (GitHub, deployed URLs) — nothing was fabricated to
-fill space.
+fill space. **Landing Page Evidence and Technical Credibility (2026-07-19):** had zero
+responsive classes before this pass — brand label, all three anchors, and the CTA rendered
+unconditionally at every width, very likely overflowing at narrow widths. Fixed, locked, no
+fallback branch: the three anchor links now sit in a `hidden sm:flex` wrapper (hidden below
+`sm`); the brand label swaps between two fixed strings — "Sales Ops Toolkit" (`sm:hidden`)
+below `sm`, "Sales Admin Automation Toolkit" (`hidden sm:inline`) at `sm` and above — no
+CSS-truncation fallback. 320px is the required manual verification width (not "mobile"
+generically) — see
+`docs/architect/landing-page-evidence-and-technical-credibility/decisions.md` #9. Live
+verification at 320px is still pending a manual check; do not treat this as visually
+confirmed without that step (see the plan's browser-verification checklist).
 
 ## Page composition notes (Phase 9.1)
 

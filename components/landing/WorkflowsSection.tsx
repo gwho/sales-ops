@@ -1,7 +1,14 @@
+import Link from "next/link";
+
 import { Section, SectionLabel, SectionHeading } from "@/components/landing/Section";
 import { PORTFOLIO_ICON_MAP } from "@/components/landing/icon-map";
 import type { PortfolioWorkflow } from "@/types/portfolio-content";
 
+// Each card is a full-card next/link to its real workflow route — see
+// docs/architect/landing-page-evidence-and-technical-credibility/decisions.md
+// #8. The whole card stays the single focusable element (no nested
+// interactive children), so its accessible name is the full title +
+// description.
 export function WorkflowsSection({ workflows }: { workflows: PortfolioWorkflow[] }) {
   return (
     <Section id="workflows">
@@ -11,7 +18,11 @@ export function WorkflowsSection({ workflows }: { workflows: PortfolioWorkflow[]
         {workflows.map((workflow) => {
           const Icon = PORTFOLIO_ICON_MAP[workflow.icon];
           return (
-            <div key={workflow.title} className="flex flex-col gap-4 bg-background p-5 hover:bg-surface-muted">
+            <Link
+              key={workflow.title}
+              href={workflow.href}
+              className="flex flex-col gap-4 bg-background p-5 hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center bg-surface-muted text-accent">
                   <Icon size={18} aria-hidden="true" />
@@ -24,7 +35,7 @@ export function WorkflowsSection({ workflows }: { workflows: PortfolioWorkflow[]
                 <h3 className="mb-1.5 text-sm font-semibold text-text-primary">{workflow.title}</h3>
                 <p className="text-sm leading-relaxed text-text-secondary">{workflow.description}</p>
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>

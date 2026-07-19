@@ -13,27 +13,48 @@
       "tag": "Workflow 01",
       "title": "Order Validation",
       "description": "Checks incoming orders against business rules — missing fields, invalid SKUs, quantity limits — before they reach fulfilment.",
-      "icon": "clipboard-check"
+      "icon": "clipboard-check",
+      "href": "/order-validation"
     },
     {
       "tag": "Workflow 02",
       "title": "Inventory Allocation",
       "description": "Allocates available stock to open orders by priority tier, delivery date, SKU demand, and warehouse location.",
-      "icon": "package-check"
+      "icon": "package-check",
+      "href": "/inventory-allocation"
     },
     {
       "tag": "Workflow 03",
       "title": "Payment Aging",
       "description": "Calculates days outstanding on open invoices and surfaces follow-up priority for the accounts team.",
-      "icon": "receipt-text"
+      "icon": "receipt-text",
+      "href": "/payment-aging"
     },
     {
       "tag": "Workflow 04",
       "title": "Excel Report Export",
       "description": "Generates formatted workbooks — order summaries, aging reports, allocation logs — from each workflow's results.",
-      "icon": "file-spreadsheet"
+      "icon": "file-spreadsheet",
+      "href": "/reports"
     }
   ],
+  "proofStrip": [
+    "Three business-rule modules covered by automated tests.",
+    "Python business rules and Excel exports were verified before the production frontend was built."
+  ],
+  "validationEvidence": {
+    "heading": "Duplicate order detected",
+    "orderId": "SO-2026-010",
+    "errorCode": "OV-002",
+    "duplicateStatement": "appears twice in the fictional sample file.",
+    "messageLead": "The validator flags both rows with",
+    "summaryLead": "Overall,",
+    "summaryOutcome": "order rows contain one or more issues, giving operations a clear exception list before fulfilment."
+  },
+  "technicalHighlight": {
+    "heading": "Latest results without user accounts",
+    "body": "Each browser receives an anonymous session ID stored in localStorage. The latest result for each workflow is stored in Postgres so the dashboard can restore it without requiring an account."
+  },
   "workflowSequence": [
     {
       "id": "order-validation",
