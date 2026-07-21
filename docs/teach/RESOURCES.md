@@ -109,6 +109,70 @@ Curated for a learner with **zero assumed prior knowledge** of any of these tech
   2026-07-20.
 - [Tailwind CSS v3 documentation](https://v3.tailwindcss.com/docs)
   Pinned to v3 docs specifically — this repo deliberately stays on Tailwind 3.4, not v4 (see `context/library-docs.md`). Use for: L5.4 (design tokens).
+- [MDN — Introduction to CSS layout](https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/CSS_layout/Introduction)
+  Primary source for Lesson 39 (optional Track 5 reinforcement) — normal flow and the box model.
+  Confirmed live and on-topic 2026-07-21.
+- [MDN — Flexbox](https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/CSS_layout/Flexbox)
+  Source for Lesson 39's main-axis/cross-axis section. Confirmed live and on-topic 2026-07-21.
+- [MDN — Grids](https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/CSS_layout/Grids)
+  Source for Lesson 39's grid-tracks/`fr`-unit section. Confirmed live and on-topic 2026-07-21.
+- [MDN — min-width reference](https://developer.mozilla.org/en-US/docs/Web/CSS/min-width)
+  Source for Lesson 39's intrinsic-minimum-size claim specifically — its `auto` value description
+  documents that a flex/grid item's automatic minimum size becomes content-based unless the item is
+  a scroll container, in which case it's zero. This is the exact mechanism behind
+  `UploadPanel.tsx`'s `truncate` span truncating correctly without an explicit `min-w-0`. Narrowed
+  during a review pass from an earlier, overbroad "anything other than `visible`" phrasing —
+  `overflow: clip` is a documented exception that doesn't establish a scroll container. Confirmed
+  live and on-topic 2026-07-21.
+- [MDN — overflow reference](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/overflow)
+  Added during the same review pass, for Lesson 39's "Overflow ownership" section — the precise
+  distinction between `overflow: hidden` (still a scroll container: programmatic scroll and
+  focus-triggered scroll-into-view both still work, just no visible scrollbar or manual drag/wheel
+  scroll) and `overflow: clip` (not a scroll container at all; nothing can scroll it, including
+  programmatically). Confirmed live and on-topic 2026-07-21.
+- [Tailwind — Responsive Design](https://v3.tailwindcss.com/docs/responsive-design)
+  Source for Lesson 39's mobile-first breakpoint section — unprefixed utilities are the baseline,
+  prefixed variants override starting at that breakpoint and up. Confirmed live and on-topic
+  2026-07-21.
+- [MDN — ARIA](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA)
+  Primary source for Lesson 40 (optional Track 5 reinforcement) — states the first rule of ARIA
+  use (prefer native HTML semantics over adding ARIA to a generic element) directly. Confirmed
+  live and on-topic 2026-07-21.
+- [W3C WAI ARIA APG — Names and Descriptions](https://www.w3.org/WAI/ARIA/apg/practices/names-and-descriptions/)
+  Source for Lesson 40's accessible-name section — what an accessible name is, the three ways to
+  supply one (visible label text, `aria-label`, `aria-labelledby`), and which roles are prohibited
+  from having one at all. Confirmed live and on-topic 2026-07-21.
+- [W3C WAI ARIA APG — Alert pattern](https://www.w3.org/WAI/ARIA/apg/patterns/alert/)
+  Source for Lesson 40's `role="alert"` section — an implicit live region, announced automatically
+  on appearance without requiring focus. Confirmed live and on-topic 2026-07-21.
+- [W3C WAI ARIA APG — Sortable table example](https://www.w3.org/WAI/ARIA/apg/patterns/table/examples/sortable-table/)
+  Added during a review pass, for Lesson 40's `aria-sort` finding on `DataTable`'s sortable
+  headers — `aria-sort` belongs on the currently-sorted column header, with `ascending`/`descending`
+  values. Confirmed live and on-topic 2026-07-22.
+- [WCAG 2.2 — Understanding Focus Visible](https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html)
+  Added during the same review pass, to ground Lesson 40's "Visible focus" section in an objective,
+  three-part test (identifiable, persistent, distinguishable) rather than an unstated judgment
+  call. Confirmed live and on-topic 2026-07-22.
+- [WCAG 2.2 — Understanding Use of Color](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html)
+  Added during the same review pass, as the direct citation for Lesson 40's "color is never the
+  only signal" claim. Confirmed live and on-topic 2026-07-22.
+- [Next.js — Project structure and organization](https://nextjs.org/docs/app/getting-started/project-structure#route-groups)
+  Primary source for Lesson 41 (optional Track 5 reinforcement) — the "Route groups" section states
+  directly that a parenthesized folder is organizational only and is omitted from the URL. Confirmed
+  live and on-topic 2026-07-22.
+- [Next.js — Layouts and Pages](https://nextjs.org/docs/app/getting-started/layouts-and-pages)
+  Source for Lesson 41's root-layout and nested-layout sections — the root layout's required
+  `html`/`body` tags, and layouts nesting automatically via the `children` prop. Confirmed live and
+  on-topic 2026-07-22.
+- [Next.js — Metadata and OG images](https://nextjs.org/docs/app/getting-started/metadata-and-og-images#static-metadata)
+  Source for Lesson 41's metadata section — states directly that the `metadata` object and
+  `generateMetadata` exports are only supported in Server Components. Confirmed live and on-topic
+  2026-07-22.
+- [Next.js — generateMetadata API reference](https://nextjs.org/docs/app/api-reference/functions/generate-metadata#merging)
+  Secondary source for Lesson 41 — the Ordering/Merging/Inheriting sections, whose own worked
+  example is the direct precedent for this repo's `/dashboard` inheriting the root layout's title
+  unchanged. Also the source for *why* metadata exports are Server-Component-only (must resolve
+  before the initial HTML is sent). Confirmed live and on-topic 2026-07-22.
 
 ## Track 6 — Databases & Session Identity
 

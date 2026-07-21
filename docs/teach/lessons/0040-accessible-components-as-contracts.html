@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 40 — Accessible Components as Contracts</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 5 · Reinforcement 6 of 9</span>
+    <a href="0041-route-groups-layout-composition-and-metadata.html">Next: Route Groups, Layout Composition, and Metadata →</a>
+  </div>
+
+  <p class="kicker">Track 5 — Optional Reinforcement · 6 of 9</p>
+  <h1>Accessible Components as Contracts</h1>
+  <p class="lede">
+    Not a final styling pass before shipping — accessibility is part of what a component promises
+    to do, the same way a prop type is. Seven real components try to keep that promise, in seven
+    different ways, with mixed real results: <span class="filelink">UploadPanel</span>,
+    <span class="filelink">TopHeader</span>, <span class="filelink">SidebarNav</span>,
+    <span class="filelink">BusinessErrorMessage</span>, <span class="filelink">DataTable</span>,
+    and both chart components. This lesson traces exactly how each one actually behaves — not just
+    the ones that get it right.</p>
+
+  <div class="cite">
+    <p class="box-label">Primary sources</p>
+    <p>MDN's <a href="https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA">"ARIA"</a>
+    overview, for the first rule of ARIA use — prefer a native element's built-in semantics over
+    adding ARIA to a generic one. The W3C WAI ARIA Authoring Practices Guide's
+    <a href="https://www.w3.org/WAI/ARIA/apg/practices/names-and-descriptions/">"Names and
+    Descriptions"</a> page, for what an accessible name actually is, how it's computed, and which
+    roles are prohibited from having one. The APG's
+    <a href="https://www.w3.org/WAI/ARIA/apg/patterns/alert/">"Alert"</a> pattern and
+    <a href="https://www.w3.org/WAI/ARIA/apg/patterns/table/examples/sortable-table/">sortable-table
+    example</a>, for <code>role="alert"</code> and <code>aria-sort</code> respectively. WCAG's
+    <a href="https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html">"Focus Visible"</a>
+    and <a href="https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html">"Use of Color"</a>
+    understanding pages, for the objective tests this lesson's focus and color sections are held
+    to.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Why this matters</p>
+    <p>All three mission drivers apply: you can explain in an interview what a specific real
+    control's accessible name and keyboard behavior are, not just gesture at "accessibility" in
+    the abstract; semantic-HTML-first, accessible naming, and color-plus-text status signaling are
+    portable to any component library; and treating this as a contract — something a component can
+    honor or break, like a prop type — is what keeps you from silently regressing it while
+    extending this repo's UI.</p>
+  </div>
+
+  <h2>Semantic HTML before ARIA</h2>
+  <p>MDN states it as a first rule, not a suggestion: prefer a native HTML element or attribute
+  with the behavior you need already built in, before reaching for ARIA to bolt that behavior onto
+  a generic element. <span class="filelink">TopHeader.tsx</span>'s drawer toggle is a real
+  <code>&lt;button&gt;</code>, which means keyboard reachability, Enter/Space activation, and a
+  focusable default all come free, with zero extra code:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/layout/TopHeader.tsx</span>, lines 17–26</p>
+    <pre><code>&lt;button
+  type="button"
+  onClick={onToggle}
+  aria-expanded={isDrawerOpen}
+  aria-controls="mobile-sidebar-drawer"
+  aria-label={isDrawerOpen ? "Close navigation menu" : "Open navigation menu"}
+  className="-ml-2 rounded-md p-2 text-text-primary hover:bg-surface-muted lg:hidden"
+&gt;
+  {isDrawerOpen ? &lt;X size={20} aria-hidden="true" /&gt; : &lt;Menu size={20} aria-hidden="true" /&gt;}
+&lt;/button&gt;</code></pre>
+  </div>
+  <p>Skipping semantic HTML has a real cost, not just a theoretical one.
+  <span class="filelink">VerticalBucketBarChart.tsx</span>'s bar segments try to earn keyboard
+  reachability and a name by hand, because a plain <code>&lt;div&gt;</code> has neither natively:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/charts/VerticalBucketBarChart.tsx</span>, lines 51–56</p>
+    <pre><code>&lt;div
+  key={datum.label}
+  tabIndex={0}
+  aria-label={`${datum.label}: ${formatAmount(datum.value)} (${percent}% of total)`}
+  className="group relative flex h-full flex-1 cursor-default flex-col items-center justify-end gap-1 focus:outline-none"
+&gt;</code></pre>
+  </div>
+  <p><code>tabIndex={0}</code> genuinely works — it puts this div into normal tab order.
+  <code>aria-label</code> does not: a plain <code>&lt;div&gt;</code> with no ARIA role has the
+  implicit role <code>generic</code>, and the ARIA specification is explicit that elements with
+  that role have accessible naming <strong>prohibited</strong> — "authors MUST NOT use the
+  <code>aria-label</code> or <code>aria-labelledby</code> attributes to name the element." Browsers
+  and screen readers are free to ignore this <code>aria-label</code> entirely, which means this
+  div can be a real, focusable, silent stop in the tab order: reachable, but potentially unnamed.
+  This is a genuine, current gap, not a hypothetical one — <code>tabIndex</code> alone doesn't fix
+  what ARIA can't fix either.</p>
+  <p>A real fix exists one file over. <span class="filelink">DonutBreakdownChart.tsx</span> names
+  its segments the same way, with one crucial difference — see the next section. A native
+  <code>&lt;button&gt;</code> would be the wrong fix here, though: these segments don't perform an
+  action, they display a value, so the corrected version still wouldn't be a button — it would need
+  a nameable role (<code>role="img"</code>, an accessible <code>&lt;figure&gt;</code> with a text
+  summary, or an accompanying data table instead of adding every value to tab order individually).
+  Worth noticing while you're here: <span class="filelink">DataTable.tsx</span>'s sortable column
+  headers <em>are</em> real <code>&lt;button&gt;</code>s, so clicking and keyboard-activating one
+  both work for free — but the current sort direction is only conveyed by a visible
+  <code>▲</code>/<code>▼</code> character in the button's own text, never by an
+  <code>aria-sort</code> attribute on the header cell itself, which is what the WAI's own
+  sortable-table pattern actually calls for. Another real, current gap.</p>
+
+  <h2>A working contrast: two charts, two different real outcomes</h2>
+  <p><span class="filelink">DonutBreakdownChart.tsx</span> names its segments with the same intent
+  as the bar chart, but a different, nameable role:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/charts/DonutBreakdownChart.tsx</span>, lines 83–85</p>
+    <pre><code>tabIndex={0}
+role="img"
+aria-label={segmentTitle}</code></pre>
+  </div>
+  <p><code>role="img"</code> changes this circle's implicit role from whatever an unstyled
+  <code>&lt;circle&gt;</code> would otherwise have to an explicitly nameable one — <code>img</code>
+  permits <code>aria-label</code> the same way an <code>&lt;img&gt;</code> tag's <code>alt</code>
+  text does. Same intent as the bar chart, same <code>tabIndex</code>/<code>aria-label</code>
+  pairing, but this one actually names the element, because the role underneath it allows a name at
+  all.</p>
+  <p>The donut chart isn't fully clean either, though. Its legend renders a second, independently
+  focusable element for the very same datum:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/charts/DonutBreakdownChart.tsx</span>, lines 117–119</p>
+    <pre><code>&lt;div
+  key={segment.label}
+  tabIndex={0}</code></pre>
+  </div>
+  <p>This legend row has no <code>role</code> and no <code>aria-label</code> — it's a plain,
+  focusable <code>generic</code> div again, relying on a screen reader choosing to read its visible
+  child text rather than on any computed accessible name. So for every single data point, a
+  keyboard user tabs through <em>two</em> stops — the named circle, then the unnamed-but-textful
+  legend row — for information that's logically one thing shown twice. Whether that's a deliberate,
+  useful redundancy (both hover targets have always mirrored each other) or just double the tab
+  stops for no real benefit is a fair question this lesson isn't going to resolve for you; the
+  exercise below asks you to feel it out yourself, with a keyboard.</p>
+
+  <h2>Accessible names: visible label text, or <code>aria-label</code> when there's none</h2>
+  <p>The APG defines an accessible name as the short string assistive tech announces for a
+  control, and its preferred source is visible text a sighted user would also read.
+  <span class="filelink">UploadPanel.tsx</span> renders two pieces of text that look, to a sighted
+  reader, like they'd both describe the file input — but only one of them actually does:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/workflow/UploadPanel.tsx</span>, line 54</p>
+    <pre><code>&lt;span className="text-sm font-semibold text-text-primary"&gt;{label}&lt;/span&gt;</code></pre>
+  </div>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/workflow/UploadPanel.tsx</span>, lines 64–74</p>
+    <pre><code>&lt;label
+  htmlFor={inputId}
+  className="flex cursor-pointer items-center justify-between gap-3 rounded-md border border-dashed border-border-strong bg-surface-subtle px-3 py-2 text-sm text-text-secondary hover:border-accent"
+&gt;
+  &lt;span className="truncate"&gt;{displayedFileName ?? "Choose a file…"}&lt;/span&gt;
+  &lt;span className="shrink-0 rounded-md bg-accent px-3 py-1 text-xs font-medium text-text-on-accent"&gt;
+    Browse
+  &lt;/span&gt;
+  &lt;input
+    id={inputId}
+    type="file"</code></pre>
+  </div>
+  <p>The <code>label</code> <em>prop</em> — "Orders File," "Product Master File," whatever the
+  caller passes — is that first, plain <code>&lt;span&gt;</code>. It's never inside any
+  <code>&lt;label&gt;</code> element and never referenced by <code>aria-labelledby</code>, so it
+  contributes nothing to the input's accessible name. The actual <code>&lt;label&gt;</code> element
+  is the second excerpt, further down, and its text is "Choose a file…" (or the current filename)
+  plus "Browse" — <code>useId()</code> only guarantees the <code>htmlFor</code>/<code>id</code>
+  pairing is unique per instance, it does nothing to make the <em>name</em> unique. The real,
+  current consequence: <span class="filelink">order-validation/page.tsx</span> renders two
+  <code>UploadPanel</code>s, "Orders File" and "Product Master File," and both compute to
+  essentially the identical accessible name — a screen reader user navigating by form control
+  would hear "Choose a file, Browse" twice, with nothing distinguishing which is which. The
+  visually obvious heading text never reaches assistive tech at all. The input itself is
+  <code>sr-only</code> (visually hidden, not <code>display: none</code>), so it does stay in the
+  tab order and keyboard-operable — that part works — but nothing in
+  <span class="filelink">UploadPanel.tsx</span>'s className list includes a
+  <code>focus-within:</code> variant on the visible label, so tabbing to that 1px, clipped,
+  visually-hidden input produces no visible focus indicator anywhere on screen. Two separate real
+  gaps, both in the same component.</p>
+  <p><code>TopHeader</code>'s icon-only toggle button, from the first excerpt in this lesson, gets
+  the naming half of this right: it has no visible text at all — an icon alone isn't a name — so it
+  supplies one directly and correctly with
+  <code>aria-label={isDrawerOpen ? "Close navigation menu" : "Open navigation menu"}</code>, on a
+  real <code>&lt;button&gt;</code>, a role that (unlike <code>generic</code>) permits a name.</p>
+
+  <h2>ARIA that describes real state, computed from the same state as the visuals</h2>
+  <p>Every <em>stateful</em> ARIA attribute in this repo is bound to the same variable driving
+  what's already on screen — never hardcoded, never guessed. (Not every ARIA attribute is
+  stateful, though — <code>aria-hidden="true"</code> on a decorative icon and
+  <code>aria-controls="mobile-sidebar-drawer"</code>'s literal ID string are both intentionally
+  fixed values, not derived from anything that changes.) <span class="filelink">SidebarNav.tsx</span>
+  marks the active page:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/layout/SidebarNav.tsx</span>, line 29</p>
+    <pre><code>const active = pathname === item.href;</code></pre>
+  </div>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/layout/SidebarNav.tsx</span>, line 35</p>
+    <pre><code>aria-current={active ? "page" : undefined}</code></pre>
+  </div>
+  <p><code>aria-current="page"</code> tells assistive tech "this link represents the page you're
+  currently on" — the exact same <code>active</code> boolean that also drives the link's visible
+  highlight styling a few lines later, so the two can never silently disagree. <code>TopHeader</code>'s
+  toggle button, from the first excerpt, does the same thing for its one genuinely stateful
+  attribute: <code>aria-expanded={isDrawerOpen}</code> announces whether the thing this button
+  controls is currently open. <span class="filelink">BusinessErrorMessage.tsx</span> uses a
+  different kind of ARIA — not a description of state at all, but a promise about timing:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/feedback/BusinessErrorMessage.tsx</span>, line 10</p>
+    <pre><code>&lt;div role="alert" className="rounded-xl border border-border bg-danger-subtle p-4 text-sm text-danger"&gt;</code></pre>
+  </div>
+  <p><code>role="alert"</code> is an implicit live region — the APG's own description is that
+  content appearing inside one is announced automatically by most screen readers, without the user
+  needing to have focus anywhere near it. The general rule is broader than this one component:
+  live regions announce <em>dynamic</em> changes — content that's genuinely new or changed after
+  the page has already loaded, whether that's React mounting a whole new element (what happens
+  here, since the error text doesn't exist in the DOM until there's a real error) or an existing
+  live region's own text being updated in place. What a live region does <em>not</em> do is
+  announce content that was already sitting in the initial markup before the page finished
+  loading — screen readers don't retroactively narrate what was already there.</p>
+
+  <h2>Decorative icons: <code>aria-hidden</code> so screen readers skip the noise</h2>
+  <p>An icon sitting next to text that already says the same thing adds nothing for a screen
+  reader — worse, announcing it is noise. Several real icons in this repo are correctly hidden from
+  assistive tech with <code>aria-hidden="true"</code>: <code>TopHeader</code>'s menu/close icons
+  (first excerpt) sit right next to <code>aria-label</code> text that already says "Open/Close
+  navigation menu"; <span class="filelink">SidebarNav.tsx</span>'s per-item icons, line 43
+  (<code>&lt;Icon size={16} className="shrink-0" aria-hidden="true" /&gt;</code>), sit next to each
+  link's own visible label text; and <span class="filelink">VerticalBucketBarChart.tsx</span> hides
+  its horizontal guide lines outright, since they carry no information a screen reader could use at
+  all:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/charts/VerticalBucketBarChart.tsx</span>, lines 41–46</p>
+    <pre><code>&lt;span
+  key={percent}
+  aria-hidden="true"
+  className="absolute inset-x-0 border-t border-border"
+  style={{ bottom: `${percent}%` }}
+/&gt;</code></pre>
+  </div>
+  <p>The rule, where it's applied: if removing an element would cost a screen reader user zero
+  information, it should be <code>aria-hidden</code>; if it would cost them the <em>only</em> copy
+  of some information, it needs a real accessible name instead. But "where it's applied" is doing
+  real work in that sentence — <span class="filelink">MetricCard.tsx</span> doesn't apply it at
+  all:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/workflow/MetricCard.tsx</span>, lines 35–44</p>
+    <pre><code>{icon ? (
+  &lt;span
+    className={cn(
+      "flex h-7 w-7 shrink-0 items-center justify-center rounded",
+      CHIP_TONE_CLASSES[tone],
+    )}
+  &gt;
+    {icon}
+  &lt;/span&gt;
+) : null}</code></pre>
+  </div>
+  <p>The component's own comment calls this icon "decorative only," and the icon it renders — a
+  Lucide component like <code>&lt;ClipboardList size={16} /&gt;</code> — is a real, visible
+  <code>&lt;svg&gt;</code> that nothing here marks as <code>aria-hidden</code>. It isn't hidden
+  automatically either: this repo's installed Lucide version builds its SVG output from a fixed set
+  of default attributes that doesn't include <code>aria-hidden</code>, so unless a caller passes it
+  explicitly as a prop, the icon stays exposed to assistive tech. In practice this is a small, real
+  gap — a screen reader visiting a KPI tile may announce an unlabeled graphic alongside the number
+  and label it sits next to — not a large one, but the same category of gap as the bar chart's
+  <code>aria-label</code> and the missing <code>aria-sort</code>: something this lesson names
+  rather than quietly working around.</p>
+
+  <h2>Visible focus: replacing the outline, never just deleting it</h2>
+  <p>"Is there a visible focus indicator" isn't purely a matter of taste — WCAG's Focus Visible
+  guidance gives three concrete, checkable tests: is the focused element clearly identifiable; does
+  the indication stay visible for as long as focus remains there; and is it actually distinguishable
+  from the unfocused state, not just technically different. Judge every example below against
+  those three, not against whether it looks conventional.</p>
+  <p><span class="filelink">UploadPanel.tsx</span>'s file input fails the first test outright, per
+  the gap named above: its visible label has no <code>focus-within:</code> styling at all, so
+  tabbing to the <code>sr-only</code> input produces no identifiable change anywhere on screen.
+  That one isn't a judgment call — there's simply nothing there.</p>
+  <p>The bar-segment div from this lesson's first section is a genuinely closer case. It also
+  removes the browser's default focus ring — <code>focus:outline-none</code>, in that same class
+  list — but two sibling elements react to that same focus with <code>group-focus:</code> classes:
+  the tooltip becomes visible (<code>group-focus:opacity-100</code>), and the bar itself dims
+  (<code>group-focus:opacity-70</code>), the identical pair of changes that already happen on
+  hover. Run the three tests yourself: is the focused bar identifiable (a tooltip does appear); does
+  it stay while focus remains (yes, nothing times it out); is it distinguishable from the unfocused
+  state (a 30%-opacity dim and a tooltip, rather than a ring). <span class="filelink">DonutBreakdownChart.tsx</span>'s
+  circles do the same trade — outline removed, replaced by the identical hover-opacity change. Its
+  legend rows remove the outline too, but replace it differently: <code>onFocus</code> sets the
+  same <code>hoveredLabel</code> state <code>onMouseEnter</code> does, which both applies a
+  background highlight (<code>isHovered ? "bg-surface-muted" : ""</code>) and reveals an extra
+  percentage figure next to the value. Three different real replacements for one deleted outline,
+  across three components — this lesson states the test and the facts for each; which of them pass
+  it by your own judgment is the exercise below.</p>
+
+  <h2>Color is never the only signal</h2>
+  <p>WCAG's Use of Color criterion states this plainly: color must never be the only visual means
+  of conveying information. <span class="filelink">StatusBadge.tsx</span> never renders a tone
+  without the word that earned it — <code>&lt;Badge tone={tone}&gt;{status}&lt;/Badge&gt;</code>
+  always passes the real status string as the badge's visible content, never color alone:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/ui/Badge.tsx</span>, lines 42–45</p>
+    <pre><code>&lt;span className={cn(badgeVariants({ tone: resolvedTone }), className)} {...props}&gt;
+  {dot ? &lt;span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", DOT_TONE_CLASSES[resolvedTone])} /&gt; : null}
+  {children}
+&lt;/span&gt;</code></pre>
+  </div>
+  <p>Every status this repo shows — "Fully Allocated," "High," "90+ Days" — carries its tone as a
+  colored dot and colored text <em>in addition to</em> the word itself, never as a replacement for
+  it. A colorblind visitor, or anyone on a low-contrast screen in bright sunlight, still gets the
+  actual answer by reading, not by correctly guessing which shade of a status color they're
+  looking at.</p>
+
+  <div class="say-avoid">
+    <div class="say-avoid-col say">
+      <p class="box-label">Correct framing</p>
+      <p>"This control's accessible name comes from its visible label text; if I remove that text,
+      I've broken the same contract a missing required prop would break — it just fails silently
+      for a screen reader user instead of failing a typecheck."</p>
+    </div>
+    <div class="say-avoid-col avoid">
+      <p class="box-label">A framing to avoid</p>
+      <p>"I'll add accessibility once the feature is visually done." (Every real example in this
+      lesson is accessibility built into the component's first version, not bolted on after —
+      <code>aria-current</code> and <code>aria-expanded</code> are one line each, computed from
+      state the component already has. Treating it as a separate final pass is what makes it feel
+      expensive; it's cheap when it's part of the same change.)</p>
+    </div>
+  </div>
+
+  <h2>Retrieval check</h2>
+  <div class="box checkpoint">
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">DataTable's sortable header button gets a valid accessible name from its own visible text. Why might VerticalBucketBarChart's bar-segment <code>aria-label</code> be ignored entirely?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">aria-label only ever works inside SVG elements, never in plain HTML</button>
+        <button class="quiz-option" data-correct="true">A plain div's implicit role is generic, which prohibits accessible names</button>
+        <button class="quiz-option" data-correct="false">Screen readers ignore aria-label on any element that also has tabIndex</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What actually determines whether a role="alert" element gets announced?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Whether the element is wrapped in a Fragment instead of a div</button>
+        <button class="quiz-option" data-correct="true">Whether its content is genuinely new or changed after the page loads</button>
+        <button class="quiz-option" data-correct="false">Whether the alert's own text runs shorter than roughly one full sentence</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does StatusBadge always render the status word, not just a colored dot?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Colored-dot-only badges always fail to compile under this repo's own TypeScript config</button>
+        <button class="quiz-option" data-correct="true">Color alone can't be the only way a status is ever communicated</button>
+        <button class="quiz-option" data-correct="false">Badge requires text content as a matter of React's own prop validation</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <h2>Tiny exercise (8 minutes)</h2>
+  <div class="box exercise">
+    <p class="box-label">Exercise — apply the three-part test yourself, with a keyboard</p>
+    <p><strong>Part 1 — the objective case.</strong> Predict first: on Order Validation, tabbing
+    into the "Orders File" upload control, will you see <em>any</em> visible change at all? Then
+    click somewhere else on the page, press Tab until focus should be on that file input, and look.
+    Run WCAG's three checks: identifiable, persistent, distinguishable. This one should fail
+    outright — there's genuinely nothing to see, which is the point of calling it an objective gap
+    rather than a judgment call.</p>
+    <p><strong>Part 2 — the judgment calls.</strong> On the Dashboard page (run sample data first
+    if nothing's loaded), find the "Outstanding by Aging Bucket" bar chart and the "Allocation
+    Status" donut chart, side by side. Predict, then tab through each: for the bar chart, watch one
+    bar segment; for the donut, watch what happens across <em>both</em> a circle segment and its
+    matching legend row — you should feel two distinct stops for the same data point. Apply the
+    same three-part test to all three (bar segment, donut circle, donut legend row) and decide,
+    for each, whether it passes. Also judge the donut's doubled stops on their own terms: redundant,
+    or a reasonable way to make the same information reachable two ways? Nothing to undo in either
+    part — this exercise doesn't touch any code.</p>
+  </div>
+
+  <div class="ask-teacher">
+    If you can name the accessible name and keyboard behavior of at least three different real
+    controls from this lesson without looking back, it's landed. This lesson deliberately stops
+    before the mobile drawer's own focus-trap behavior — where keyboard focus goes when the drawer
+    opens and closes — which is reserved for the deferred mobile-nav retrospective, not this
+    lesson. Ask here if the accessible-name-vs-ARIA-state distinction still feels blurry before
+    Lesson 41.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0039-css-layout-flow-flex-grid-and-overflow.html">← Back: CSS Layout: Flow, Flex, Grid, and Overflow</a>
+    <a href="0041-route-groups-layout-composition-and-metadata.html">Next: Route Groups, Layout Composition, and Metadata →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

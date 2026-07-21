@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 39 — CSS Layout: Flow, Flex, Grid, and Overflow</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 5 · Reinforcement 5 of 9</span>
+    <a href="0040-accessible-components-as-contracts.html">Next: Accessible Components as Contracts →</a>
+  </div>
+
+  <p class="kicker">Track 5 — Optional Reinforcement · 5 of 9</p>
+  <h1>CSS Layout: Flow, Flex, Grid, and Overflow</h1>
+  <p class="lede">
+    Every lesson so far assumed you could already read a Tailwind class list. This one assumes
+    nothing — it's the CSS prerequisite Tutorial 11 had to half-teach mid-debug. The throughline:
+    for any real layout in this repo, you should be able to identify every size constraint and
+    overflow boundary in an element's ancestor chain, and name exactly which region and axis each
+    one owns, before you ever touch a class.</p>
+
+  <div class="cite">
+    <p class="box-label">Primary sources</p>
+    <p>MDN's <a href="https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/CSS_layout/Introduction">"Introduction to CSS layout"</a>
+    for normal flow and the box model; MDN's <a href="https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/CSS_layout/Flexbox">"Flexbox"</a>
+    for the main/cross axis; MDN's <a href="https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/CSS_layout/Grids">"Grids"</a>
+    for tracks and the <code>fr</code> unit; MDN's <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/min-width"><code>min-width</code>
+    reference</a> specifically for the automatic-minimum-size rule the "Intrinsic minimum size"
+    section below depends on; MDN's <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/overflow"><code>overflow</code>
+    reference</a> for the precise difference between <code>hidden</code> and <code>clip</code> the
+    "Overflow ownership" section draws on; and Tailwind's <a href="https://v3.tailwindcss.com/docs/responsive-design">"Responsive Design"</a>
+    page for the mobile-first breakpoint convention.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Why this matters</p>
+    <p>All three mission drivers apply: you can explain in an interview which element owns height
+    and which region owns scrolling for a given axis in a layout you're looking at for the first
+    time; normal flow, flex, grid, and overflow ownership are the same four mechanisms in every CSS
+    codebase, Tailwind or not; and diagnosing a layout bug in this repo by naming the responsible
+    ancestor and axis is faster and safer than guessing at classes until a screenshot looks
+    right.</p>
+  </div>
+
+  <h2>Normal flow and the box model, fast</h2>
+  <p>Without any layout CSS at all, block-level elements — <code>div</code>, <code>p</code>,
+  <code>section</code>, and similar — stack top to bottom, each one as wide as its parent allows.
+  This is <strong>normal flow</strong>, the default every other layout method in this lesson
+  deliberately overrides. Every element also has a <strong>box model</strong>: content, then
+  padding, then a border, then margin, nested like layers. This repo's Tailwind setup uses
+  <code>box-sizing: border-box</code> globally (Tailwind's Preflight reset), so padding and border
+  are included <em>inside</em> whatever width or height you set — a <code>w-64</code> element with
+  padding doesn't grow past 16rem, the content area just gets narrower to make room:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/ui/Card.tsx</span>, line 14</p>
+    <pre><code>"rounded-xl border border-border bg-surface p-6 shadow-sm"</code></pre>
+  </div>
+  <p><code>p-6</code> is 1.5rem of padding on all four sides, inside a 1px <code>border</code>,
+  inside whatever width the caller's own layout gives this <code>Card</code>. Nothing here
+  positions the card relative to anything else — that's normal flow's job, and it's already
+  handling it by default.</p>
+
+  <h2>Flex: two axes, traced through one real shell</h2>
+  <p>Flexbox lays child elements out along one <strong>main axis</strong> and lets them stretch or
+  compress along the perpendicular <strong>cross axis</strong>. <code>flex-row</code> (the
+  default) makes the main axis horizontal; <code>flex-col</code> makes it vertical.
+  <span class="filelink">AppShell.tsx</span> uses both, nested:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/layout/AppShell.tsx</span>, lines 55–58, 73–77 (the mobile drawer's JSX, lines 59–72, is omitted — Lesson 40's territory, not layout)</p>
+    <pre><code>&lt;div className="flex h-screen overflow-hidden bg-background"&gt;
+  &lt;div className="hidden lg:block"&gt;
+    &lt;SidebarNav /&gt;
+  &lt;/div&gt;
+
+  &lt;div className="flex h-full flex-1 flex-col overflow-hidden"&gt;
+    &lt;TopHeader isDrawerOpen={isDrawerOpen} onToggle={() =&gt; setIsDrawerOpen((value) =&gt; !value)} /&gt;
+    &lt;main className="flex-1 overflow-y-auto"&gt;{children}&lt;/main&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+  </div>
+  <p>The outer <code>div</code> is <code>flex</code> (row by default) — its main axis is
+  horizontal, so the sidebar and the content column sit side by side; its cross axis is vertical.
+  The inner <code>div</code> is <code>flex-col</code> — for <em>its</em> children, the main axis
+  flips to vertical, stacking <code>TopHeader</code> above <code>main</code>. <code>flex-1</code>
+  means "grow to fill whatever space is left along the main axis": the content column claims
+  whatever horizontal space the sidebar doesn't use, and <code>main</code> claims whatever
+  vertical space <code>TopHeader</code> doesn't use. <span class="filelink">TopHeader.tsx</span>
+  itself is <code>h-14 shrink-0</code> — a fixed height, and an explicit refusal to compress even
+  if space runs short, which is exactly why <code>main</code> is the one that absorbs whatever
+  space remains instead.</p>
+
+  <h2>Grid: explicit tracks instead of one axis</h2>
+  <p>Where flex distributes space along a single axis item-by-item, CSS Grid lets you declare
+  <strong>explicit tracks</strong> up front — named column and row sizes the whole layout is built
+  around:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/landing/ValueSection.tsx</span>, line 9</p>
+    <pre><code>"grid grid-cols-1 gap-8 md:grid-cols-[1fr_2fr] md:gap-16"</code></pre>
+  </div>
+  <p>At the default (mobile) size, <code>grid-cols-1</code> is one track — everything stacks in a
+  single column. At the <code>md:</code> breakpoint and up, <code>grid-cols-[1fr_2fr]</code>
+  declares exactly two tracks using the <code>fr</code> ("fraction") unit: the parent weights them
+  1:2. That's the heading/intro block on the left and the value-list block on the right — but
+  <code>fr</code> distributes <em>available</em> space, not all space, so this is a target ratio,
+  not a content-independent guarantee. If either block's own content needed more than its share
+  (a long unbreakable word, for instance), that intrinsic minimum would be satisfied first, and
+  only what's left would actually split 1:2. Here neither block forces that, so the split lands
+  exactly on ratio — but the mechanism is "weight the remaining space," not "ignore content
+  entirely."</p>
+
+  <h2>Intrinsic minimum size: why a flex child won't just shrink</h2>
+  <p>A flex item's default minimum size along the main axis isn't zero — by default it won't
+  shrink below its own content's natural size, even if <code>flex-1</code> or a sibling's
+  <code>shrink-0</code> is actively squeezing it. <span class="filelink">UploadPanel.tsx</span> has
+  both the problem and two different real fixes for it:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/workflow/UploadPanel.tsx</span>, lines 68–71</p>
+    <pre><code>&lt;span className="truncate"&gt;{displayedFileName ?? "Choose a file…"}&lt;/span&gt;
+&lt;span className="shrink-0 rounded-md bg-accent px-3 py-1 text-xs font-medium text-text-on-accent"&gt;
+  Browse
+&lt;/span&gt;</code></pre>
+  </div>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/workflow/UploadPanel.tsx</span>, lines 87–94</p>
+    <pre><code>&lt;span className="min-w-0 text-xs text-text-muted"&gt;Need a starting point? Use the sample file.&lt;/span&gt;
+&lt;a
+  href={getSampleFileUrl(sampleFileName)}
+  download
+  className={cn(buttonVariants({ variant: "dark" }), "shrink-0 whitespace-nowrap")}
+&gt;
+  Sample file
+&lt;/a&gt;</code></pre>
+  </div>
+  <p>Both pairs sit in a <code>flex items-center justify-between</code> row with a long text label
+  on one side and a fixed-size button on the other. The buttons are <code>shrink-0</code> — an
+  explicit refusal to compress, the same class <code>TopHeader</code> used above. The labels take
+  two different real routes to the opposite problem — being <em>allowed</em> to shrink below their
+  own text's full width instead of pushing the button out of the row. The second label sets
+  <code>min-w-0</code> directly, overriding the default. The first doesn't need to: MDN's own
+  <code>min-width</code> reference documents that once a flex item becomes a <strong>scroll
+  container</strong> — an element whose overflow would establish one, which
+  <code>overflow: hidden</code> does — its automatic minimum size becomes zero instead of
+  content-based. <code>truncate</code> already sets <code>overflow: hidden</code> as part of what
+  it does, so that span gets the same effect as a side benefit, not a separate rule. (This isn't
+  true of every non-<code>visible</code> overflow value — <code>overflow: clip</code> is a
+  deliberate exception, covered below.)</p>
+
+  <h2>Overflow ownership: which region scrolls, on which axis</h2>
+  <p>"Overflow" isn't one setting, and a page rarely has just one scroll owner — the actual
+  question is always "for this region and this axis, which element owns it?"
+  <code>overflow-hidden</code> clips content with no visible scrollbar and no ordinary
+  click-and-drag or scroll-wheel access, but it's still a <strong>scroll container</strong>:
+  tabbing to a clipped focusable element scrolls it into view, and code can still scroll it
+  programmatically (<code>scrollTo()</code>, setting <code>scrollTop</code>).
+  <code>overflow: clip</code> — not used anywhere in this repo, but worth knowing exists — is the
+  one that's genuinely unreachable: no scroll container at all, no programmatic scroll, and a
+  focused descendant stays exactly where it is instead of scrolling into view.
+  <code>overflow-y-auto</code>/<code>overflow-x-auto</code> add a visible scrollbar along one
+  specific axis, only if that axis's content actually exceeds its box. This repo layers several of
+  these at once, at different scopes, inside the same page:</p>
+  <p><strong>The workspace shell has two independent internal scroll regions, not one.</strong>
+  <code>AppShell</code>'s outer <code>div</code> is <code>h-screen overflow-hidden</code> — pinned
+  to exactly the viewport height, clipping anything that doesn't fit inside it. Two different
+  descendants each own their own scrolling within that fixed frame — <code>&lt;main&gt;</code>,
+  from the excerpt above, for the workspace content, and:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/layout/SidebarNav.tsx</span>, line 24</p>
+    <pre><code>&lt;nav className="flex h-full w-60 shrink-0 flex-col gap-1 overflow-y-auto bg-surface-inverse p-4"&gt;</code></pre>
+  </div>
+  <p>— for the navigation list, independently, if it ever grows taller than the viewport. The
+  sidebar <em>region</em> stays fixed in place — it doesn't slide off-screen when
+  <code>&lt;main&gt;</code> scrolls — but its own contents can still scroll on their own axis,
+  inside that fixed region. The rule was never "one scrollbar for the whole shell"; it's "every
+  region gets exactly the scroll behavior its own content needs," identified one ancestor chain at
+  a time.</p>
+  <p><strong>The public site scrolls as a page.</strong> <span class="filelink">app/(public)/layout.tsx</span>
+  takes the opposite approach entirely:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">app/(public)/layout.tsx</span>, line 8</p>
+    <pre><code>&lt;div className="flex min-h-screen flex-col bg-background"&gt;</code></pre>
+  </div>
+  <p><code>min-h-screen</code>, not <code>h-screen</code> — a floor, not a ceiling. This container
+  is free to grow taller than the viewport, and nothing here has <code>overflow-hidden</code> or
+  an internal scroll region, so the browser's own page scrollbar handles it. Marketing/landing
+  pages behave like an ordinary webpage; workspace pages behave like an app shell — same
+  <code>flex-col</code> structure, opposite overflow strategy, because they're different kinds of
+  pages.</p>
+  <p><strong>A table owns its own horizontal scroll, nested inside both.</strong>
+  <span class="filelink">Table.tsx</span> wraps every table in two layers, each with a different
+  job:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/ui/Table.tsx</span>, lines 14–19</p>
+    <pre><code>&lt;div className="rounded-xl border border-border overflow-hidden"&gt;
+  &lt;div className="overflow-x-auto"&gt;
+    &lt;table className={cn("w-full border-collapse text-xs", className)} {...props} /&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+  </div>
+  <p>The outer <code>div</code>'s <code>overflow-hidden</code> isn't there to scroll anything — a
+  table with square cell corners would otherwise poke past the outer <code>rounded-xl</code>
+  corners, so this just clips them clean. The actual scroll container is the inner
+  <code>div</code>, <code>overflow-x-auto</code>, wrapping only the <code>&lt;table&gt;</code>
+  itself — a wide table with many columns scrolls sideways in its own bounded box, completely
+  independent of whatever vertical scrolling <code>&lt;main&gt;</code> is doing around it. Two
+  axes, two separate owners, at two different levels of nesting.</p>
+
+  <h2>Mobile-first breakpoints</h2>
+  <p>Tailwind's breakpoint prefixes (<code>sm:</code>, <code>md:</code>, <code>lg:</code>, ...)
+  read mobile-first: an unprefixed class applies at every screen size as the baseline, and a
+  prefixed class overrides it starting at that breakpoint and up — never the other way around.
+  Both examples already shown in this lesson are mobile-first in exactly this sense:
+  <code>AppShell</code>'s sidebar is <code>hidden lg:block</code> — invisible by default, shown
+  only once the viewport is at least the <code>lg</code> breakpoint wide, which is why a mobile
+  drawer exists at all. <code>ValueSection</code>'s <code>grid-cols-1 md:grid-cols-[1fr_2fr]</code>
+  is the same pattern applied to a track layout instead of visibility: one column below
+  <code>md</code>, two above it.</p>
+
+  <div class="say-avoid">
+    <div class="say-avoid-col say">
+      <p class="box-label">Correct framing</p>
+      <p>"Before I change a class, I can point to which ancestor owns this element's height and
+      which descendant, if any, owns its scrolling — then I know whether I'm changing the right
+      layer."</p>
+    </div>
+    <div class="say-avoid-col avoid">
+      <p class="box-label">A framing to avoid</p>
+      <p>"I'll just add a width or height until this screenshot looks right." (Without knowing
+      which ancestor owns height and which owns scrolling, a fix that repairs one viewport can
+      easily break another, or create a second, nested scrollbar nobody asked for. This exact
+      shell has its own reserved historical retrospective — the deferred Phase 9.1 tutorial — for
+      that specific story; this lesson deliberately stops at the general mechanics needed to
+      understand it later, not the story itself.)</p>
+    </div>
+  </div>
+
+  <h2>Retrieval check</h2>
+  <div class="box checkpoint">
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">In <code>AppShell</code>'s inner <code>flex-col</code> div, why does <code>&lt;main&gt;</code> absorb the leftover space instead of <code>TopHeader</code>?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">main is declared later in the file, and later elements grow first</button>
+        <button class="quiz-option" data-correct="true">Header has fixed height and cannot shrink; main grows into remaining space</button>
+        <button class="quiz-option" data-correct="false">overflow-y-auto by itself already forces an element to claim all remaining space</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does the first UploadPanel label truncate correctly without an explicit <code>min-w-0</code>?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Tailwind's truncate class secretly applies min-w-0 as one of its rules</button>
+        <button class="quiz-option" data-correct="true">truncate already sets overflow: hidden, which zeroes the automatic minimum size</button>
+        <button class="quiz-option" data-correct="false">Spans never receive an automatic minimum width, only div elements do</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why does Table.tsx wrap its table in two nested divs instead of one?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">React always requires an extra wrapper div around every table element</button>
+        <button class="quiz-option" data-correct="true">Each div owns a different job: clipping square corners, not scrolling</button>
+        <button class="quiz-option" data-correct="false">The extra div only exists to satisfy this repo's ESLint configuration</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <h2>Tiny exercise (7 minutes)</h2>
+  <div class="box exercise">
+    <p class="box-label">Exercise — predict, then watch it break safely</p>
+    <p>Before touching anything: predict, out loud, what will visually happen to a workspace page
+    with a lot of table rows (Order Validation, after running sample data, works well) if
+    <code>&lt;main&gt;</code>'s <code>overflow-y-auto</code> disappeared. Specifically: would the
+    <em>whole browser window</em> grow a scrollbar instead, or would something else happen? Base
+    your prediction on which ancestor in <span class="filelink">AppShell.tsx</span> already has
+    <code>overflow-hidden</code>.</p>
+    <p>Then make the edit for real — in <span class="filelink">components/layout/AppShell.tsx</span>,
+    change <code>&lt;main className="flex-1 overflow-y-auto"&gt;</code> to
+    <code>&lt;main className="flex-1"&gt;</code> — save, and look at a long workspace page in the
+    running dev app. You should see the bottom rows simply missing, with no scrollbar <em>capable
+    of reaching the clipped main content</em>: the outer shell's <code>h-screen overflow-hidden</code>
+    (and the content column's own <code>overflow-hidden</code>) still clip everything past the
+    viewport, and nothing else in <em>main's own ancestor chain</em> has <code>overflow-y-auto</code>
+    to take over. The sidebar, notice, is unaffected either way — it's a sibling branch with its
+    own independent <code>overflow-y-auto</code>, not part of main's chain at all, so this edit
+    doesn't touch its scrolling one way or the other. Undo the edit with your editor's Undo
+    (Cmd/Ctrl+Z) — not <code>git checkout --</code>, which would discard any other unstaged
+    changes in the file too — and confirm the page scrolls normally again.</p>
+  </div>
+
+  <div class="ask-teacher">
+    If your prediction was "main's content gets clipped with no scrollbar reaching it," not "the
+    whole page scrolls instead," you've internalized overflow ownership. If you predicted the
+    page-scroll outcome, that's a very natural guess — it's just not what an ancestor with
+    <code>overflow-hidden</code> allows — and it's worth asking about here before Lesson 40, which
+    builds directly on being able to name a component's accessible behavior the same precise way
+    this lesson named its layout.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0038-list-keys-identity-generics-and-memoized-derivations.html">← Back: List Keys, Identity, Generics, and Memoized Derivations</a>
+    <a href="0040-accessible-components-as-contracts.html">Next: Accessible Components as Contracts →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

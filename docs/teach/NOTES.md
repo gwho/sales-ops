@@ -518,3 +518,299 @@
     - `ROADMAP.md`'s `0038` row and this entry's own earlier bullet were both corrected to match —
       the review explicitly asked that the incorrect "safe row key" claim not be left standing in
       either tracking file.
+- 2026-07-21: shipped `0039-css-layout-flow-flex-grid-and-overflow.html`, the fifth lesson in the
+  Track 5 optional reinforcement sequence, same one-at-a-time pacing. This is the first lesson in
+  the sequence that isn't React/TypeScript mechanics — pure CSS layout, assumed as zero prior
+  knowledge like every other Track 5 lesson.
+  - Content follows the task file's brief closely, organized around the throughline the task
+    file's own "tangible win" names: which ancestor owns height, and (per a same-day review pass,
+    see below) which region owns scrolling for which axis — not a single global scroll owner. All
+    five named target files were used with real, verified examples rather than invented ones:
+    `Card.tsx` (box model/border-box), `AppShell.tsx` (flex main/cross axis, traced through its
+    real nested `flex`/`flex-col` structure), `ValueSection.tsx` (grid tracks, the `fr` unit, and a
+    second mobile-first example), `UploadPanel.tsx` (intrinsic minimum size, two genuinely
+    different real fixes to the same problem), and `AppShell.tsx`, `SidebarNav.tsx`,
+    `app/(public)/layout.tsx`, and `Table.tsx` together for overflow ownership (several real,
+    independently-scoped strategies layered on the same page, not one blanket rule).
+  - The intrinsic-minimum-size claim — that `UploadPanel`'s `truncate` span correctly truncates
+    without an explicit `min-w-0`, because `overflow: hidden` alone already zeroes a flex item's
+    automatic minimum size per the CSS spec — was verified against MDN's `min-width` reference
+    before writing a word of the lesson, not assumed from general flexbox familiarity. This is the
+    most technically subtle claim in the lesson and the one most likely to be wrong if guessed at;
+    it wasn't guessed at.
+  - Caught and fixed two self-introduced verbatim-excerpt violations before treating the draft as
+    done, both in the same pattern the `0035` review originally flagged: an early draft of the
+    `AppShell.tsx` excerpt was hand-abridged with a `{/* SidebarNav */}`-style comment standing in
+    for real JSX, and an early draft of the `Table.tsx` excerpt replaced
+    `className={cn("w-full border-collapse text-xs", className)} {...props}` with a literal
+    `"..."` placeholder. Both were rewritten as genuinely verbatim excerpts (the `AppShell` one
+    using an honestly-labeled two-range citation, `lines 55–58, 73–77`, skipping the unrelated
+    mobile-drawer JSX) and verified with a script that specifically distinguishes real `{...props}`
+    JSX spread syntax from a truncation ellipsis, catching the exact class of mistake `0038`'s
+    review caught in prose rather than code.
+  - Caught and softened one unverified factual claim on a self-review before calling the draft
+    done, without being told to: an early draft of the "avoid" framing asserted that this exact
+    shell "routinely breaks another [viewport], or creates a second, nested scrollbar... a real
+    cost this repo has already paid once, in work the deferred Phase 9.1 retrospective covers in
+    full" — a specific claim about Phase 9.1's actual content that was never verified, and that
+    reading `docs/plan/phase-9.1-visual-alignment-fixes` to verify would itself have violated the
+    task file's explicit instruction not to pre-empt that reserved retrospective. Rewrote to note
+    only that the retrospective exists and is reserved for that shell's specific history, without
+    claiming to know or narrate what it contains — satisfies both the accuracy bar and the
+    non-pre-emption instruction at once, rather than trading one for the other.
+  - All five external URLs (MDN's "Introduction to CSS layout," "Flexbox," "Grids," and
+    `min-width` reference; Tailwind's "Responsive Design" page) were fetched and confirmed
+    live/on-topic before citing — more citations than any prior lesson in this sequence, justified
+    by the task file's own eight-concept list spanning both general CSS (MDN) and Tailwind-specific
+    convention (mobile-first prefixes).
+  - The exercise avoids the two known problem patterns from earlier reviews (an unsafe live edit,
+    or an inaccurate prediction stated as fact): removing `overflow-y-auto` from `AppShell.tsx`'s
+    `<main>` is safe and fully reversible, and the predicted outcome (content clipped with no
+    scrollbar able to reach it, not "the page scrolls instead" — later narrowed by review from an
+    overbroad "no scrollbar anywhere" claim, since `SidebarNav`'s own unrelated scrollbar is
+    unaffected) was reasoned through by hand against the real ancestor chain's actual
+    `overflow-hidden`/`h-screen` values before being written down.
+  - Navigation: `0038`'s forward nav (top and bottom) was rewired from its placeholder to a real
+    link to `0039`. `0039`'s own forward nav is now the placeholder, per the established
+    convention.
+  - No reference doc shipped this round — `css-layout-debugging-checklist.html` is `0039`'s named
+    companion per the task file, now genuinely ready to write, but wasn't requested this session;
+    flagged as pending in `ROADMAP.md` alongside the two other still-pending reference docs.
+  - No learning records written — correctly so, per this file's standing rule.
+  - **Post-draft review pass (same day) caught three substantive conceptual issues**, all in the
+    direction of "the lesson's model was too absolute for the real system it was describing."
+    - **The central "exactly one owner" framing was wrong**, not just imprecise:
+      `SidebarNav.tsx` line 24 (`<nav className="flex h-full w-60 shrink-0 flex-col gap-1
+      overflow-y-auto ...">`) has its own real `overflow-y-auto`, verified by directly reading the
+      file — a second, independent scroll region the lesson's "the only element in that whole tree
+      with `overflow-y-auto` is `<main>`" claim flatly missed. Rewrote around a per-region,
+      per-axis model instead ("identify every size constraint and overflow boundary, then name
+      which region and axis each one owns"), applied consistently: the lede, the mission box, the
+      workspace-shell section (now explicitly "two independent internal scroll regions, not one,"
+      with a real `SidebarNav.tsx` excerpt added), the exercise (narrowed from "no scrollbar
+      anywhere" to "no scrollbar capable of reaching the clipped main content," with an explicit
+      note that the sidebar is an unrelated sibling branch, unaffected by the exercise's edit
+      either way), `ROADMAP.md`, and this entry's own earlier bullet (below).
+    - **The Grid section overstated `fr` as content-independent**: `grid-cols-[1fr_2fr]` was
+      described as splitting exactly 1:2 "not by either block's own content — the parent grid
+      decided the split before either child rendered." Verified against MDN's own explicit note
+      that `fr` distributes *available* space, not all space, so a track with large intrinsic
+      content can still claim space before the remainder gets divided by weight. Rewrote as "a
+      target ratio, not a content-independent guarantee," and changed "fixed tracks" to "explicit
+      tracks" throughout, since "fixed" implied exactly the content-independence that isn't true.
+    - **`overflow-hidden` was described as leaving content "with no way to reach it," which is
+      false**: verified against MDN's `overflow` reference that `overflow: hidden` still
+      establishes a scroll container — tabbing to a clipped focusable element scrolls it into
+      view, and `scrollTo()`/`scrollTop` still work programmatically. `overflow: clip` is the
+      value that's genuinely unreachable (not a scroll container at all). Rewrote the "Overflow
+      ownership" section's opening to state this distinction precisely, added a new citation
+      (MDN's `overflow` reference) to the lesson's cite box and `RESOURCES.md`, and narrowed the
+      intrinsic-minimum-size section's parallel claim from "anything other than `visible`" to the
+      more precise "becomes a scroll container," explicitly flagging `overflow: clip` as the
+      documented exception rather than letting the two sections quietly contradict each other.
+    - Minor fixes applied in the same pass: quiz 1's correct answer no longer claims `<main>` has
+      "nothing capping it" (its parent does constrain it) — reworded to "Header has fixed height
+      and cannot shrink; main grows into remaining space," per the review's exact suggested
+      wording; quiz 2's options rebalanced from 11/10/10 words to 11/11/11.
+    - `ROADMAP.md`'s `0039` row and this entry's own earlier bullets were rewritten to match —
+      same standing practice `0038`'s review established, of not leaving a corrected claim
+      standing anywhere in the tracking files.
+- 2026-07-21 (later, same day): shipped `0040-accessible-components-as-contracts.html`, the sixth
+  lesson in the Track 5 optional reinforcement sequence, same one-at-a-time pacing. Densest concept
+  list of any lesson in this sequence so far — eleven named sub-concepts across six components —
+  handled by grouping into six sections around shared mechanisms rather than one section per
+  concept (e.g. `aria-current`, `aria-expanded`, and `role="alert"` share one section as "ARIA
+  computed from the same state driving the visuals," since that's the actual unifying idea, not
+  three unrelated attributes).
+  - All six named components (`UploadPanel`, `TopHeader`, `SidebarNav`, `BusinessErrorMessage`,
+    `DataTable`, both chart components) contributed real, verified excerpts — `Badge.tsx` was
+    added as a seventh, since `StatusBadge` itself is a thin wrapper and the actual
+    color-plus-text rendering lives one layer down.
+  - Caught and fixed two of my own verbatim/citation errors before treating the draft as done,
+    both by re-reading the real files against my own draft rather than trusting memory: (1) the
+    `UploadPanel.tsx` excerpt was mislabeled `lines 64–72` when the quoted content actually ran
+    through line 74 — fixed after re-reading the file directly; (2) the `SidebarNav.tsx` excerpt
+    used a literal `...` inside a `<pre><code>` block to bridge two non-adjacent lines (29 and 35)
+    — the exact class of mistake `0039`'s own self-review had just caught and fixed in a different
+    spot. Split into two separate single-line boxed excerpts instead, consistent with how `0038`'s
+    review-driven fix and `0039`'s `AppShell` fix both handled non-contiguous real citations.
+  - Named one real, current, unfixed gap in the repo rather than presenting every example as
+    flawless, continuing the precedent `0038`'s row-key finding set: `DataTable`'s sortable column
+    headers are real `<button>`s (keyboard/click semantics free) but convey the current sort
+    direction only via a visible `▲`/`▼` character, never `aria-sort` on the header cell — checked
+    directly with `grep -rn "aria-sort"` across `components/` and `app/` before asserting this,
+    not assumed from not having noticed one.
+  - The "Visible focus" section deliberately declines to render a verdict on whether
+    `VerticalBucketBarChart`'s `focus:outline-none` (paired with a real `group-focus:` dim + reveal
+    -tooltip replacement) is an adequate substitute for a focus ring — stated the mechanism
+    precisely and pushed the judgment call into the exercise instead, which asks the learner to tab
+    through the real running dashboard and decide for themselves. Chosen deliberately after `0039`'s
+    review made clear the cost of a confident-but-wrong technical verdict; here the honest answer
+    is "reasonable people could disagree," so the lesson says that instead of picking a side it
+    can't fully back.
+  - Three citations (MDN's "ARIA" overview, the W3C WAI ARIA APG's "Names and Descriptions" and
+    "Alert" pages) were fetched and confirmed live/on-topic before citing — fewer than `0039`'s six,
+    since most of this lesson's eleven sub-concepts are concrete instances of the same two or three
+    underlying ARIA principles rather than needing their own separate source.
+  - The exercise is a pure observation exercise (tab through the real running dashboard, watch what
+    happens) with no code edit and nothing to undo — a deliberate departure from every prior
+    lesson's edit-based exercise, chosen because the "Visible focus" section's open question is
+    itself something to observe, not something a typecheck or lint run could settle.
+  - Navigation: `0039`'s forward nav (top and bottom) was rewired from its placeholder to a real
+    link to `0040`. `0040`'s own forward nav is now the placeholder, per the established
+    convention.
+  - Scope boundary respected explicitly: the lesson never analyzes `AppShell`'s drawer
+    focus-trap/focus-move behavior (real code that exists in the file, per `0039`'s own citation of
+    `AppShell.tsx`), even though it's directly adjacent to material this lesson does cover — named
+    once in the closing `ask-teacher` box as reserved for the deferred mobile-nav retrospective,
+    per the task file's explicit instruction, rather than silently ignored or partially leaked.
+  - No reference doc shipped this round — `accessible-component-contract.html` is `0040`'s named
+    companion per the task file, now genuinely ready to write, but wasn't requested this session;
+    flagged as pending in `ROADMAP.md` alongside the other three still-pending reference docs.
+  - No learning records written — correctly so, per this file's standing rule.
+  - **Post-draft review pass (same day) caught two critical and four substantive issues** — the
+    deepest and most technically demanding review of any lesson in this sequence, because it
+    required verifying claims about the ARIA specification itself, not just this repo's code.
+    - **Critical: `aria-label` on the bar-chart div is not a valid pattern, and the original draft
+      called it one.** Verified directly against the ARIA 1.2 spec's definition of the `generic`
+      role: "the element does not support name from author. Authors MUST NOT use the `aria-label`
+      or `aria-labelledby` attributes to name the element." A plain `<div>` with no ARIA role has
+      the implicit role `generic`, `tabIndex` doesn't change that, and the original draft's framing
+      — that `aria-label` here was legitimate "manual work standing in for what a button gets for
+      free" — was simply wrong; the label may be silently ignored by assistive tech. Rewrote the
+      section to state this as a real, current gap, and added an entirely new section covering
+      `DonutBreakdownChart.tsx` (which the lede had always promised but an earlier draft never
+      actually delivered) as the genuine working contrast: its circles use `role="img"` +
+      `aria-label`, and `img` is an explicitly nameable role, which is *why* that one actually
+      works. Did not edit `VerticalBucketBarChart.tsx` itself — named the gap and described what a
+      real fix would look like (`role="img"`, an accessible `<figure>`, or an accompanying data
+      table), consistent with this workspace's standing rule against changing application code
+      while authoring lessons.
+    - **Critical: `UploadPanel`'s visible `label` prop was never actually connected to the file
+      input's accessible name, and the original draft implied it was.** Re-read the component
+      closely enough to notice the `label` prop ("Orders File," "Product Master File") renders as
+      a bare `<span>` (line 54), entirely separate from the real `<label htmlFor={inputId}>`
+      further down whose own text — "Choose a file… Browse" — is what actually becomes the input's
+      accessible name. Consequence, verified against the real page: `order-validation/page.tsx`
+      renders two `UploadPanel`s whose accessible names are effectively identical, since neither
+      incorporates the distinguishing prop text. Also added a second, previously entirely
+      unmentioned gap in the same component: no `focus-within:` styling anywhere on the visible
+      label, so tabbing to the `sr-only` input produces no visible focus indicator at all —
+      confirmed by checking the full className list, not assumed.
+    - **Quiz 1 contradicted the lesson's own TopHeader excerpt** — it claimed the toggle button
+      "needs neither tabIndex nor aria-label explicitly," while the very first code excerpt in the
+      lesson shows it has an explicit `aria-label` (correctly, since it's icon-only). Rewrote the
+      question entirely, per the review's suggested redesign, to contrast `DataTable`'s
+      content-named button against the bar chart's now-corrected invalid `aria-label`.
+    - **`role="alert"` was over-narrowed to "only works because of conditional rendering."**
+      Verified against MDN's live-region guidance that the general mechanism is broader: a live
+      region announces *dynamic* changes — new content or an in-place text mutation, both after
+      the page has already loaded — not specifically React unmount/remount. Reworded the
+      explanation and Quiz 2 around the general rule, with conditional rendering named as this one
+      component's specific instance of it, not the definition.
+    - Fixed two overclaims caught in the same pass: "every ARIA attribute is bound to state"
+      narrowed to "every *stateful* ARIA attribute" (`aria-hidden="true"` and the literal
+      `aria-controls="mobile-sidebar-drawer"` string are intentionally not state-derived); "this
+      repo hides every purely decorative icon" narrowed to name the real counter-example,
+      `MetricCard.tsx`'s icon wrapper, which has no `aria-hidden` and isn't given one automatically
+      — verified by reading `node_modules/lucide-react`'s actual `defaultAttributes.js` and
+      `Icon.js` directly rather than assuming the installed library's default behavior.
+    - Added WCAG's Focus Visible three-part test (identifiable, persistent, distinguishable)
+      *before* the focus-outline judgment call, applied it explicitly to `UploadPanel`'s
+      objectively-failing case and to all three real `focus:outline-none` replacements across both
+      charts (including a self-caught correction mid-edit: an early rewrite claimed
+      `DonutBreakdownChart`'s legend rows replace the outline with "nothing at all," which is
+      wrong — `onFocus` triggers the same `hoveredLabel` state `onMouseEnter` does, producing a
+      real background-highlight-plus-percentage-reveal change; caught by re-reading the file
+      instead of trusting the first draft of that sentence). Extended the exercise to cover the
+      objective `UploadPanel` case alongside the judgment calls, and to the donut chart's doubled
+      per-datum focus stops.
+    - Minor fixes: "six components" corrected to "seven" in the lede (five named plus two charts);
+      added the WCAG Use of Color citation directly to the color section; added the WAI
+      sortable-table pattern citation to the existing `aria-sort` finding.
+    - `ROADMAP.md`'s `0040` row and `RESOURCES.md` were both updated to match, per the same
+      standing practice every prior review in this sequence has followed.
+- 2026-07-22: shipped `0041-route-groups-layout-composition-and-metadata.html`, the seventh lesson
+  in the Track 5 optional reinforcement sequence, same one-at-a-time pacing. First lesson in this
+  sequence to teach genuinely new repo structure rather than reinforcing existing Tutorial 09-11
+  material — the `(public)`/`(workspace)` route groups didn't exist until the portfolio-landing-page
+  session (per this project's own `memory.md`).
+  - Read the five real files the task brief named (`app/layout.tsx`, `app/(public)/layout.tsx`,
+    `app/(workspace)/layout.tsx`, `app/(public)/page.tsx`, `app/(workspace)/dashboard/page.tsx`) plus
+    all six current route files under `app/` before writing a line, to get the folder→URL table
+    and every excerpt's line numbers right the first time — verbatim/citation accuracy held with no
+    correction round needed, but a post-draft review pass (below) still caught real conceptual
+    overclaims that source-reading alone hadn't surfaced.
+  - Fetched all four Next.js doc pages used (`project-structure#route-groups`,
+    `layouts-and-pages`, `metadata-and-og-images#static-metadata`,
+    `generate-metadata#merging`) live via WebFetch before citing any of them, rather than relying on
+    the locally installed docs snapshot alone — confirmed each still matches the installed
+    `node_modules/next/dist/docs` copy and is live at version 16.2.11.
+  - Real, verified finding used as the lesson's central worked example: three of the five
+    `(workspace)` pages (`order-validation`, `inventory-allocation`, `payment-aging`) currently
+    can't export `metadata` because their `page.tsx` module is `"use client"`, while `dashboard` and
+    `reports` stay Server Components that simply choose not to. Confirmed via `grep` across `app/`
+    that only `app/layout.tsx` and `app/(public)/page.tsx` export a `metadata` object anywhere in
+    the app.
+  - Went one step further than reading source to verify a claim: rather than asserting metadata
+    inheritance from the docs' abstract example alone, ran `npm run build` and `grep`-compared the
+    real prerendered `<title>` tags in `.next/server/app/index.html` (overridden: "... | Portfolio
+    Case Study") against `dashboard.html` and `reports.html` (both inherit the root layout's plain
+    title, byte-for-byte). This became both a cited excerpt and the lesson's own exercise — predict
+    `reports.html`'s title from the rule, then run the same `grep` to check it, entirely reversible
+    since `.next/` is a gitignored build artifact.
+  - Cited `docs/architect/portfolio-landing-page/decisions.md` directly for the real, sessioned
+    reason the route-group split exists (no operational sidebar chrome on a portfolio visitor's
+    first view) and its named consequence (`<Link>`/router navigation between `/` and `/dashboard`
+    stays one client-side transition because this app defines only one root layout) — real project
+    history, not an invented rationale.
+  - **Post-draft review pass (same day) caught two conceptual overclaims and five smaller precision
+    issues** — the first lesson in this sequence where verbatim/citation accuracy held clean but
+    the underlying claims still needed correction:
+    - **The lesson had presented the workspace pages' shared title as an intentional SEO/indexing
+      decision** ("none of its workspace pages are meant to be indexed publicly"). No architecture
+      doc records that decision and this app has no `robots`/`noindex` mechanism enforcing it either
+      way. Reworded to state this as the app's current, undocumented behavior and a real, low-risk
+      improvement to flag — not a considered trade-off — and added WCAG's Page Titled criterion
+      ("titles identify the current location without requiring users to read or interpret page
+      content") to ground why unique titles matter for navigation/accessibility, not only SEO.
+    - **The metadata-timing explanation overclaimed a universal "very first HTML response" rule.**
+      This app's own metadata is entirely the static object form (confirmed via `grep`, no
+      `generateMetadata` function exists anywhere in `app/`), resolved at build time because every
+      route is prerendered — but the docs separately describe a dynamic `generateMetadata` function
+      streaming its result in after the initial UI on a dynamically-rendered route. Reworded to
+      state both as two delivery timings for the same Server-Component-only rule, not one universal
+      behavior, without touching any application code.
+    - "Three of them structurally can't [export metadata]" conflated the current `page.tsx` module
+      with the route itself — a Server Component page wrapping a Client child could still export
+      real metadata for that same route. Reworded to scope the limitation to the module.
+    - "A route group is a filing decision, nothing more" undersold the mechanism — the route-groups
+      reference itself documents opting a route subset into a shared layout and defining multiple
+      root layouts as real use cases. Reworded to "an organizational and layout-selection boundary,"
+      naming those use cases, while keeping the correct point that it's never a URL or authorization
+      boundary.
+    - "Navigating between them stays a client-side transition" was too general — narrowed to
+      `<Link>`/router navigation specifically, and tied to the real reason (one shared root layout),
+      since the docs' own full-reload caveat applies specifically to multiple-root-layout setups this
+      repo doesn't use.
+    - "Each contains multiple real routes" was factually wrong for `(public)`, which holds exactly
+      one route (`/`) against `(workspace)`'s five. Reworded to state the real, uneven split.
+    - Quiz answer choices were uneven (roughly 7-10 words per option across the three questions) —
+      rebalanced every option to within one word of its siblings per question.
+    - Added an explicit caveat to the exercise that `.next/server/app/` is this installed Next.js
+      version's own internal build-output layout, real and inspectable today but not a documented,
+      version-stable public API — good for a one-off local check, not for permanent tooling.
+    - `ROADMAP.md`'s `0041` row was rewritten to match every correction above, per the same standing
+      practice every prior review in this sequence has followed.
+  - Explicitly named a non-boundary the task brief flagged as a failure mode: route groups carry no
+    authorization meaning, and this app has no login step at all, workspace routes included.
+  - Navigation: `0040`'s forward nav (top and bottom) was rewired from its placeholder to a real
+    link to `0041`. `0041`'s own forward nav is now the placeholder, per the established
+    convention.
+  - No reference doc shipped this round — `app-router-layout-map.html` is `0041`'s named companion
+    per the task file, not requested this session; flagged as pending in `ROADMAP.md` alongside the
+    other three still-pending reference docs.
+  - No learning records written — correctly so, per this file's standing rule.
+  - `ROADMAP.md` (status line, lesson-count table row, navigation paragraph) and `RESOURCES.md`
+    (four new citations) were both updated to match, per the same standing practice every prior
+    lesson in this sequence has followed.

@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 41 — Route Groups, Layout Composition, and Metadata</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 5 · Reinforcement 7 of 9</span>
+    <span>Lesson 42 not yet generated</span>
+  </div>
+
+  <p class="kicker">Track 5 — Optional Reinforcement · 7 of 9</p>
+  <h1>Route Groups, Layout Composition, and Metadata</h1>
+  <p class="lede">
+    The portfolio landing page added a structure Tutorial 09 never had to teach:
+    <span class="filelink">app/(public)/</span> and <span class="filelink">app/(workspace)/</span> —
+    two folders in parentheses that reorganize every route in this app without changing a single
+    URL. This lesson traces exactly what those parentheses do, why one root layout still sits above
+    both of them, and why a page's own <code>&lt;title&gt;</code> tag can come from a file that
+    isn't even the page rendering it.</p>
+
+  <div class="cite">
+    <p class="box-label">Primary sources</p>
+    <p>The installed Next.js docs' own
+    <a href="https://nextjs.org/docs/app/getting-started/project-structure#route-groups">"Route
+    groups"</a> section, for what the parentheses convention actually does. The
+    <a href="https://nextjs.org/docs/app/getting-started/layouts-and-pages">"Layouts and Pages"</a>
+    page, for the root layout's <code>html</code>/<code>body</code> requirement and how nested
+    layouts wrap each other. The
+    <a href="https://nextjs.org/docs/app/getting-started/metadata-and-og-images#static-metadata">"Metadata
+    and OG images"</a> page, for the exact Server-Component-only rule. The
+    <a href="https://nextjs.org/docs/app/api-reference/functions/generate-metadata#merging">"generateMetadata"</a>
+    reference's Ordering/Merging/Inheriting sections, for what actually happens to a route's
+    <code>&lt;title&gt;</code> when only some of its segments define metadata. WCAG 2.2's
+    <a href="https://www.w3.org/WAI/WCAG22/Understanding/page-titled.html">"Understanding Page
+    Titled"</a>, for why a unique title is a navigation/accessibility need, not only an SEO one.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Why this matters</p>
+    <p>All three mission drivers apply: in an interview, "route groups organize files, they don't
+    change the URL or add a security boundary" is a precise, checkable sentence, not a vibe; the
+    root-layout/nested-layout/metadata-inheritance rules are identical in any App Router project,
+    not specific to this repo; and this repo's real file layout — one root layout, two route
+    groups, one page-level metadata override — is exactly what you'll read the first time you open
+    <span class="filelink">app/</span> to extend it.</p>
+  </div>
+
+  <h2>Route groups organize files, they don't route</h2>
+  <p>The Next.js docs state the rule for a parenthesized folder plainly: "This indicates the folder
+  is for organizational purposes and should <strong>not be included</strong> in the route's URL
+  path." Two such folders exist right now, holding a very uneven number of routes each —
+  <span class="filelink">(workspace)</span> holds five, <span class="filelink">(public)</span>
+  currently holds just one:</p>
+  <div class="box primer">
+    <p class="box-label">Folder path → URL, verified against the real <span class="filelink">app/</span> tree</p>
+    <pre><code>app/(public)/page.tsx                       -&gt; /
+app/(workspace)/dashboard/page.tsx          -&gt; /dashboard
+app/(workspace)/order-validation/page.tsx   -&gt; /order-validation
+app/(workspace)/inventory-allocation/page.tsx -&gt; /inventory-allocation
+app/(workspace)/payment-aging/page.tsx      -&gt; /payment-aging
+app/(workspace)/reports/page.tsx            -&gt; /reports</code></pre>
+  </div>
+  <p>Notice what's missing from every URL on the right: neither <code>public</code> nor
+  <code>workspace</code> appears anywhere. <span class="filelink">docs/architect/portfolio-landing-page/decisions.md</span>
+  records the actual reason this repo added these two groups — a portfolio visitor landing on
+  <code>/</code> shouldn't see the operational sidebar chrome built for repeated internal use before
+  they've even opened the demo, and the group split gets that without moving <code>/dashboard</code>
+  to <code>/workspace/dashboard</code>. The same decision doc also names a consequence worth
+  knowing: navigating from <code>/</code> to <code>/dashboard</code> via <code>&lt;Link&gt;</code>
+  or the router stays one client-side transition, no full page reload — because this app defines
+  only one root layout, shared by both groups. (Next.js's own route-groups reference names a
+  full-reload caveat, but it applies specifically to navigating <em>between two different root
+  layouts</em> in a multiple-root-layout setup — a real, documented use case for route groups that
+  this repo simply doesn't use.) That's the more precise way to say it: a route group is an
+  organizational and layout-selection boundary — its documented use cases include opting a subset
+  of routes into a shared layout, or even defining separate root layouts entirely — but it is never
+  a URL boundary and never an authorization boundary. Nothing about
+  <span class="filelink">(workspace)</span>'s name restricts who can load those routes — this repo
+  simply has no login step at all, a fact Track 4's statelessness material already established, not
+  something the folder name implies.</p>
+
+  <h2>One root layout, two chrome layouts underneath it</h2>
+  <p>Every route in this app still passes through exactly one <em>root</em> layout first. The docs
+  are specific about what that file is required to contain: "The root layout is
+  <strong>required</strong> and must contain <code>html</code> and <code>body</code> tags."
+  This repo's root layout does exactly that, and nothing more:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">app/layout.tsx</span>, lines 16–33</p>
+    <pre><code>// Global providers only -- (public) and (workspace) route groups each supply
+// their own chrome (public header/footer vs. AppShell's sidebar/top header).
+export default function RootLayout({
+  children,
+}: Readonly&lt;{
+  children: React.ReactNode;
+}&gt;) {
+  return (
+    &lt;html lang="en" className={inter.variable}&gt;
+      &lt;body
+        className="min-h-screen bg-background font-sans text-text-primary"
+        suppressHydrationWarning
+      &gt;
+        {children}
+      &lt;/body&gt;
+    &lt;/html&gt;
+  );
+}</code></pre>
+  </div>
+  <p>The component's own comment states the division of labor this lesson is built around: the root
+  layout owns document-wide concerns only — the <code>&lt;html&gt;</code> element, the
+  <code>&lt;body&gt;</code> element, the global font variable, the base background/text color. It
+  renders <code>{children}</code> and stops. Every route's real visible chrome — header, footer,
+  sidebar — comes from whichever nested layout sits between the root and the page. The docs describe
+  nesting itself as automatic: "By default, layouts in the folder hierarchy are also nested, which
+  means they wrap child layouts via their <code>children</code> prop." This repo has exactly two
+  nested layouts, one per route group, and both are short enough to read in full:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">app/(public)/layout.tsx</span>, lines 1–14 (complete file)</p>
+    <pre><code>import { type ReactNode } from "react";
+
+import { PublicHeader } from "@/components/landing/PublicHeader";
+import { PublicFooter } from "@/components/landing/PublicFooter";
+
+export default function PublicLayout({ children }: { children: ReactNode }) {
+  return (
+    &lt;div className="flex min-h-screen flex-col bg-background"&gt;
+      &lt;PublicHeader /&gt;
+      &lt;main className="flex-1"&gt;{children}&lt;/main&gt;
+      &lt;PublicFooter /&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+  </div>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">app/(workspace)/layout.tsx</span>, lines 1–7 (complete file)</p>
+    <pre><code>import { type ReactNode } from "react";
+
+import { AppShell } from "@/components/layout/AppShell";
+
+export default function WorkspaceLayout({ children }: { children: ReactNode }) {
+  return &lt;AppShell&gt;{children}&lt;/AppShell&gt;;
+}</code></pre>
+  </div>
+  <p>Neither file touches <code>&lt;html&gt;</code>, <code>&lt;body&gt;</code>, or the font
+  variable — that would be duplicating a global provider the root layout already supplies, one of
+  this lesson's named failure modes. Each one instead renders exactly the one real UI decision its
+  route group needs: a plain header/footer wrapper for a public visitor, the existing
+  <span class="filelink">AppShell</span> (sidebar + top header, from Lesson 34/Tutorial 09-10) for
+  the operational workspace. Composing all three files for <code>/dashboard</code> reads, from the
+  outside in: <code>RootLayout</code> (html, body, font) wraps <code>WorkspaceLayout</code>
+  (<code>AppShell</code>) wraps <code>DashboardPage</code>. For <code>/</code>, swap in
+  <code>PublicLayout</code> in that same middle slot.</p>
+
+  <h2>Static metadata is a Server-Component-only export</h2>
+  <p>This repo's <code>&lt;title&gt;</code> tags come from a plain exported metadata object, not
+  JSX, and the docs restrict where that export is legal: "The <code>metadata</code> object and
+  <code>generateMetadata</code> function exports are only supported in Server Components." That
+  restriction holds regardless of <em>when</em> the metadata actually resolves — the
+  <code>generateMetadata</code> reference explains why it exists at all: metadata "must be resolved
+  on the server before the page component is rendered." What that looks like in practice differs by
+  case, though. Every metadata export in this app is the plain static object form — verified by
+  <code>grep</code>, no <code>generateMetadata</code> function exists anywhere in
+  <span class="filelink">app/</span> — and every route here is prerendered, so Next.js resolves
+  that object at build time and writes it straight into the initial HTML your <code>grep</code>
+  will check below. A dynamic <code>generateMetadata</code> <em>function</em>, which this app
+  doesn't use, behaves differently on a dynamically-rendered route: the docs' own streaming-metadata
+  section states Next.js can stream its resolved result in after the initial UI, rather than
+  blocking the whole response on it first. Static-and-prerendered versus dynamic-and-streamed are
+  two different delivery timings for the same Server-Component-only rule — not two different rules,
+  and not a distinction this app's all-static metadata ever needs to navigate. The root layout
+  defines the whole app's fallback:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">app/layout.tsx</span>, lines 10–14</p>
+    <pre><code>export const metadata: Metadata = {
+  title: "Sales Admin Automation Toolkit",
+  description:
+    "Order validation, inventory allocation, payment aging, and report export dashboard.",
+};</code></pre>
+  </div>
+  <p>The landing page overrides both fields for its one route:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">app/(public)/page.tsx</span>, lines 16–20</p>
+    <pre><code>export const metadata: Metadata = {
+  title: "Sales Admin Automation Toolkit | Portfolio Case Study",
+  description:
+    "Order validation, inventory allocation, and payment aging workflows automated with Python and a Next.js dashboard — a portfolio case study.",
+};</code></pre>
+  </div>
+  <p>Every one of the five <span class="filelink">(workspace)</span> pages, by contrast, exports no
+  metadata object at all. For three of them, the current <code>page.tsx</code> module genuinely
+  can't — it's a Client Component, and that export is Server-Component-only.
+  <span class="filelink">order-validation/page.tsx</span> states its own reason in its opening
+  comment:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">app/(workspace)/order-validation/page.tsx</span>, lines 1–5</p>
+    <pre><code>"use client";
+
+// This page must be a Client Component: its DataTable column definitions
+// contain render functions, and functions cannot cross the Server-&gt;Client
+// props boundary. Phase 10: also owns live Workflow Request/Result state.</code></pre>
+  </div>
+  <p><span class="filelink">inventory-allocation/page.tsx</span> and
+  <span class="filelink">payment-aging/page.tsx</span> carry the identical
+  <code>"use client"</code> directive for the same reason (Lesson 33's Server/Client rule, applied).
+  This is a fact about the current <em>module</em>, though, not an inherent limit of the
+  <em>route</em> — nothing stops <code>/order-validation</code> from having both real metadata and
+  interactive client behavior at the same time. The correct move, if this app ever wanted that,
+  would be exactly what the docs show: keep <code>page.tsx</code> itself a Server Component that
+  exports the metadata, and push the interactive logic into a separate imported Client Component.
+  This lesson's failure mode is reaching for a metadata export directly on a module you've already
+  marked <code>"use client"</code>, not the (false) belief that the route could never have one.</p>
+  <p>This repo hasn't made that Server-wrapper move for any workspace page, and it's worth being
+  precise about why not: it isn't a documented decision. Nothing in
+  <span class="filelink">docs/architect/portfolio-landing-page/decisions.md</span> or any other
+  architecture doc discusses page-level SEO intent for workspace routes, and this app has no
+  <code>robots</code>/<code>noindex</code> mechanism enforcing anything either way — every workspace
+  page is just as publicly reachable and indexable as <code>/</code>. Sharing one title across five
+  routes is this app's <em>current behavior</em>, not a considered trade-off, and it's worth naming
+  as a real, low-risk improvement rather than a gap to leave unexamined. Unique titles matter for
+  more than search engines, too: WCAG's Page Titled criterion exists because titles "identify the
+  current location without requiring users to read or interpret page content" — exactly what a
+  keyboard or screen-reader user needs when several of this app's own tabs are open side by side.</p>
+  <p><span class="filelink">dashboard/page.tsx</span> and <span class="filelink">reports/page.tsx</span>
+  are different: both stay plain Server Components (no <code>"use client"</code> anywhere in
+  either file) — they simply <em>choose</em> not to export a metadata object. That choice has a
+  real, precise consequence, not an accidental one. The <code>generateMetadata</code> reference's
+  own worked example shows the general rule: a child segment's metadata is "shallowly merged" with
+  its parent's, and where the child doesn't set a field at all, that field is "<strong>inherited</strong>"
+  from the parent unchanged. <span class="filelink">dashboard/page.tsx</span> sets no
+  <code>title</code>/<code>description</code> fields, so nothing overrides the root layout's —
+  the real, built output confirms this exactly:</p>
+  <div class="box primer">
+    <p class="box-label">Prerendered HTML, <span class="filelink">.next/server/app/index.html</span> vs. <span class="filelink">.next/server/app/dashboard.html</span></p>
+    <pre><code>index.html:     &lt;title&gt;Sales Admin Automation Toolkit | Portfolio Case Study&lt;/title&gt;
+dashboard.html: &lt;title&gt;Sales Admin Automation Toolkit&lt;/title&gt;</code></pre>
+  </div>
+  <p><code>/dashboard</code>'s title is the root layout's string, untouched — not empty, not
+  re-derived, not the landing page's suffixed version. It's the single concrete case behind this
+  lesson's tangible win: given a page's folder path and whether it exports its own metadata, you can
+  predict its rendered <code>&lt;title&gt;</code> without opening a browser.</p>
+
+  <div class="say-avoid">
+    <div class="say-avoid-col say">
+      <p class="box-label">Correct framing</p>
+      <p>"<code>(public)</code> and <code>(workspace)</code> decide which layout wraps a page, not
+      what its URL is or who's allowed to see it. The URL comes from the folder path with the
+      parenthesized parts removed; access control, if this app ever needed it, would be a
+      completely separate mechanism layered on top."</p>
+    </div>
+    <div class="say-avoid-col avoid">
+      <p class="box-label">A framing to avoid</p>
+      <p>"The workspace routes are protected because they're inside <code>(workspace)</code>." (No
+      code anywhere checks which group a route belongs to at request time — the parentheses are
+      stripped from the URL and never seen again after routing resolves. This repo has no auth
+      layer at all, workspace routes included.)</p>
+    </div>
+  </div>
+
+  <h2>Retrieval check</h2>
+  <div class="box checkpoint">
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What happens to the URL when a route moves from <code>app/dashboard/page.tsx</code> into <code>app/(workspace)/dashboard/page.tsx</code>?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">It becomes /workspace/dashboard, matching the new folder name</button>
+        <button class="quiz-option" data-correct="true">It stays /dashboard — the parenthesized segment is omitted</button>
+        <button class="quiz-option" data-correct="false">It needs a redirect rule to resolve correctly</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Why can't <code>order-validation/page.tsx</code> export a <code>metadata</code> object?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">Metadata objects can only be exported from layout.tsx files</button>
+        <button class="quiz-option" data-correct="true">It's a Client Component, and that export is server-only</button>
+        <button class="quiz-option" data-correct="false">It already inherits its own title from WorkspaceLayout directly</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question"><code>dashboard/page.tsx</code> exports no metadata object at all. What actually ends up in its rendered &lt;title&gt;?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false">No title tag is ever rendered for that route</button>
+        <button class="quiz-option" data-correct="true">The root layout's very own title, inherited completely unchanged</button>
+        <button class="quiz-option" data-correct="false">The landing page's title, treated as this app's default</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <h2>Tiny exercise (7 minutes)</h2>
+  <div class="box exercise">
+    <p class="box-label">Exercise — predict a &lt;title&gt;, then verify it against a real build</p>
+    <p><strong>Predict first.</strong> Before running anything: <code>reports/page.tsx</code>, like
+    <code>dashboard/page.tsx</code>, is a Server Component that exports no metadata object. Write
+    down what you expect its rendered <code>&lt;title&gt;</code> to be, and name the one rule from
+    this lesson that justifies your answer (ordering, merging, or inheritance).</p>
+    <p><strong>Verify.</strong> Run <code>npm run build</code> from the repo root (a disposable,
+    gitignored rebuild of <span class="filelink">.next/</span> — nothing here is committed or
+    permanent). Then run:</p>
+    <pre><code>grep -o '&lt;title&gt;[^&lt;]*&lt;/title&gt;' .next/server/app/reports.html</code></pre>
+    <p>Compare the output against your prediction and against this lesson's own
+    <code>index.html</code>/<code>dashboard.html</code> comparison above. Nothing here edits any
+    application file — the entire loop is a build command and a <code>grep</code>, both fully
+    reversible by construction. One caveat worth naming honestly: <code>.next/server/app/</code> is
+    this installed Next.js version's own internal build-output layout — real and inspectable right
+    now, verified against this repo's actual build, but not a documented, version-stable public API.
+    Treat it as good for a one-off local check like this one, not something to script permanently
+    into other tooling.</p>
+  </div>
+
+  <div class="ask-teacher">
+    If you can state, for any page under <span class="filelink">app/</span>, its real URL, its full
+    layout stack from root down to the page, and what its rendered <code>&lt;title&gt;</code> will
+    be — all three without opening a browser — this lesson has landed. It deliberately stops short
+    of <code>loading.tsx</code>/<code>error.tsx</code>/<code>not-found.tsx</code> route-level
+    failure UI, which this repo doesn't currently use at all; that's flagged as a further,
+    deliberately optional topic in the task file behind this lesson, not something to chase down
+    here. Ask here if the route-group-vs-layout-vs-metadata distinction still feels tangled before
+    Lesson 42.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0040-accessible-components-as-contracts.html">← Back: Accessible Components as Contracts</a>
+    <span>Next: Lesson 42 (not yet generated)</span>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>
