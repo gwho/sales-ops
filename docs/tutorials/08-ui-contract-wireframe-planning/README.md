@@ -12,16 +12,15 @@ instead of by eye, and why a second manual read-through can't be trusted to catc
 one already missed.
 
 > [!NOTE]
-> **Prerequisites:** Tutorial 07 (`07-fastapi-integration/README.md`) — not a content dependency
+> **Prerequisites:** [Tutorial 07](../07-fastapi-integration/README.md) — not a content dependency
 > (Phase 7 chronologically predates Phase 10), but the tutorial you just finished, so this one
-> assumes you're comfortable with the result-envelope shapes it exercised. Tutorial 01
-> (`01-python-foundation/README.md`) — `TypedDict`, `NotRequired`, and structural typing all
-> reappear here applied to a second language (TypeScript) instead of just Python. Tutorial 05
-> (`05-payment-aging-core/README.md`) — `PaymentAgingRow` and `follow_up_priority` are this
+> assumes you're comfortable with the result-envelope shapes it exercised. [Tutorial 01](../01-python-foundation/README.md) — `TypedDict`, `NotRequired`, and structural typing all
+> reappear here applied to a second language (TypeScript) instead of just Python. [Tutorial 05](../05-payment-aging-core/README.md) — `PaymentAgingRow` and `follow_up_priority` are this
 > tutorial's running full-trace example; you need to already trust where that field's value comes
 > from. Before this tutorial, read Track 5's three concept lessons —
-> `docs/teach/lessons/0031-browser-output-and-components.html`,
-> `0032-react-minimum-mental-model.html`, and `0033-server-and-client-components.html` — for the
+> [`0031-browser-output-and-components.html`](../../teach/lessons/0031-browser-output-and-components.html),
+> [`0032-react-minimum-mental-model.html`](../../teach/lessons/0032-react-minimum-mental-model.html), and
+> [`0033-server-and-client-components.html`](../../teach/lessons/0033-server-and-client-components.html) — for the
 > browser/React/Server-Component vocabulary this tutorial assumes but Phase 7 itself never needed
 > (it's a docs-only phase). Open
 > [`context/ui-contract-plan.md`](../../../context/ui-contract-plan.md),
@@ -116,7 +115,7 @@ produced by mistake; that's a runtime problem a compile-time type can never full
 `status: "Fully Allocated" | "Partially Allocated" | "Backordered"` catch that at compile time, at
 runtime, or not at all?
 
-### Concept 4 — A finite state machine with one persisted state and several ephemeral ones
+### Concept 4 — An ephemeral finite state machine versus persisted workflow state
 
 > "Explain what a finite state machine is: a fixed set of named states, and a fixed set of allowed
 > transitions between them, with exactly one state true at a time. Give an example of a state
@@ -130,7 +129,16 @@ query it independently of the UI that's currently displaying it. A report's "hav
 generate yet, this session" is disposable UI convenience state — nothing breaks if it's forgotten on
 reload, since the underlying data (the result envelope) is still there to regenerate a report from.
 A persisted state machine earns its cost when losing it would lose real information no other system
-of record retains.
+of record retains. The report lifecycle Part 6 covers is the entirely-ephemeral example: `Ready`
+means a `ReportManifest` was received this session, not that anything was written to a database.
+
+*Current implementation boundary, worth naming precisely:* the static `/dashboard` and `/reports`
+cards render sample `ReportManifest`s as `Ready` for demo purposes, using exactly this four-state
+`ReportCard` lifecycle. The live per-page download buttons on `/order-validation`,
+`/inventory-allocation`, and `/payment-aging` use a separate, simpler three-state
+`ReportRequestState` model instead (`"idle" | "processing" | "failed"`, defined locally in each of
+those three page files) — not this lifecycle. The two are deliberately unrelated types; don't assume a "Ready" `ReportCard` implies
+anything about a page's own download-button state, or the reverse.
 
 *Practice question:* if a report's `Ready`/`Processing`/`Not Generated` status were stored as a new
 Python contract field instead of browser state, what would have to change about how
@@ -216,29 +224,25 @@ Key invariants for this phase:
 
 ## Part 1 — Planning from output contracts, not from imagined screens
 
-Open [`context/ui-contract-plan.md`](../../../context/ui-contract-plan.md) lines 1–12:
+Open [`context/ui-contract-plan.md`](../../../context/ui-contract-plan.md) lines 1–3:
 
 ```markdown
 # UI Contract Plan
 
-Phase 7 deliverable (planning only — no production frontend code). Maps every future Next.js
-surface (route, table, KPI, badge, report card, empty/loading/error state) to a real Python
-output contract or an explicitly-labeled display-only derivation. Living reference, same tier
-as `ui-tokens.md`/`ui-rules.md` — update it whenever `src/contracts.py` or the business-module
-envelopes change.
-...
+Phase 7 deliverable (planning only — no production frontend code). Maps every future Next.js surface (route, table, KPI, badge, report card, empty/loading/error state) to a real Python output contract or an explicitly-labeled display-only derivation. Living reference, same tier as `ui-tokens.md`/`ui-rules.md` — update it whenever `src/contracts.py` or the business-module envelopes change.
+```
+
+Then the Glossary, lines 7–10:
+
+```markdown
 ## Glossary
 
-- **Status Badge** — a UI label that either comes directly from a controlled-vocabulary contract
-  field (e.g. `PaymentAgingRow.aging_bucket`), or is derived client-side from row/list membership
-  (e.g. "Valid" = row is in `valid_orders`). Either way it must trace to real contract data...
-- **Derived Display Value** — a value computed client-side from existing contract fields (a
-  group-by/sum for a chart, a label transform of an existing field) that introduces no new
-  business logic and requires no contract change.
+- **Status Badge** — a UI label that either comes directly from a controlled-vocabulary contract field (e.g. `PaymentAgingRow.aging_bucket`), or is derived client-side from row/list membership (e.g. "Valid" = row is in `valid_orders`). Either way it must trace to real contract data — see the [Status Badges](#status-badges) section below for the full direct/derived breakdown per workflow.
+- **Derived Display Value** — a value computed client-side from existing contract fields (a group-by/sum for a chart, a label transform of an existing field) that introduces no new business logic and requires no contract change. See [Derived Display-Only Aggregates](#derived-display-only-aggregates).
 ```
 
 The opening line states the whole phase's method in one sentence: map every future surface to a
-real contract or an explicitly-labeled derivation. `docs/plan/phase-7-ui-contract-wireframe-planning/explanation.md`
+real contract or an explicitly-labeled derivation. [`docs/plan/phase-7-ui-contract-wireframe-planning/explanation.md`](../../plan/phase-7-ui-contract-wireframe-planning/explanation.md)
 §1 names what this method was reacting *against* — three planning surfaces already existed before
 Phase 7 started (`ui-rules.md`'s Status Badges section and the three guidance folders under
 `sales_admin_automation_toolkit_ui_specs/`, `ui_reference_to_figma_workflow/`,
@@ -287,15 +291,37 @@ implies: business-domain glossaries hold terms that would survive a full rewrite
 process/UI-planning glossaries hold terms that wouldn't.
 </details>
 
+**Try it yourself:** Practice this phase's central method on one field of your own choosing:
+
+1. Pick one UI surface in `context/ui-contract-plan.md` (any table, KPI, or badge entry).
+2. Write down its claimed source contract and field name, exactly as the plan states it.
+3. Open `src/contracts.py` (or the relevant business module's result envelope) and find that field.
+4. Record whether it's **direct** (verbatim contract value), **derived** (computed from list
+   membership or a display transform), or **unsupported** (claimed by the plan but not actually
+   backed by any real field — the `requested_quantity` failure mode this Part just walked through).
+
+<details>
+<summary>Reveal a worked example</summary>
+
+Pick the Table Column Plan's Allocation Results entry, "Requested Qty." `context/ui-contract-plan.md`
+names it as `AllocationResultRow.requested_qty`. Checking `src/contracts.py`'s real
+`AllocationResultRow` definition confirms `requested_qty: int` exists verbatim — so this one is
+**direct**: the table column reads the field's value with no transformation, no list-membership
+check, and no invented meaning layered on top. Contrast this with `requested_quantity`, the drift
+this Part opened with: running the same four steps on that name would fail at step 3, since no field
+by that exact spelling exists anywhere in `src/contracts.py` — the check's whole value is that it
+fails loudly on an unsupported claim instead of quietly assuming the plan is right.
+</details>
+
 ## Part 2 — Mirroring Python shapes into TypeScript without semantic translation
 
 Open [`context/ui-contract-plan.md`](../../../context/ui-contract-plan.md) lines 14–16, then the
 `PaymentAgingRow` block at lines 132–144:
 
 ```markdown
-Literal `type` definitions (`code-standards.md`: prefer `type` over `interface` for data
-shapes/unions), copy-pasteable into `types/index.ts` in Phase 8. Snake_case fields preserved
-verbatim to match the JSON the Python core returns — no camelCase adapter layer decided yet.
+## TypeScript Interfaces
+
+Literal `type` definitions (`code-standards.md`: prefer `type` over `interface` for data shapes/unions), copy-pasteable into `types/index.ts` in Phase 8. Snake_case fields preserved verbatim to match the JSON the Python core returns — no camelCase adapter layer decided yet.
 ```
 
 ```ts
@@ -367,6 +393,18 @@ though the top-level field name matches. This is exactly why the checkpoint's pr
 this tutorial's pre-study matters: a mechanical check only verifies the specific claim it was built
 to verify, and "the field name exists" is a narrower claim than "the field is fully, correctly
 documented."
+
+A subtler blind spot, easy to miss even after naming the type/optionality gaps above: a global
+set-difference over *all* field names catches an unmatched name, but it never checks *which*
+contract each name is attached to. If a field genuinely exists somewhere in `src/contracts.py` —
+say, `remaining_qty` is real on both `RemainingInventoryRow` and `SupplierFollowUpRow` — a
+same-named field placed on the *wrong* TypeScript type (attached to `AllocationResultRow` instead of
+`RemainingInventoryRow`, for instance) would still diff as a perfect match: the name exists on both
+sides, full stop. The check verifies "this name exists somewhere in the Python source," not "this
+name belongs to the same contract on both sides." The rigorous follow-up is to compare fields
+per named contract/envelope — not one global set — and check type category and optionality
+separately within each one, rather than pooling every field name from every contract into a single
+flat comparison.
 </details>
 
 **Try it yourself:** Open [`src/contracts.py`](../../../src/contracts.py) and pick any `TypedDict`
@@ -407,6 +445,27 @@ excluded: "a global health score, a cross-workflow risk score, a unified operati
 historical trends — none of these have a Python source and would require persistence or new
 business logic."
 
+> **Historical, corrected by a later phase:** that "no persisted cross-workflow state" line was
+> correct at the Phase 7 boundary — no persistence contract existed yet for this app to build
+> against. Phase 12 later changed that architectural premise through
+> [ADR 0007](../../../docs/adr/0007-session-scoped-workflow-result-persistence.md): `/dashboard`
+> now shows each anonymous visitor's own latest saved result per workflow, loaded client-side by
+> `components/dashboard/DashboardLiveSections.tsx` and falling back to sample data independently
+> per workflow when none exists. This did not retroactively make the Phase 7 decision careless —
+> Phase 7 planned correctly for the constraints it had; Phase 12 is a separate, later decision to
+> change those constraints, made through its own ADR rather than by quietly drifting away from
+> Phase 7's stated scope.
+
+The `/inventory-allocation` row above also reflects a Phase 7 plan that has since changed: it names
+`UploadPanel` ×2. That was correct when this route plan was written — Phase 7 only had
+`OrderValidationResult` and `InventoryAllocationResult` in view, both fed by one file each. Phase 10
+later wired the live endpoint, and `POST /api/inventory/allocate` validates raw orders before
+allocating them, so the shipped page takes **three** files (Orders, Product Master, Inventory), not
+two — confirmed directly in
+[`app/(workspace)/inventory-allocation/page.tsx`](../../../app/(workspace)/inventory-allocation/page.tsx),
+which renders three `UploadPanel` instances. Same pattern as the dashboard correction above: the
+Phase 7 plan wasn't wrong for its own moment, a later phase's real requirements simply moved past it.
+
 **Checkpoint:** If a future Phase (say, a Phase 11 that adds a new contract field) forgets to
 update `context/ui-contract-plan.md`, how would that drift most likely be discovered — and is there
 a way to make that discovery automatic rather than dependent on someone noticing?
@@ -439,26 +498,27 @@ Open [`context/ui-rules.md`](../../../context/ui-rules.md) lines 117–139:
 ```markdown
 ## Status Badges
 
-Every badge label is either **direct** (comes verbatim from a controlled-vocabulary Python
-contract field) or **derived** (computed client-side from row/list membership or a display
-transform of a direct field — never a new business rule). Full field-level detail and TypeScript
-types: `context/ui-contract-plan.md`.
+Every badge label is either **direct** (comes verbatim from a controlled-vocabulary Python contract field) or **derived** (computed client-side from row/list membership or a display transform of a direct field — never a new business rule). Full field-level detail and TypeScript types: `context/ui-contract-plan.md`.
 
 Order validation:
 
 - direct (`ValidationErrorRow.severity`): `Error`, `Warning`
 - derived (list membership in `valid_orders`/`errors`): `Valid`, `Has Errors`, `Has Warnings`
 
-(The previous list — `Missing Field`, `Invalid SKU`, `Duplicate Order`, `Invalid Quantity`,
-`Needs Review` — mistook error *categories* for row statuses...)
+(The previous list — `Missing Field`, `Invalid SKU`, `Duplicate Order`, `Invalid Quantity`, `Needs Review` — mistook error *categories* for row statuses. Those categories are `error_code`/`error_message`, shown verbatim in the error table; a row doesn't need a badge duplicating them.)
 
 Inventory allocation:
 
 - direct (`AllocationResultRow.status`): `Fully Allocated`, `Partially Allocated`, `Backordered`
-- direct/derived (`RemainingInventoryRow.reorder_alert`, `Yes`/`No`): render as
-  `Below Reorder Point` only when `reorder_alert = "Yes"` — this is a display label for the
-  field, not a separate vocabulary
+- direct/derived (`RemainingInventoryRow.reorder_alert`, `Yes`/`No`): render as `Below Reorder Point` only when `reorder_alert = "Yes"` — this is a display label for the field, not a separate vocabulary
 - derived (list membership in `supplier_follow_ups`): `Supplier Follow-up`
+
+Payment aging:
+
+- direct (`PaymentAgingRow.aging_bucket`): `Current`, `1-30 Days`, `31-60 Days`, `61-90 Days`, `90+ Days`
+- direct (`PaymentAgingRow.follow_up_priority`): `High`, `Medium`, `Low`, `Watch`, `None`
+
+(The previous list — `Overdue`, `Due Soon`, `High Priority`, `Paid` — was an unexplained ad hoc simplification never actually derived from these two fields. If a shorthand label like `Paid` is still wanted, its exact derivation rule must be defined explicitly — e.g. `outstanding_amount <= 0` — before use.)
 ```
 
 Three categories, not two — `explanation.md` §2 walks through why the first draft's binary
@@ -520,14 +580,16 @@ to only one of the two would recreate exactly the kind of two-documents-disagree
 covers for the Reports lifecycle.
 </details>
 
-**Try it yourself:** Run `grep -n "Overdue\|Due Soon\|Paid\b" context/ui-rules.md` from the repo
-root. Confirm none of those three old, undefined Payment Aging labels survive anywhere in the
-current file — the rewrite didn't just add correct labels alongside the old ones, it removed the
-ones with no stated derivation.
+**Try it yourself:** Run `rg -n "Overdue|Due Soon|Paid\b" context/ui-rules.md` from the repo root.
+You'll get exactly one hit — the parenthetical explaining *that* those three labels were removed and
+*why* (`"was an unexplained ad hoc simplification..."`). Confirm that's the only hit: none of the
+three old, undefined Payment Aging labels survive anywhere in the file as an actual defined badge
+value — only in the sentence documenting their removal. The rewrite didn't just add correct labels
+alongside the old ones, it removed the ones with no stated derivation, and left a record of why.
 
 ## Part 5 — Tables and KPIs as declared projections
 
-Open [`context/ui-contract-plan.md`](../../../context/ui-contract-plan.md) lines 232–239:
+Open [`context/ui-contract-plan.md`](../../../context/ui-contract-plan.md) lines 232–237:
 
 ```markdown
 **Payment Aging** (`PaymentAgingSummary`, mixed):
@@ -535,10 +597,7 @@ Open [`context/ui-contract-plan.md`](../../../context/ui-contract-plan.md) lines
 - Overdue Amount (`overdue_amount`) — direct
 - High Priority Count (`high_priority_count`) — direct
 - Aging bucket chart (`aging_bucket_counts`) — direct, 5-way breakdown
-- **"90+ Days Amount"** — the spec (`03_demo_payment_aging.md` §9) lists this as a 4th KPI
-  card, but no summary field produces it: `aging_bucket_counts` is a *count* dict, not an
-  *amount* dict. This is a **derived display-only aggregate**: sum
-  `aging_rows[].outstanding_amount` where `aging_bucket === "90+ Days"`.
+- **"90+ Days Amount"** — the spec (`03_demo_payment_aging.md` §9) lists this as a 4th KPI card, but no summary field produces it: `aging_bucket_counts` is a *count* dict, not an *amount* dict. This is a **derived display-only aggregate**: sum `aging_rows[].outstanding_amount` where `aging_bucket === "90+ Days"`. See [Derived Display-Only Aggregates](#derived-display-only-aggregates).
 ```
 
 `PaymentAgingSummary.aging_bucket_counts` (`src/contracts.py:90`, computed at
@@ -625,26 +684,24 @@ names for the same thing.
 
 Open [`context/ui-contract-plan.md`](../../../context/ui-contract-plan.md) lines 252–267:
 
-```markdown
+````markdown
 ## Report Cards
 
-One `ReportCard` per `report_type` (`order_validation`, `inventory_allocation`, `payment_aging`)
-on `/reports`, mirrored on `/dashboard`.
+One `ReportCard` per `report_type` (`order_validation`, `inventory_allocation`, `payment_aging`) on `/reports`, mirrored on `/dashboard`.
 
-Derived client-state model (UI-only, not Python-sourced), matching `context/ui-rules.md`'s
-Reports badge lifecycle:
+Derived client-state model (UI-only, not Python-sourced), matching `context/ui-rules.md`'s Reports badge lifecycle:
 
-\`\`\`
+```
 Needs Input     -- underlying workflow hasn't run this session, no result envelope to export
 Not Generated   -- envelope exists, export function not yet called
 Processing      -- export function in flight
-Ready           -- ReportManifest received; card shows file_name, sheet_names, generated_at,
-                   download action
-\`\`\`
-
-An export failure reverts the card to `Not Generated` with a `BusinessErrorMessage` shown — no
-separate persisted error state.
+Ready           -- ReportManifest received; card shows file_name, sheet_names, generated_at, download action
 ```
+
+An export failure reverts the card to `Not Generated` with a `BusinessErrorMessage` shown — no separate persisted error state.
+
+Card content once `Ready`: `file_name`, `sheet_names` (as a compact list), `generated_at` (formatted), download action.
+````
 
 `explanation.md` §3 documents a mistake this exact section went through before landing on this
 final shape — worth reading as a case study in verifying your own work, not just a historical
@@ -706,34 +763,50 @@ and back loses the specific error message, since it's ephemeral rather than pers
 cost, since the underlying data needed to retry is untouched.
 </details>
 
-**Checkpoint:** If Phase 8 needs to show a user "your last 3 report generation attempts," would that
-require a new Python contract field, or can it stay client-side? Justify your answer using the
-Field Scope Boundary reasoning from this phase.
+**Checkpoint:** If Phase 8 needs to show a user "your last 3 report generation attempts," where
+should that history live? The question doesn't say whether it needs to survive a page reload, a
+browser restart, or a switch to another device — walk through why that missing detail changes the
+answer, using the Field Scope Boundary reasoning from this phase.
 
 <details>
 <summary>Reveal answer</summary>
 
-It could stay entirely client-side, using the exact same reasoning that kept the four-state
-lifecycle out of `ReportManifest`: "the last 3 attempts" is a fact about *this browser session's
-interaction history*, not a fact any Python business rule computes or needs to know about — nothing
-in `export_payment_aging_report()`'s signature or return value would need to change, since each
-call is already stateless and returns everything a client-side history log would need to record
-(a `ReportManifest` on success, an error message on failure). The Field Scope Boundary reasoning
-applies directly: a contract may only contain fields its originating spec explicitly defines, and
-nothing in `03_demo_payment_aging.md` (or any other spec) defines a persisted "attempt history"
-concept — inventing one to support this UI feature would be adding business-facing scope through the
-UI layer, exactly what Part 5's "suggested reorder quantity" near-miss also warns against.
+This is a decision question, not a single fixed answer — "the last 3 attempts" means something
+different depending on how durable it needs to be:
+
+- **Current-page/current-session history** (gone on reload, gone on tab close) can stay entirely
+  in-memory client state — a plain array in a component or a page-local store, no persistence layer
+  at all.
+- **History that survives a reload but not a new device** needs actual browser storage
+  (`localStorage`/`sessionStorage`), still entirely client-side, still no Python involvement.
+- **History that must be authoritative across devices** — the same 3 attempts whether the user is
+  on their laptop or phone — is the only tier that genuinely needs a server-side persisted model.
+  Even then, the Field Scope Boundary reasoning says the right shape is *not* a new field bolted
+  onto `ReportManifest`: nothing in `03_demo_payment_aging.md` (or any other spec) defines a
+  persisted "attempt history" concept, so `ReportManifest` — which already has an owner, the export
+  functions — shouldn't grow one. A separate attempt-record model, sourced by wrapping each export
+  call, would be the cleaner design: it wouldn't require `export_payment_aging_report()`'s signature
+  or return value to change at all, since each call is already stateless and already returns
+  everything a history log would need to record (a `ReportManifest` on success, an error message on
+  failure).
+
+The lesson this teaches is state *ownership*, not just "can this stay client-side": the answer isn't
+always the least-durable option, and even the most-durable option doesn't automatically mean
+extending an existing contract — it means designing a new one, deliberately, the same way Part 5's
+"suggested reorder quantity" near-miss warns against silently growing a contract past what its own
+spec defines.
 </details>
 
-**Try it yourself:** Run `grep -n "generating\|not_generated" context/ui-contract-plan.md` from the
+**Try it yourself:** Run `rg -n "generating|not_generated" context/ui-contract-plan.md` from the
 repo root. Confirm zero matches — the lowercase, four-word first-draft vocabulary this checkpoint
 discusses doesn't survive anywhere in the current file; only the reconciled, capitalized
 `Needs Input`/`Not Generated`/`Processing`/`Ready` vocabulary remains.
 
 ## Part 7 — Documentation drift as a testable defect
 
-Open [`tests/contract_fixtures.py`](../../../tests/contract_fixtures.py) lines 164–170 and
-[`src/report_export.py`](../../../src/report_export.py) lines 185–195:
+Open [`tests/contract_fixtures.py`](../../../tests/contract_fixtures.py) lines 164–171 (the fixture
+list's first complete entry — two more entries with the same shape follow, not shown here) and
+[`src/report_export.py`](../../../src/report_export.py) lines 185–195 (`_build_manifest()` in full):
 
 ```python
 REPORT_MANIFEST_FIXTURES: list[ReportManifest] = [
@@ -744,7 +817,6 @@ REPORT_MANIFEST_FIXTURES: list[ReportManifest] = [
         "generated_at": "2026-07-09T09:15:00",
         "sheet_names": ["Summary", "Valid Orders", "Validation Errors", "Original Orders"],
     },
-    ...
 ```
 
 ```python
@@ -752,9 +824,16 @@ def _build_manifest(
     report_type: str, file_name: str, sheet_names: list[str], generated_at: datetime
 ) -> ReportManifest:
     report_id = f"rpt-{report_type}-{generated_at:%Y%m%d%H%M%S}"
+    return {
+        "report_id": report_id,
+        "report_type": report_type,
+        "file_name": file_name,
+        "generated_at": generated_at.isoformat(timespec="seconds"),
+        "sheet_names": sheet_names,
+    }
 ```
 
-`docs/plan/phase-7-ui-contract-wireframe-planning/explanation.md` §4 documents a real bug this
+[`docs/plan/phase-7-ui-contract-wireframe-planning/explanation.md`](../../plan/phase-7-ui-contract-wireframe-planning/explanation.md) §4 documents a real bug this
 phase found while grounding `ReportManifest` examples in `tests/contract_fixtures.py`, as the
 approved plan required: at the time, `REPORT_MANIFEST_FIXTURES`'s `report_id` values (like
 `"rpt-order-validation-20260709-001"`) didn't match what `_build_manifest()` actually produces
@@ -954,7 +1033,7 @@ report as the rename's symptom.
 </details>
 
 For deeper exploration,
-`docs/plan/phase-7-ui-contract-wireframe-planning/ai-discussion-topics.md` has all 15 prompts this
+[`docs/plan/phase-7-ui-contract-wireframe-planning/ai-discussion-topics.md`](../../plan/phase-7-ui-contract-wireframe-planning/ai-discussion-topics.md) has all 15 prompts this
 tutorial's checkpoints were woven from, organized under their original four headings (documentation
 drift, the Status Badges rewrite, the Reports lifecycle inconsistency, and derived aggregates/scope
 discipline). Feed them to an LLM *after* forming your own answer first — the gap between what you

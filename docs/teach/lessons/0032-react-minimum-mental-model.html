@@ -18,7 +18,8 @@
   <h1>React's Minimum Mental Model</h1>
   <p class="lede">
     Just enough React to read this repo's frontend — component functions, JSX, props, state,
-    events, and the one rule that makes all of it move: a state change triggers a re-render.
+    events, and what actually schedules a re-render. A state update is the trigger you'll write by
+    hand the most, but it isn't the only one that exists.
     Tiny, invented examples first; this repo's real components wait for Tutorial 10.</p>
 
   <div class="cite">
@@ -29,8 +30,12 @@
   </div>
 
   <h2>A component is a function that returns UI</h2>
-  <p>In React, a component is a JavaScript function whose job is to return a description of what
-  should appear on screen, written in a syntax called JSX (HTML-like markup inside JavaScript).</p>
+  <p>In React, a component is a JavaScript function whose job is to return <strong>React
+  elements</strong> — a description React uses to produce and update UI, written in a syntax
+  called JSX (HTML-like markup inside JavaScript) — or to return <code>null</code> when it should
+  render nothing at all. "Returns a description of the UI," not "returns HTML directly," matters
+  here: that distinction is exactly what makes Server and Client Components (Lesson 33) possible
+  later.</p>
   <div class="box primer">
     <p class="box-label">The smallest possible component</p>
     <pre><code>function Greeting() {
@@ -73,8 +78,9 @@
   );
 }</code></pre>
     <p><code>count</code> is the current value; <code>setCount</code> is the only sanctioned way to
-    change it. Calling <code>setCount</code> doesn't just update a variable somewhere — it's a
-    signal to React that this component needs to run again.</p>
+    change it. Calling <code>setCount</code> doesn't just update a variable somewhere — it requests
+    a state update, which is one real trigger for React to run this component again (more on the
+    others below).</p>
   </div>
 
   <h2>Events: user actions become function calls</h2>
@@ -83,13 +89,20 @@
   JavaScript owned in <a href="0031-browser-output-and-components.html">Lesson 31</a>, just
   written inline as a JSX attribute instead of a separate <code>addEventListener</code> call.</p>
 
-  <h2>The one rule that makes it all move: render-after-state-change</h2>
+  <h2>What actually schedules a re-render</h2>
   <div class="box checkpoint">
-    <p class="box-label">The core loop</p>
-    <p>Call a state setter (like <code>setCount</code>) → React re-runs that component's function
-    → the function returns new JSX describing the updated UI → React updates only the parts of the
-    real page that actually changed. Nothing on screen updates because you "changed a variable" —
-    it updates because you called the state setter, which schedules a re-render.</p>
+    <p class="box-label">The core loop, for this Counter example</p>
+    <p>Calling <code>setCount</code> requests a state update → React schedules rendering work,
+    calling <code>Counter</code> again with the next state snapshot → the function returns new JSX
+    describing the updated UI → React reconciles that against the existing DOM, updating only the
+    parts of the real page that actually changed. Nothing on screen updates because you "changed a
+    variable" — it updates because you called the state setter.</p>
+    <p>That's one trigger, not the only one. A component also re-renders because its parent
+    rendered it again, because its props changed, because a context value it consumes changed, or
+    because a subscribed external store reported a change. And even a state-setter call doesn't
+    guarantee a re-render: if the new value is <code>Object.is</code>-equal to the current state,
+    React skips re-rendering that component (and its children) entirely — a real optimization
+    documented in React's own reference, not a hypothetical edge case.</p>
   </div>
 
   <div class="say-avoid">
@@ -101,8 +114,9 @@
     <div class="say-avoid-col avoid">
       <p class="box-label">A framing to avoid</p>
       <p>"The UI updates because <code>count</code> changed." (This skips the actual mechanism —
-      directly mutating a variable that <code>useState</code> gave you, without calling its setter,
-      does <em>not</em> update the screen. This is a very common early bug.)</p>
+      changing some unrelated local variable never requests a React render, and mutating a state
+      object or array directly, without calling its setter, is not a replacement for calling the
+      setter with the next value. This is a very common early bug.)</p>
     </div>
   </div>
 
@@ -111,19 +125,19 @@
     <div class="quiz" data-quiz>
       <p class="quiz-question">What's the difference between a prop and a piece of state?</p>
       <div class="quiz-options">
-        <button class="quiz-option" data-correct="false">Props are for numbers, state is for text</button>
-        <button class="quiz-option" data-correct="true">Props flow in from a parent and are read-only; state is owned and changeable by the component itself</button>
-        <button class="quiz-option" data-correct="false">There's no real difference, just different names</button>
+        <button class="quiz-option" data-correct="false">Props store numbers; state stores text inside the component</button>
+        <button class="quiz-option" data-correct="true">Props arrive read-only; state is owned by the component</button>
+        <button class="quiz-option" data-correct="false">Props handle events; state applies styles inside the component</button>
       </div>
       <p class="quiz-feedback" hidden></p>
     </div>
 
     <div class="quiz" data-quiz>
-      <p class="quiz-question">What actually causes React to update the screen?</p>
+      <p class="quiz-question">What requests the next count update in this Counter example?</p>
       <div class="quiz-options">
-        <button class="quiz-option" data-correct="false">Directly reassigning a state variable</button>
-        <button class="quiz-option" data-correct="true">Calling the state setter function, which triggers a re-render</button>
-        <button class="quiz-option" data-correct="false">The browser automatically detecting any JavaScript change</button>
+        <button class="quiz-option" data-correct="true">Calling setCount with the next count value</button>
+        <button class="quiz-option" data-correct="false">The button element re-rendering all by itself</button>
+        <button class="quiz-option" data-correct="false">React automatically detecting the click event itself</button>
       </div>
       <p class="quiz-feedback" hidden></p>
     </div>
@@ -131,20 +145,49 @@
 
   <h2>Tiny exercise (7 minutes)</h2>
   <div class="box exercise">
-    <p class="box-label">Exercise</p>
+    <p class="box-label">Exercise — predict, then check against a model answer</p>
     <p>On paper or in a scratch file, write a component <code>WorkflowStatus({ label })</code>
-    that renders its <code>label</code> prop inside a <code>&lt;span&gt;</code>. Then add one piece
-    of state, <code>expanded</code>, defaulting to <code>false</code>, and an
-    <code>onClick</code> handler on the span that flips it. Don't worry about actually rendering
-    something different based on <code>expanded</code> yet — the goal is just correctly wiring
-    <code>useState</code> and an event handler together, predicting out loud what happens on each
-    click before you'd run it.</p>
+    that renders a real <code>&lt;button type="button"&gt;</code> — not a <code>&lt;span&gt;</code>:
+    a span isn't keyboard-focusable, doesn't activate on Enter/Space, and exposes no button
+    semantics to assistive tech, and a status toggle needs all three, the same habit
+    Lesson 40 builds on later. Add one piece of state, <code>expanded</code>, defaulting to
+    <code>false</code>. Clicking the button should flip <code>expanded</code> <em>and</em> the
+    component should render something visibly different depending on its value — state with no
+    observable effect gives you nothing to actually check your work against.</p>
+    <p>Before revealing anything, predict out loud: after the first click, what is
+    <code>expanded</code>, and what does the button (and anything else on screen) show? Then the
+    second click?</p>
+    <details>
+    <summary>Reveal: one correct implementation</summary>
+    <pre><code>function WorkflowStatus({ label }: { label: string }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    &lt;div&gt;
+      &lt;button type="button" onClick={() =&gt; setExpanded((value) =&gt; !value)}&gt;
+        {label}: {expanded ? "Hide details" : "Show details"}
+      &lt;/button&gt;
+      {expanded ? &lt;p&gt;Workflow details are visible.&lt;/p&gt; : null}
+    &lt;/div&gt;
+  );
+}</code></pre>
+    <p>Notice the updater form, <code>setExpanded((value) =&gt; !value)</code>, rather than
+    <code>setExpanded(!expanded)</code> — computing the next value from the previous one instead of
+    from the outer <code>expanded</code> variable directly. Not strictly required for this one
+    component, but it's the exact pattern Lesson 36 needs to explain later, so it's worth the habit
+    now rather than unlearning it then.</p>
+    </details>
+    <p>Check your own attempt against four things: (1) a real <code>&lt;button type="button"&gt;</code>,
+    never a <code>&lt;span&gt;</code>; (2) <code>expanded</code> starts as <code>false</code>;
+    (3) each click flips it; (4) the rendered output — the button's own text, and whether the
+    paragraph exists at all — actually looks different between <code>true</code> and
+    <code>false</code>, not just in your head.</p>
   </div>
 
   <div class="ask-teacher">
-    If the render-after-state-change loop still feels like a black box — especially "why does
-    directly mutating state not work" — ask here before Lesson 33. Server Components (next lesson)
-    only make sense once you're confident this loop is a client-side, in-the-browser mechanism.
+    If what schedules a re-render still feels like a black box — especially "why doesn't mutating a
+    state object directly work" — ask here before Lesson 33. Server Components (next lesson) only
+    make sense once you're confident this loop is a client-side, in-the-browser mechanism.
   </div>
 
   <div class="nav nav-bottom">

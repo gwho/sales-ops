@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 42 — Frontend Verification Layers</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 5 · Reinforcement 8 of 9</span>
+    <a href="0043-track-5-guided-ui-trace.html">Next: Track 5 Guided UI Trace →</a>
+  </div>
+
+  <p class="kicker">Track 5 — Optional Reinforcement · 8 of 9</p>
+  <h1>Frontend Verification Layers</h1>
+  <p class="lede">
+    This repository currently uses four verification mechanisms: two repository scripts
+    (<code>npm run typecheck</code>, <code>npm run lint</code>), a production build
+    (<code>npm run build</code>), and a manual <code>curl</code> health diagnostic documented in
+    <span class="filelink">README.md</span> for confirming the backend is up. None of them opens a
+    real browser. Two of this project's worst UI bugs — a hydration mismatch and a pointer-events
+    dead zone, both from Tutorial 11 — passed all three automated checks anyway. This lesson is
+    about what each mechanism actually proves, what none of them can tell you, and how to pick the
+    cheapest layer that would actually observe a given failure, without installing anything new or
+    pretending this repo has a frontend test suite it doesn't.</p>
+
+  <div class="cite">
+    <p class="box-label">Primary sources</p>
+    <p>The installed Next.js docs' own
+    <a href="https://nextjs.org/docs/app/guides/testing">"Testing"</a> overview, for the
+    Unit/Component/Integration/E2E/Snapshot vocabulary. The
+    <a href="https://nextjs.org/docs/app/guides/testing/playwright">Playwright setup guide</a>, for
+    what E2E automation actually is. The
+    <a href="https://nextjs.org/docs/app/api-reference/config/next-config-js/typescript">TypeScript
+    config reference</a> and
+    <a href="https://nextjs.org/docs/app/api-reference/config/eslint">ESLint plugin reference</a>,
+    for two precise, version-specific facts about what <code>next build</code> does and doesn't
+    check in this repo's installed Next.js 16. React's own
+    <a href="https://react.dev/reference/react-dom/client/hydrateRoot">hydrateRoot</a> reference, for
+    what a hydration mismatch actually violates. Playwright's
+    <a href="https://playwright.dev/docs/api/class-locator#locator-hover">Locator.hover()</a>
+    reference, for what its actionability checks and default target point actually do.</p>
+  </div>
+
+  <div class="box checkpoint">
+    <p class="box-label">Why this matters</p>
+    <p>All three mission drivers apply: in an interview, naming exactly which check would (and
+    wouldn't) catch a described bug is a sharper signal than "we have good test coverage"; the
+    layered vocabulary — unit, component, integration, E2E, and everything below it — is identical
+    on any frontend stack; and before adding a new check or reaching for a new tool on this repo,
+    it's worth knowing precisely what its existing four mechanisms already cover and where the real
+    gaps are.</p>
+  </div>
+
+  <h2>Four mechanisms this repo already uses, and what each one actually proves</h2>
+  <p>All four exist today, verified directly against this repo's own <span class="filelink">package.json</span>
+  and <span class="filelink">README.md</span> — none of them is hypothetical. The first three are
+  repository scripts; the fourth is a manual diagnostic a developer runs by hand, not something a
+  workflow or completion gate currently guarantees runs for every change:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">package.json</span>, lines 7, 9–10</p>
+    <pre><code>"build": "next build",
+"lint": "eslint",
+"typecheck": "tsc --noEmit",</code></pre>
+  </div>
+  <p><strong><code>npm run typecheck</code></strong> (<code>tsc --noEmit</code>) checks the source
+  against its declared static types and compiler configuration. It does not prove that unvalidated
+  runtime data — a value from an API response, a file upload, `localStorage` — actually matches
+  those declarations at runtime; it only proves the code is internally consistent with the types it
+  claims. <span class="filelink">components/ui/Badge.tsx</span> is a real, currently-necessary
+  example of a defect this check can catch:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/ui/Badge.tsx</span>, lines 39–43</p>
+    <pre><code>export function Badge({ className, tone, dot = true, children, ...props }: BadgeProps) {
+  const resolvedTone = tone ?? "neutral";
+  return (
+    &lt;span className={cn(badgeVariants({ tone: resolvedTone }), className)} {...props}&gt;
+      {dot ? &lt;span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", DOT_TONE_CLASSES[resolvedTone])} /&gt; : null}</code></pre>
+  </div>
+  <p><code>tone</code>'s type (from <code>cva</code>'s <code>VariantProps</code>) includes
+  <code>null</code>/<code>undefined</code>, since it's an optional prop, but
+  <code>DOT_TONE_CLASSES</code> is a plain object keyed only by the five real tone strings. Indexing
+  it with <code>tone</code> directly, instead of the resolved fallback, is a real, checkable type
+  error — this lesson's own exercise below reproduces it and shows the exact compiler output.</p>
+  <p><strong><code>npm run lint</code></strong> (plain <code>eslint</code>, no arguments) surfaces
+  findings from the configured rule set — but a successful exit only proves there were no lint
+  <em>errors</em>. ESLint's own CLI returns exit code <code>0</code> whenever there's at least one
+  error or (if <code>--max-warnings</code> is set) more warnings than that limit allows; this repo's
+  script sets neither, so warnings alone never fail the command. Lesson 38's own exercise already
+  produced a real one, deleting a <code>useMemo</code> dependency — and it's a warning, not an error:</p>
+  <div class="box primer">
+    <p class="box-label">Real <code>npm run lint</code> output, quoted from Lesson 38's own exercise</p>
+    <pre><code>78:6  warning  React Hook useMemo has a missing dependency: 'sort'. Either include it or remove the dependency array  react-hooks/exhaustive-deps</code></pre>
+  </div>
+  <p>Reading that word again matters: <code>npm run lint</code> would exit successfully with this
+  warning present. Only actually reading the output (or adding <code>--max-warnings=0</code>, which
+  this repo's script doesn't) would have surfaced it as a failure.</p>
+  <p><strong><code>npm run build</code></strong> (<code>next build</code>) proves production
+  compilation succeeds and exercises whatever rendering work the build itself performs. In this
+  repo specifically, every current route is statically prerendered — a real <code>npm run build</code>
+  run confirms it, printing <code>○ (Static)  prerendered as static content</code> against all six
+  app routes plus <code>/_not-found</code> — so a successful build here does exercise each route's
+  actual build-time render path, not just its compilation. That's still narrower than "every route
+  can render," though: nothing about a runtime request, a real user's state, or a dynamic route path
+  is exercised by a build against pages that take no runtime input. This repo hit a real,
+  build-time-only defect during Tutorial 10 (Part 3): every workflow page was still a plain Server
+  Component the first time it built a <code>DataTable</code> columns array carrying <code>render</code>
+  functions, and the build failed with a real, verbatim error:</p>
+  <div class="box primer">
+    <p class="box-label">Real build-time error, quoted from <span class="filelink">docs/tutorials/10-reusable-ui-components-static-pages/README.md</span></p>
+    <pre><code>Error: Functions cannot be passed directly to Client Components unless you explicitly
+expose it by marking it with "use server".</code></pre>
+  </div>
+  <p>A function prop crossing a Server-to-Client boundary isn't a type error — <code>render: (row:
+  T) => ReactNode</code> typechecks fine on its own — it's a serialization rule Next.js enforces as
+  part of the build's own render step, not something <code>tsc</code> alone would ever flag in
+  isolation.</p>
+  <p>One precise, version-specific fact worth knowing before assuming these three checks overlap
+  more than they do: this repo's installed Next.js 16 fails <code>next build</code> on TypeScript
+  errors by default ("Next.js fails your production build (<code>next build</code>) when TypeScript
+  errors are present in your project"), so <code>build</code> and <code>typecheck</code> genuinely
+  overlap here — but <code>next build</code> no longer runs ESLint at all. The docs are explicit:
+  "Starting with Next.js 16, <code>next lint</code> is removed," and the old <code>eslint</code>
+  option that used to fail a build on lint errors "is no longer needed." Concretely: Lesson 38's
+  missing-dependency warning above would <em>not</em> have failed <code>npm run build</code> in this
+  repo — only <code>npm run lint</code>, and only if someone actually read its output.</p>
+  <p><strong>The <code>curl</code> health diagnostic</strong>, documented in this repo's own
+  <span class="filelink">README.md</span> as a manual step to run "before opening the app," proves
+  something narrower still: the backend process accepts an HTTP request and returns the expected
+  response shape. It does not prove a frontend route renders, that any actual workflow endpoint
+  behaves correctly, that the frontend can successfully call the backend, or that a user can
+  complete a workflow — only that one specific process is up and answering:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">README.md</span>, lines 46–47</p>
+    <pre><code>curl -fsS --max-time 3 http://127.0.0.1:8000/health
+# expected: {"status":"ok"}</code></pre>
+  </div>
+
+  <h2>Two real bugs a fully green run of all three automated checks never caught</h2>
+  <p>Both bugs below passed <code>typecheck</code>, <code>lint</code>, and <code>build</code> at the
+  time — Tutorial 11 documents both in full. Neither is hypothetical, and both are already fixed in
+  the current file. (The <code>curl</code> health diagnostic isn't relevant here at all — it checks
+  the backend process, not a frontend chart.)</p>
+  <p><strong>The hydration mismatch.</strong> Adding hover/focus tooltips to the donut chart
+  originally wrote each ring's accessible title as ordinary multi-line JSX
+  (<code>&lt;title&gt;{"{segment.label}"}: {"{formatNumber(segment.value)}"} ({"{percent}"}%)&lt;/title&gt;</code>,
+  split across lines). Loading <code>/dashboard</code> in a real browser surfaced a genuine React
+  error: "Hydration failed because the server rendered HTML didn't match the client." React's own
+  docs are explicit about the expectation this violates: "hydrateRoot() expects the rendered content
+  to be identical with the server-rendered content." The line breaks and indentation between the
+  embedded expressions became part of the text node's actual structure, and the server-generated DOM
+  and the client's initial render disagreed about that text structure inside the SVG <code>&lt;title&gt;</code>
+  — a mismatch no type system or linter is positioned to catch, since it's about runtime rendered
+  output, not source code. The fix, still in the current file:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/charts/DonutBreakdownChart.tsx</span>, lines 72, 92</p>
+    <pre><code>const segmentTitle = `${segment.label}: ${formatNumber(segment.value)} (${percent}%)`;
+// ...
+&lt;title&gt;{segmentTitle}&lt;/title&gt;</code></pre>
+  </div>
+  <p><strong>The pointer-events trap.</strong> This is actually two distinct findings, worth keeping
+  separate rather than telling as one story. First, the real defect: the donut's center "total"
+  label sat in an <code>inset-0</code> overlay that stretched across the entire bounding box — not
+  just the hollow center, but the full square area the visible ring occupies too — with no
+  <code>pointer-events</code> override to let clicks or hover pass through to the ring underneath.
+  This was a real bug for real users, not a test artifact: anyone hovering anywhere in that box in an
+  actual browser hit the same dead zone. A scripted Playwright <code>locator.hover()</code> call
+  against a ring segment surfaced it directly, because <code>hover()</code> "wait[s] for
+  actionability checks on the element" before it acts — one of which detects whether the target
+  point is obstructed by another element intercepting the pointer event. The call timed out, and the
+  tool's own diagnostic trace named the exact intercepting element: the overlay. That's a property of
+  Playwright's actionability-checking mechanism, not a claim about automated tests being more
+  "thorough" than a human in general. The fix, still on line 99 of the current file:</p>
+  <div class="box primer">
+    <p class="box-label"><span class="filelink">components/charts/DonutBreakdownChart.tsx</span>, line 99</p>
+    <pre><code>&lt;div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"&gt;</code></pre>
+  </div>
+  <p>Second, a separate problem that only appeared <em>after</em> that fix, and belongs to the test
+  script rather than the app: <code>hover()</code>'s default behavior is to "hover over the center of
+  the element," and for a hollow ring (an annulus), that geometric center is the empty hole — not any
+  point on the visible colored stroke. Once the overlay stopped intercepting events, hovering the
+  ring worked fine for a real user, but the test itself still couldn't meaningfully assert anything
+  about the ring segment's own hover behavior by calling <code>.hover()</code> at its default point.
+  The actual fix for the test was switching to <code>.focus()</code>, which exercises the
+  <code>onFocus</code> handler directly and sidesteps the "where exactly does this land" question
+  entirely — a test-design fix, unrelated to how the overlay defect itself was originally found.</p>
+
+  <h2>The formal vocabulary, and where this repo's real checks actually sit on it</h2>
+  <p>The installed Next.js testing guide names five categories, independent of any specific tool:</p>
+  <div class="box primer">
+    <p class="box-label">Quoted directly from the installed Next.js docs' "Testing" overview</p>
+    <pre><code>Unit Testing involves testing individual units (or blocks of code) in isolation. In React, a
+unit can be a single function, hook, or component.
+
+Component Testing is a more focused version of unit testing where the primary subject of the
+tests is React components. This may involve testing how components are rendered, their
+interaction with props, and their behavior in response to user events.
+
+Integration Testing involves testing how multiple units work together. This can be a
+combination of components, hooks, and functions.
+
+End-to-End (E2E) Testing involves testing user flows in an environment that simulates real
+user scenarios, like the browser. This means testing specific tasks (e.g. signup flow) in a
+production-like environment.
+
+Snapshot Testing involves capturing the rendered output of a component and saving it to a
+snapshot file. When tests run, the current rendered output of the component is compared
+against the saved snapshot. Changes in the snapshot are used to indicate unexpected changes
+in behavior.</code></pre>
+  </div>
+  <p>This repository has no committed, repeatable frontend test suite in any of these five
+  categories — verified directly, not assumed: no <code>*.test.*</code> or <code>*.spec.*</code>
+  file exists anywhere under <span class="filelink">app/</span>, <span class="filelink">components/</span>,
+  or <span class="filelink">lib/</span>, and <span class="filelink">package.json</span> defines no
+  <code>test</code> script at all. That's a real, current gap, not something to gloss over — the
+  Python core has a genuine automated test layer (<code>uv run pytest</code>, over 200 passing
+  tests), but nothing analogous exists for the TypeScript/React side yet. That's compatible with a
+  separate fact, though: this repository <em>has</em> performed real frontend testing before, twice
+  — it just doesn't retain any of it as automated regression coverage. What this repo has used
+  instead, twice, is a deliberately temporary stand-in for E2E: install Playwright without
+  saving it to <code>package.json</code> (<code>npm install --no-save playwright</code>), run a
+  throwaway driver script against a real running dev server, then remove it —
+  <span class="filelink">docs/tutorials/11-portfolio-ui-polish/README.md</span> (Part 8) documents
+  this exact pattern, including the check that <code>git diff --stat package.json</code> shows no
+  trace afterward. Playwright itself is squarely an E2E tool by the docs' own description: "a testing
+  framework that lets you automate Chromium, Firefox, and WebKit with a single API," used "to write
+  End-to-End (E2E) testing." One-off and scripted is still real coverage for the one bug it's aimed
+  at — it just isn't a committed, repeatable suite guarding against regressions later.</p>
+  <p>Lesson 40's own tab-through exercise sits outside this whole taxonomy on a different axis
+  entirely: a human, not a script, walking an E2E-shaped path by hand. It found real gaps (a
+  focus-invisible file input, an unnamed div in the tab order) that none of this repo's three
+  automated checks were ever positioned to catch — but it isn't repeatable the way a committed test
+  is, since nothing re-runs it automatically before the next change ships.</p>
+
+  <h2>Choosing the smallest layer that could actually observe the failure</h2>
+  <p>A short, honest decision list, built entirely from the real examples above:</p>
+  <div class="box primer">
+    <p class="box-label">Ask, in order, before reaching for the next layer</p>
+    <pre><code>Could a declared static type be inconsistent?       -&gt; typecheck
+Could a configured source pattern be problematic?   -&gt; lint
+Could production compilation/build rendering fail?  -&gt; build
+Could the backend process be unavailable?           -&gt; curl /health
+Could an API behavior or contract be wrong?         -&gt; call the real endpoint, or an integration test
+Could rendered interaction or accessibility fail?   -&gt; a real browser, manual or automated
+Could a complete user workflow fail?                -&gt; an E2E path through the running system</code></pre>
+  </div>
+  <p>This keeps the "smallest layer capable of observing the failure" principle intact while
+  splitting what earlier felt like one "process boundary" step into two genuinely different
+  questions: whether a service is even reachable at all, versus whether what it does once reached is
+  correct. The two named failure modes this lesson is built around: treating a fully green
+  <code>typecheck</code>/<code>lint</code>/<code>build</code> run as proof of accessibility or
+  interactivity — the donut chart passed all three while genuinely broken twice over — and reaching
+  for a heavy scripted browser test to catch something a one-line type or lint rule would already
+  catch, more cheaply and more reliably, every single time it actually runs.</p>
+
+  <div class="say-avoid">
+    <div class="say-avoid-col say">
+      <p class="box-label">Correct framing</p>
+      <p>"A green build tells me production compilation succeeded and this repo's statically
+      prerendered routes rendered once at build time without throwing. It tells me nothing about
+      hydration, focus order, or whether a mouse can actually reach an element — those need an
+      actual browser, scripted or by hand."</p>
+    </div>
+    <div class="say-avoid-col avoid">
+      <p class="box-label">A framing to avoid</p>
+      <p>"Typecheck, lint, and build are all green, so the UI works." (Both real bugs in this lesson
+      are the direct counter-example — all three passed, twice, on genuinely broken interactive
+      behavior.)</p>
+    </div>
+  </div>
+
+  <h2>Retrieval check</h2>
+  <div class="box checkpoint">
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">If Badge.tsx's <code>resolvedTone</code> fallback were removed, which check would actually catch it before any browser loads?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="true">npm run typecheck (and npm run build, which type-checks too)</button>
+        <button class="quiz-option" data-correct="false">npm run lint, since ESLint validates object index types</button>
+        <button class="quiz-option" data-correct="false">the curl health check, since it fails on any error</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">The donut chart's hydration bug passed typecheck, lint, and a full next build. What did that green run actually prove?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="true">Production compilation succeeded and build-time rendering worked, nothing more</button>
+        <button class="quiz-option" data-correct="false">The component is already fully accessible and truly interactive</button>
+        <button class="quiz-option" data-correct="false">The server and client will always render identical output</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Playwright's locator.hover() surfaced the donut overlay defect through a failed timeout. What actually triggered that failure?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="true">Its actionability check flagged the element intercepting the pointer</button>
+        <button class="quiz-option" data-correct="false">The test happened to hover over the empty hole</button>
+        <button class="quiz-option" data-correct="false">Manual testers physically cannot trigger any hover event ever</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <h2>Tiny exercise (8 minutes)</h2>
+  <div class="box exercise">
+    <p class="box-label">Exercise — reproduce Badge.tsx's type-level bug in a disposable scratch file</p>
+    <p><strong>Predict first.</strong> Of this repo's four verification mechanisms (typecheck, lint,
+    build, curl health), which would flag <code>DOT_TONE_CLASSES[tone]</code> if the
+    <code>tone ?? "neutral"</code> fallback on <span class="filelink">components/ui/Badge.tsx</span>
+    line 40 were removed and the raw <code>tone</code> prop were indexed directly? Write down your
+    answer before running anything — and don't edit the real file to check it.</p>
+    <p><strong>Verify, without touching any application file.</strong> Create a scratch file
+    anywhere outside this repo (a temp directory is fine) named <code>badge-repro.ts</code>:</p>
+    <pre><code>type Tone = "success" | "warning" | "danger" | "info" | "neutral";
+const DOT_TONE_CLASSES: Record&lt;Tone, string&gt; = {
+  success: "bg-success", warning: "bg-warning", danger: "bg-danger",
+  info: "bg-info", neutral: "bg-text-muted",
+};
+declare const tone: Tone | null | undefined;
+
+const broken = DOT_TONE_CLASSES[tone];          // the bug
+const resolvedTone = tone ?? "neutral";
+const fixed = DOT_TONE_CLASSES[resolvedTone];   // the real fix</code></pre>
+    <p>Run it with <em>this repo's own installed TypeScript compiler</em>, not whatever
+    <code>npx</code> might resolve or download on its own — from the repo root:</p>
+    <pre><code>./node_modules/.bin/tsc --noEmit --strict /absolute/path/to/badge-repro.ts</code></pre>
+    <p>(Or, equivalently: <code>npx --no-install tsc --noEmit --strict /absolute/path/to/badge-repro.ts</code>
+    — the <code>--no-install</code> flag refuses to fetch a different version, so either command
+    guarantees you're checking against the exact compiler this repo already uses.) The real output,
+    verified against this repo's own installed compiler while writing this lesson:</p>
+    <pre><code>.../badge-repro.ts(8,33): error TS2538: Type 'null' cannot be used as an index type.
+.../badge-repro.ts(8,33): error TS2538: Type 'undefined' cannot be used as an index type.</code></pre>
+    <p>Compare against your prediction. The whole loop is one scratch file and one command —
+    nothing in this repo changes, and deleting the scratch file afterward leaves zero trace.</p>
+  </div>
+
+  <div class="ask-teacher">
+    If you can look at a described UI change and name, in order, the cheapest check that would
+    actually observe its specific failure mode — not just "we should add tests" — this lesson has
+    landed. It deliberately doesn't install Vitest, Jest, Cypress, or a committed Playwright suite;
+    that's a real, named gap in this repo today, not a decision this lesson makes for you. Ask here
+    if the typecheck/build overlap, or the build/lint non-overlap in this repo's Next.js 16, still
+    feels surprising before the capstone trace in Lesson 43.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0041-route-groups-layout-composition-and-metadata.html">← Back: Route Groups, Layout Composition, and Metadata</a>
+    <a href="0043-track-5-guided-ui-trace.html">Next: Track 5 Guided UI Trace →</a>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

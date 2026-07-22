@@ -11,13 +11,17 @@ hydration mismatch, a pointer-events trap) were found by scripted interaction ch
 visual review had already missed.
 
 > [!NOTE]
-> **Prerequisites:** Tutorial 10 (`10-reusable-ui-components-static-pages/README.md`) — every
+> **Prerequisites:** [Tutorial 10](../10-reusable-ui-components-static-pages/README.md) — every
 > component this tutorial modifies (`Button`, `MetricCard`, `UploadPanel`, `SidebarNav`) was fully
-> covered there first; this tutorial only covers what changed and why. Tutorial 07
-> (`07-fastapi-integration/README.md`) — for the live-page state that existed before this polish
-> pass; Phase 10.2 sits chronologically after Phase 10's FastAPI integration, so some of what this
-> tutorial touches (the `/dashboard` KPI strip, in particular) was already reading live data, not
-> Tutorial 10's static mock JSON alone.
+> covered there first; this tutorial only covers what changed and why. [Tutorial 07](../07-fastapi-integration/README.md) — for the live-page state that existed before this polish
+> pass. Precisely what that means, timeline-wise, is worth being exact about: Phase 10.2 sits
+> chronologically after Phase 10's FastAPI integration, so the **three workflow pages**
+> (`/order-validation`, `/inventory-allocation`, `/payment-aging`) were already reading live data by
+> Phase 10.2. `/dashboard` and `/reports` were not — they remained static, reading Tutorial 10's mock
+> JSON, all the way through Phase 10.2. `/dashboard` only started reading live, session-scoped data
+> in Phase 12 (Tutorial 12), well after this tutorial's subject phase ended — this tutorial's own
+> `/dashboard` code citations are current (Phase 12-era `DashboardLiveSections.tsx`), but the
+> *phase* this tutorial describes never itself made the dashboard live.
 
 > [!NOTE]
 > **A caveat about the current codebase, worth stating once, up front:** two things this tutorial
@@ -42,7 +46,7 @@ visual review had already missed.
 | Two solutions to the same coordination problem: component state vs. pure CSS | `DonutBreakdownChart`'s `useState` vs. `VerticalBucketBarChart`'s `group`/`group-hover` | Design patterns |
 | CSS Grid's default cross-axis stretch | Chart-card sizing bug — `align-items: stretch` making a shorter sibling match a taller one's height | System design |
 | Filesystem duplicate-file collision breaking module resolution | The stray macOS Finder-duplicated `.next/types/*.d.ts` files causing a `tsc` "duplicate identifier" error | OS fundamentals |
-| Hydration as a byte-level consistency check | The `DonutBreakdownChart` `<title>` hydration mismatch — server and client text nodes must match exactly | System design |
+| Hydration as an exact content/DOM-match requirement | The `DonutBreakdownChart` `<title>` hydration mismatch — server-rendered content and the client's initial render must agree | System design |
 
 ## How to use an LLM before this tutorial
 
@@ -156,7 +160,8 @@ falls back to discarding and re-rendering that part of the tree from scratch on 
 but expensive, and visible to a real user as a flash/flicker. Two renders can look visually
 identical in a screenshot while still differing at the raw-text-node level (extra whitespace,
 different line-break placement inside a text node) — a mismatch a human eye would never catch, but
-the framework's byte-level comparison does.
+React's hydration check, which expects the client's initial rendered output to match the
+server-generated content, does.
 
 *Practice question:* if a server-rendered `<title>` element's text content has one extra space
 character compared to what the client would render, would that difference be visible to a user
@@ -214,7 +219,7 @@ Key invariants for this phase:
 
 ## Part 1 — A bounded polish phase with non-goals
 
-`docs/plan/phase-10.2-portfolio-ui-polish/explanation.md` §1 states this phase's framing plainly,
+[`docs/plan/phase-10.2-portfolio-ui-polish/explanation.md`](../../plan/phase-10.2-portfolio-ui-polish/explanation.md) §1 states this phase's framing plainly,
 before any code is discussed: "a token-only visual/hierarchy pass — no backend, API, contract, or
 Phase 11 (SQL Reporting) changes." That framing came out of a prior `/grilling` planning pass, and
 the actual `/architect` session that followed pinned down exactly the kind of ambiguous terms a
@@ -233,7 +238,7 @@ into the same Phase 10.2 scope. This is Concept 1's practice question playing ou
 screenshot revealing a bug was treated as permission to fix *that* bug, evaluated each time on its
 own merits, not as blanket license to redesign anything else visible in the same image.
 
-**Try it yourself:** Open `docs/plan/phase-10.2-portfolio-ui-polish/plan.md`'s Key Invariants
+**Try it yourself:** Open [`docs/plan/phase-10.2-portfolio-ui-polish/plan.md`](../../plan/phase-10.2-portfolio-ui-polish/plan.md)'s Key Invariants
 section and count how many of its six bullets name something this phase explicitly did *not* do or
 must *not* be extended to do, versus how many describe what it built. The ratio itself is evidence
 of how seriously the non-goals were tracked, not just the goals.
@@ -241,7 +246,7 @@ of how seriously the non-goals were tracked, not just the goals.
 ## Part 2 — Inverse-surface tokens as a shared visual role
 
 Open [`app/globals.css`](../../../app/globals.css) lines 40–43 and
-[`tailwind.config.ts`](../../../tailwind.config.ts) lines 57–63:
+[`tailwind.config.ts`](../../../tailwind.config.ts) lines 57–62:
 
 ```css
 --surface-inverse: 222 47% 11%;
@@ -353,6 +358,11 @@ would drift apart silently, with no error or warning, exactly the failure mode a
 family exists to make structurally impossible rather than merely discouraged.
 </details>
 
+**Try it yourself:** Run `rg -n "bg-surface-inverse|surface-inverse-hover" components/layout/SidebarNav.tsx components/ui/Button.tsx`
+from the repo root. Confirm both files show up, and that each match is a real class reference to the
+shared token family — not a hardcoded color, not a component-local redefinition. This is the same
+mechanical proof Challenge 1 asks for later, done once here in miniature.
+
 ## Part 3 — Restyle internals while preserving prop contracts
 
 Open [`components/workflow/MetricCard.tsx`](../../../components/workflow/MetricCard.tsx) lines
@@ -372,10 +382,7 @@ type MetricCardProps = {
 ```
 
 ```tsx
-/** Icon chip is optional and decorative only... Phase 10.2: restructured into a compact,
- *  roughly square tile (icon top, value centered/prominent, label below) instead of a
- *  short wide strip, with a min-height so a row of tiles aligns regardless of value/label
- *  length. */
+/** Icon chip is optional and decorative only — matches the Figma-approved "label + big number + icon chip" KPI card pattern, never the trend-delta that sits next to it in the same reference (that stays out of scope). Phase 10.2: restructured into a compact, roughly square tile (icon top, value centered/prominent, label below) instead of a short wide strip, with a min-height so a row of tiles aligns regardless of value/label length. */
 export function MetricCard({ label, value, icon, tone = "neutral", sample = false }: MetricCardProps) {
 ```
 
@@ -418,11 +425,41 @@ per this tutorial's opening caveat):
 <section className="mt-6">
   <h2 className="text-base font-semibold text-text-primary">Overview</h2>
   <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-    <MetricCard label="Total Orders" value={formatNumber(validation.total_orders)} ... />
-    <MetricCard label="Invalid Orders" value={formatNumber(validation.invalid_orders)} ... />
-    <MetricCard label="Fully Allocated" value={formatNumber(allocation.fully_allocated_count)} ... />
-    <MetricCard label="Backordered" value={formatNumber(allocation.backordered_count)} ... />
-    <MetricCard label="Overdue Amount" value={formatAmount(aging.overdue_amount)} ... />
+    <MetricCard
+      label="Total Orders"
+      value={formatNumber(validation.total_orders)}
+      icon={<ClipboardList size={16} />}
+      tone="info"
+      sample={orderValidationIsSample}
+    />
+    <MetricCard
+      label="Invalid Orders"
+      value={formatNumber(validation.invalid_orders)}
+      icon={<XCircle size={16} />}
+      tone="danger"
+      sample={orderValidationIsSample}
+    />
+    <MetricCard
+      label="Fully Allocated"
+      value={formatNumber(allocation.fully_allocated_count)}
+      icon={<CheckCircle2 size={16} />}
+      tone="success"
+      sample={inventoryAllocationIsSample}
+    />
+    <MetricCard
+      label="Backordered"
+      value={formatNumber(allocation.backordered_count)}
+      icon={<Truck size={16} />}
+      tone="danger"
+      sample={inventoryAllocationIsSample}
+    />
+    <MetricCard
+      label="Overdue Amount"
+      value={formatAmount(aging.overdue_amount)}
+      icon={<AlertTriangle size={16} />}
+      tone="warning"
+      sample={paymentAgingIsSample}
+    />
   </div>
 </section>
 ```
@@ -505,6 +542,15 @@ be reconstructable from what's left on the page, and reintroducing some form of 
 a percentage, or the tile itself) would become a legitimate consideration again.
 </details>
 
+**Try it yourself:** Inventory all nine KPIs dropped from `/dashboard`'s Overview row — Duplicate
+Orders, Invalid SKUs, Missing Fields, Total Order Lines, Partially Allocated, Low Stock SKUs, Total
+Outstanding, High Priority Count, 90+ Days Amount — and confirm each still appears as a real
+`MetricCard label="..."` on its originating workflow page's own summary grid. Run
+`rg -n "label=\"Duplicate Orders\"|label=\"Invalid SKUs\"|label=\"Missing Fields\""
+"app/(workspace)/order-validation/page.tsx"`, then the equivalent for the Inventory Allocation and
+Payment Aging KPIs on their own pages, and confirm every one of the nine is a real match — direct,
+current proof that the "still fully visible somewhere else" condition genuinely holds today.
+
 ## Part 5 — Two interaction strategies for two chart shapes
 
 `explanation.md` §8 frames the deciding question precisely: not "does this need to react to hover,"
@@ -512,7 +558,7 @@ but "does reacting to hover on element A need to change something rendered somew
 element A."
 
 Open [`components/charts/DonutBreakdownChart.tsx`](../../../components/charts/DonutBreakdownChart.tsx)
-line 1 and lines 47–53:
+line 1 and lines 47–51:
 
 ```tsx
 "use client";
@@ -552,10 +598,12 @@ lines 50–69 — no `"use client"` anywhere in this file:
   >
     {datum.label}: {formatAmount(datum.value)} ({percent}%)
   </div>
-  ...
+  <span className="text-[10px] font-medium tabular-nums text-text-secondary">
+    {formatAmount(datum.value)}
+  </span>
   <div
     className={`w-full rounded-t-md transition-opacity duration-150 group-hover:opacity-70 group-focus:opacity-70 ${BAR_FILL_CLASSES[datum.tone]}`}
-    ...
+    style={{ height: `${(datum.value / max) * 100}%` }}
   />
 </div>
 ```
@@ -565,9 +613,16 @@ own fill opacity and bar N's own tooltip, never anything about bar N+1 or any el
 one `<div>`. That's precisely the shape Tailwind's `group`/`group-hover`/`group-focus` utilities
 solve with zero JavaScript: each bar column becomes a `group relative` container holding both the
 bar (with `group-hover:opacity-70`) and an absolutely-positioned tooltip (with `opacity-0
-group-hover:opacity-100`), coordinated entirely by the browser's own `:hover`/`:focus-within`
-pseudo-class matching. The component correctly stayed a Server Component — nothing about it needs
-anything beyond what CSS alone already provides.
+group-hover:opacity-100`), coordinated entirely by the browser's own `:hover`/`:focus` pseudo-class
+matching — the bar column itself carries `tabIndex={0}`, and it's that focused *group* element
+`group-focus:*` reacts to, not `:focus-within` (which would instead react to focus landing on a
+*descendant* of the group). The component stayed directive-free and CSS-driven — nothing about its
+own logic needs anything beyond what CSS alone already provides. Worth being precise about what that
+means today, though: `DashboardLiveSections.tsx` (Part 4) is the component's current caller, and that
+file carries its own `"use client"` — so while `VerticalBucketBarChart` is genuinely
+server-compatible and could be rendered from a Server parent elsewhere, its actual current usage is
+bundled beneath that Client boundary, part of the client module graph, not executing as a Server
+Component in the running app today.
 
 > **Design patterns — Two solutions to the same coordination problem:** The donut and the bar
 > chart both needed "reveal detail on hover/focus" — an identical *product* requirement — and
@@ -577,21 +632,26 @@ anything beyond what CSS alone already provides.
 > `group-*` variants for a parent/descendant relationship) are sufficient and cost nothing in
 > JavaScript. The moment hovering A needs to change something about a *sibling* element B that
 > isn't a CSS descendant of A, only shared component state (or, in more complex cases, a signal/
-> observable) can coordinate the two.
+> observable) can coordinate the two. The installed Next.js docs
+> (`node_modules/next/dist/docs/01-app/01-getting-started/05-server-and-client-components.md`)
+> cover the general Server/Client module-boundary mechanism this whole distinction rests on.
 
-**Checkpoint:** `DonutBreakdownChart` needed `useState` and became a Client Component;
-`VerticalBucketBarChart` didn't and stayed a Server Component. What's the precise test for "does
-this interactive behavior need component state," and how does each chart's answer map onto that
-test?
+**Checkpoint:** `DonutBreakdownChart` needed `useState` and required its own `"use client"`;
+`VerticalBucketBarChart` needed neither. What's the precise test for "does this interactive behavior
+need component state," and how does each chart's answer map onto that test?
 
 <details>
 <summary>Reveal answer</summary>
 
 The precise test, per this Part's own framing: does reacting to hover/focus on one element need to
-change something rendered *outside* that element's own DOM subtree? For the donut, yes — hovering a
-`<circle>` needs to update a floating tooltip card that lives in a sibling `<div>`, and hovering a
-legend row needs to update the *matching circle's* opacity, a genuinely different element entirely.
-That cross-subtree coordination requires a shared source of truth only real component state can
+change something rendered *outside* that element's own DOM subtree? For the donut, yes, in one
+direction: hovering or focusing a `<circle>` needs to update a floating tooltip card that lives in a
+sibling `<div>`, *and* needs to update the matching legend row's own background highlight — a
+genuinely different element. (The reverse doesn't currently happen: hovering a legend row updates
+the tooltip card and that row's own highlight/percent text, but nothing in the current code
+conditions a `<circle>`'s own class on `hoveredLabel` — the ring segments only ever react to their
+*own* `hover`/`focus` state, not to legend interaction.) Either direction of that cross-subtree
+coordination is exactly what requires a shared source of truth only real component state can
 provide. For the vertical bar chart, no — hovering bar N's `group` container only ever needs to
 change things declared *inside* that same `group` container (its own fill, its own tooltip child) —
 CSS's `group-hover`/`group-focus` selectors are purpose-built for exactly "a descendant reacts to
@@ -615,6 +675,27 @@ purely in CSS selectors would likely be more fragile and harder to read than sim
 same `useState` pattern the donut chart already uses — which is exactly why the donut chart, facing
 this identical requirement today, was promoted to a Client Component rather than attempting a
 CSS-only solution.
+</details>
+
+**Try it yourself:** Before looking anything up, predict, in writing, whether each of these three
+hypothetical hover interactions would need shared component state (per this Part's own test — does
+reacting to hover on element A need to change something *outside* A's own DOM subtree):
+
+1. A `MetricCard` tile that reveals a full-precision number in a tooltip when hovered.
+2. A table row that highlights itself when hovered.
+3. A legend swatch that, when hovered, highlights *every* row in a table sharing that swatch's
+   category — not just one row.
+
+<details>
+<summary>Reveal answer</summary>
+
+(1) and (2) are both self-contained — the affected element and the hovered element are the same
+element (or a descendant of it) — so both are answerable with `group`/`group-hover` alone, no state
+needed. (3) is the donut-chart shape exactly: hovering the swatch needs to change *multiple other*
+elements elsewhere in the DOM that aren't descendants of the swatch, so it would need shared
+component state (or the same `:has()`-based CSS workaround the previous checkpoint judged more
+fragile than it's worth) — the same test, applied to a new hypothetical, gives the same kind of
+answer it gave for the donut and the bar chart.
 </details>
 
 ## Part 6 — Hydration and pointer-event failures found by real interaction checks
@@ -642,25 +723,34 @@ structure — differed subtly enough between server and client output to trip th
 real, visible consequence for any user loading the dashboard: React discarded and fully remounted
 that part of the tree client-side, a visible flash on every page load.
 
-The fix, visible in the current file (lines 72, 92):
+The fix, visible in the current file at line 72 (building the string) and line 92 (using it) —
+shown as two separate excerpts since they're not adjacent lines:
 
 ```tsx
 const segmentTitle = `${segment.label}: ${formatNumber(segment.value)} (${percent}%)`;
-// ...
+```
+
+```tsx
 <title>{segmentTitle}</title>
 ```
 
 Building the text as one atomic JavaScript string, assigned to a variable *before* the JSX, and
-referencing only that variable as `<title>`'s sole child, means server and client produce
-byte-identical output — no JSX-formatting whitespace anywhere near the text node for the two
-renders to disagree about.
+referencing only that variable as `<title>`'s sole child, means server and client produce content
+that agrees exactly — no JSX-formatting whitespace anywhere near the text node for the two renders
+to disagree about.
 
-> **System design — Hydration as a byte-level consistency check:** This bug is a concrete instance
-> of the pre-study's Concept 5 — two renders that are visually indistinguishable in a screenshot
-> can still fail hydration, because the check operates on raw text-node content, not pixels.
-> `plan.md`'s own invariant generalizes the fix into a standing rule for this codebase: any
-> multi-segment text passed to a JSX text-content position must be built as a single JS expression
-> before the return statement, never as multi-line JSX children with embedded expressions.
+> **System design — Hydration as an exact content-match requirement:** This bug is a concrete
+> instance of the pre-study's Concept 5 — two renders that are visually indistinguishable in a
+> screenshot can still fail hydration, because React's hydration check compares the server-rendered
+> content/DOM against what the client's first render would produce, not pixels on screen. This
+> reproduced failure was specifically about an SVG `<title>` text node splitting across multiple
+> JSX expressions on separate lines — it is not a general claim that every multi-expression JSX text
+> node is unsafe. Ordinary deterministic JSX text expressions hydrate correctly every day; the rule
+> that actually generalizes from this bug is narrower. `plan.md`'s own invariant states it precisely
+> for this codebase: any multi-segment text passed to a JSX text-content position must be built as a
+> single JS expression before the return statement, never as multi-line JSX children with embedded
+> expressions — a specific, narrow discipline this one reproduced failure justifies, not a blanket
+> rule against multi-expression text nodes in general.
 
 **The pointer-events trap.** `explanation.md` §4 names how this one was actually found: a scripted
 Playwright hover test against a ring segment failed with a timeout, and the test tool's own
@@ -673,8 +763,10 @@ items-center justify-center">`, and `inset-0` stretches that div across the *ent
 of its relatively-positioned parent — not just the donut's hollow center, but the full square area
 the visible ring occupies too. Rendering after the `<svg>` in DOM order puts it on top in the
 default stacking order, and with no `pointer-events` override, any part of its box — including the
-parts sitting directly over the visible ring — captures mouse and focus events meant for the
-`<circle>` elements beneath it. `explanation.md` is explicit that this was a real bug affecting real
+parts sitting directly over the visible ring — captures mouse events meant for the `<circle>`
+elements beneath it. (The overlay itself carries no `tabIndex`, so it was never part of the tab
+order and never blocked *keyboard* focus reaching the ring segments — this was purely a
+pointer/hit-testing defect, not a keyboard-accessibility one.) `explanation.md` is explicit that this was a real bug affecting real
 users, not a test artifact: anyone hovering the ring in a real browser would have hit the identical
 dead zone.
 
@@ -711,25 +803,44 @@ possible way to serialize that one string, so server and client necessarily agre
 no multi-piece structure left for them to disagree about.
 </details>
 
-**Checkpoint:** The pointer-events bug was discovered via a failed Playwright test, not by eye. Why
-might this bug have been easy to miss in ordinary manual browser testing, and what does that
-suggest about when automated interaction tests catch things visual review doesn't?
+**Checkpoint:** The pointer-events bug was discovered via a failed Playwright test, not by eye. What
+specifically caught it, and what does that suggest about when automated interaction tests catch
+things visual review doesn't? (This is a different question from why `.hover()` itself later needed
+adjusting — keep the two separate.)
 
 <details>
 <summary>Reveal answer</summary>
 
-Manual browser testing tends to involve a developer moving their mouse toward the visually obvious
-target — the colored ring stroke itself — and a real mouse cursor dragged across a donut shape
-naturally passes over parts of the ring on its way in from outside, often triggering at least a
-brief hover before settling. A scripted test's `.hover()` call, by contrast, jumps directly and
-precisely to an element's calculated bounding-box center — for a hollow ring (an annulus), that
-center point is the empty hole, a location no real mouse trajectory naturally rests on for long, but
-exactly where the invisible, unclipped `inset-0` overlay was sitting. This suggests a real, general
-lesson: automated interaction tests exercise *exact, literal* interaction geometry a human's more
-approximate, trajectory-based mouse movement tends to route around by accident — a bug that's
-purely about the *precise* boundaries of an invisible hit-testing region is exactly the kind visual
-review is least likely to stumble onto by chance.
+Playwright's `.hover()` performs an actionability check before acting — it verifies the target
+element genuinely would receive the pointer event at the point it's about to interact with, and if
+some other element sits on top and would intercept it instead, Playwright's own failure trace names
+that specific intercepting element. That's exactly what happened here: the trace directly identified
+the center-total `<span>`'s wrapping `<div>` as the element receiving the event instead of the
+`<circle>`. This is reliable, mechanical evidence, not a guess about mouse trajectories — visual
+review misses this class of bug because looking at a resting-state screenshot (or even watching a
+human casually mouse around the chart) reveals nothing about *which* element specifically receives a
+pointer event at a *given* point; nothing about the page's rendered appearance changes because of an
+invisible overlay sitting on top of an SVG ring. The general lesson: an automated check that actually
+asks "would this exact point be receivable by this exact element" catches an entire class of
+hit-testing defect that no amount of looking at the page, however carefully, can surface — the defect
+isn't visible, it's about event routing.
+
+A separate, secondary issue surfaced only *after* this fix: `.hover()` targets an element's
+calculated bounding-box center, and for a hollow ring (an annulus), that center point is the empty
+hole — never a point on the visible stroke. That's a geometric ambiguity specific to targeting an
+annulus shape with a center-point-based interaction, not the reason the overlay bug was originally
+caught, and not itself a defect in the application — it's what motivated switching the test to
+`.focus()` instead, which exercises the `onFocus` handler directly and sidesteps the geometry
+question entirely.
 </details>
+
+**Try it yourself:** Load `/dashboard` in a real browser, find the Allocation Status donut, and
+using only the keyboard (Tab to move focus, no mouse), focus one legend row, then separately focus
+one ring segment. Record exactly which UI regions change each time — the floating tooltip card, the
+focused legend row's own background, and (per the corrected model above) whether the ring itself
+visibly reacts to a *legend* row being focused. Confirm your observation matches this Part's
+correction: the ring segments only ever react to their own hover/focus state, never to
+`hoveredLabel` being set by a legend interaction.
 
 ## Part 7 — Grid/flex mechanics behind UploadPanel and chart-card alignment
 
@@ -810,26 +921,39 @@ unequal height, drop zones landing at different vertical positions across cards 
 changed at all; the fix would have been a no-op, since the row itself was never broken.
 </details>
 
-**Checkpoint:** Explain why `align-items: stretch` doesn't automatically make a `<Card>` visually
-taller unless the card itself also has `h-full`. Why does the chart-card fix need *both*
-`h-full`-style participation in row-stretch *and* an explicit `min-h-48` on the inner body —
-wouldn't one or the other be enough?
+**Checkpoint (corrected premise):** An earlier version of this question asked why
+`align-items: stretch` "doesn't automatically make a `<Card>` visually taller unless the card itself
+also has `h-full`" — that premise is inaccurate, and worth correcting explicitly before answering.
+For an auto-sized direct grid item (no explicit height set), Grid's default `stretch` *already*
+makes the item's own margin box fill the grid area, with no extra class required — this is the same
+fact Concept 3's pre-study already states correctly. So what is `h-full` actually doing in the real
+`UploadPanel.tsx` fix, and why does the *chart-card* fix additionally need `min-h-48` on the inner
+body? Are those two additions solving the same problem, or two different ones?
 
 <details>
 <summary>Reveal answer</summary>
 
 `align-items: stretch` operates on the grid *items* directly — the immediate children of the grid
-container — and by default, a block-level element like a `div` (what `Card` renders as) without any
-explicit height constraint will naturally size to its own content's height even while sitting inside
-a stretched grid cell, unless something tells it to actually *fill* that cell (`h-full`, meaning
-"100% of the stretched cell's height," is what makes the visual stretch actually apply to this
-specific element rather than leaving it at its intrinsic content height). `h-full` alone would make
-the outer `Card` stretch correctly, but says nothing about how the card's *internal* content should
-respond to now having extra vertical room — without `min-h-48 flex flex-col justify-center` on the
-inner chart body, the extra stretched space would just appear as blank space below the chart's
-natural content, exactly the original bug. Both pieces are necessary because they solve two
-different halves of the same problem: one makes the outer box the right size, the other makes the
-inner content use that size sensibly.
+container — and for an item with no explicit height set, that default stretch already sizes the
+item's own margin box to match the tallest sibling's row height, automatically, with no `h-full`
+needed to "activate" it. `h-full` on `Card` is reinforcing/making the intent explicit rather than
+causing the stretch to happen at all; the two additions in this Part solve two genuinely different
+problems, not the same one twice. `UploadPanel`'s fix (`h-full` on `Card`, `mt-auto` on the
+drop-zone block) is about the card's *internal* content responding to the height it already has —
+the outer box was already stretched by Grid's default, but nothing inside it was positioned to use
+the extra room, so the drop-zone content stayed at the top instead of anchoring to the bottom where
+it needs to sit regardless of how many lines the text above it wrapped to. The chart-card fix
+(`min-h-48` on both chart bodies) solves a different problem: rather than relying on stretch to
+match two chart cards' heights implicitly (letting whichever card has more natural content define
+the row height, and leaving the other stretched with dead space), it gives both bodies the *same*
+explicit minimum height directly, so there's little or nothing left for Grid's stretch to even need
+to equalize. Neither fix is about making stretch itself happen — stretch was never the missing
+piece in either bug; how the *inner* content responds to (`UploadPanel`) or preempts
+(chart cards) the stretched space is what each fix actually addresses. Without `min-h-48 flex
+flex-col justify-center` on the inner chart body, the extra stretched space would still appear as
+blank space below the chart's natural content, exactly the original bug — the outer box being the
+correct height was never in question for either fix; making the content inside it use that height
+sensibly is the actual work both fixes do, each in its own component.
 </details>
 
 **Checkpoint:** The `Sample file` button wrapped onto two lines specifically in the 3-column
@@ -854,13 +978,29 @@ calculation at all — to keep rendering at its normal, compact, single-line siz
 narrow the row gets.
 </details>
 
+**Try it yourself:** Open `/order-validation` (or any workflow page) in a real browser at desktop
+width, open devtools, and inspect the three `UploadPanel` `Card` elements as a group. Most browser
+devtools highlight CSS Grid containers and their item boxes on hover/selection — confirm you can see
+each `Card`'s margin box already matching the tallest sibling's height *before* checking whether
+`h-full` is even applied, direct visual confirmation of Concept 3 and this Part's corrected model:
+stretch is automatic, not `h-full`-gated. Then inspect the drop-zone block inside the shortest card
+and confirm it's the `mt-auto` child, not the `Card` itself, that's actually anchored to the bottom.
+
 ## Part 8 — Verification and scope handoff
 
 `explanation.md` §10 records that this project has no committed run/test skill for live-browser
 verification, so this phase reused the same established, one-off pattern from the prior Phase 10
 session: install Playwright without saving it to `package.json` (`npm install --no-save
-playwright`), run a throwaway driver script, then remove it afterward — `git diff --stat
-package.json` showing no trace is the concrete proof this left no residue. Along the way, a stray
+playwright`), run a throwaway driver script, then remove it afterward. Checking `git diff --stat
+package.json` alone is not quite enough proof of "no residue" — `package.json` only records
+declared dependencies; `--no-save` is specifically about *that* file, and npm has historically had
+version-dependent quirks around whether an ad-hoc install leaves `package-lock.json` untouched too.
+The complete check is both manifests: `git diff --stat package.json package-lock.json` showing no
+trace in either is the real proof this left no residue. A stronger version of this disposable-tool
+pattern for a future session: reach for an already-installed browser-automation tool if one exists,
+use `npx --no-install` where the package is already cached, or use a documented temporary
+environment (a scratch directory with its own `package.json`) whose cleanup doesn't depend on
+remembering to diff the right files afterward. Along the way, a stray
 macOS Finder-duplicated file (`cache-life.d 2.ts`, `routes.d 2.ts` — note the literal space before
 "2," the signature of a Finder-created duplicate) inside `.next/types/` confused `tsc`'s module
 resolution with a spurious "duplicate identifier" error — the exact same class of bug a prior
@@ -922,13 +1062,23 @@ separately-scoped piece of work (`mobile-nav-shell-responsiveness`, per this tut
 caveat) — exactly the "give it its own planning pass" resolution `explanation.md` recommends here.
 </details>
 
+**Try it yourself:** Run `npm run typecheck` and `npm run lint` — both non-mutating, safe to run
+anytime — and confirm both pass clean against the current codebase. Then load `/dashboard` on a
+narrow (mobile-width) browser viewport and open the sidebar navigation. Confirm what this Part's
+opening caveat states: a real overlay drawer with focus management now exists (the
+`mobile-nav-shell-responsiveness` work), not the fixed `w-60` squeeze this Part originally describes
+as a deferred bug — direct, current proof that Part 8's own non-goals discipline led to a real,
+later, separately-scoped fix rather than the issue being silently dropped.
+
 ## Full data flow: an Allocation Status segment, from saved result to a keyboard-focusable ring
 
 1. **The value resolves, live-or-sample.** `DashboardLiveSections.tsx`:
    `const resolvedInventoryAllocation = liveInventoryAllocation ?? inventoryAllocationResult;` — a
-   **Phase 12 addition**; Phase 10.2 itself never had a live/sample distinction to resolve, since
-   the FastAPI-backed dashboard (Tutorial 07) already existed by Phase 10.2's time, but session-
-   scoped per-visitor results (Tutorial 12) did not yet.
+   **Phase 12 addition**; Phase 10.2 itself never had a live/sample distinction to resolve, because
+   `/dashboard` was still entirely static at Phase 10.2's time — Phase 10 (Tutorial 07) made the
+   three *workflow* pages FastAPI-backed, but `/dashboard` itself kept reading Tutorial 10's static
+   mock JSON straight through Phase 10.2. Session-scoped per-visitor results, and the live/sample
+   distinction they require, arrived only with Phase 12 (Tutorial 12).
 2. **A count is read from the resolved summary.**
    `const allocation = resolvedInventoryAllocation.summary;` then `allocation.fully_allocated_count`
    — a plain number, already computed by `src/inventory_allocation.py`'s tested pipeline (Tutorial
@@ -952,7 +1102,8 @@ caveat) — exactly the "give it its own planning pass" resolution `explanation.
 7. **Hovering or focusing the segment updates shared state.** `setHoveredLabel(segment.label)` —
    this one state update is what simultaneously drives the floating tooltip card's content *and*
    the matching legend row's highlight, the cross-element coordination Part 5 covers as the reason
-   this component needed `useState` at all, unlike its Server-Component sibling.
+   this component needed `useState` (and its own `"use client"`) at all, unlike its directive-free,
+   CSS-only sibling `VerticalBucketBarChart`.
 
 ## Extend it (challenges)
 
@@ -973,12 +1124,12 @@ Make sure your trace correctly separates the sidebar's *background* (inverse fam
 </details>
 
 **Challenge 2 — Extend** (20–30 min): Design one additional hover/focus affordance for a component
-this tutorial covers, while preserving Server Component status wherever no shared JavaScript state
-is genuinely required — apply Part 5's own test. A reasonable candidate: a hover/focus tooltip on
-`MetricCard` showing the exact underlying number with full precision (useful if `formatAmount`
-ever truncates or rounds a large value for display). Walk through, using Part 5's test explicitly:
-does this affordance need component state, or can it be expressed with CSS alone? Justify your
-answer before deciding whether `MetricCard` would need to become a Client Component.
+this tutorial covers, while keeping it directive-free and CSS-only wherever no shared JavaScript
+state is genuinely required — apply Part 5's own test. A reasonable candidate: a hover/focus
+tooltip on `MetricCard` showing the exact underlying number with full precision (useful if
+`formatAmount` ever truncates or rounds a large value for display). Walk through, using Part 5's
+test explicitly: does this affordance need component state, or can it be expressed with CSS alone?
+Justify your answer before deciding whether `MetricCard` would need its own `"use client"`.
 
 <details>
 <summary>Hint</summary>
@@ -986,16 +1137,27 @@ answer before deciding whether `MetricCard` would need to become a Client Compon
 A single tile's own hover tooltip, revealing content only about that same tile, is structurally
 identical to `VerticalBucketBarChart`'s bar tooltips — self-contained, no cross-element
 coordination needed. Per Part 5's test, this should be answerable with `group`/`group-hover` alone,
-keeping `MetricCard` a Server Component.
+with no new `"use client"` directive on `MetricCard` itself. Note precisely what that does and
+doesn't guarantee, though: every one of `MetricCard`'s real current call sites (all three workflow
+pages, plus `DashboardLiveSections.tsx`) is already a Client Component today, so `MetricCard` is
+already part of the client module graph regardless of whether this specific affordance needs state
+— staying directive-free keeps the *option* open for a future Server-rendered caller, it doesn't
+change where the component actually executes right now.
 </details>
 
-**Challenge 3 — Break and fix** (30–45 min): In a scratch/throwaway local edit (don't commit it),
-remove `pointer-events-none` from `DashboardLiveSections.tsx`'s (or, if tracing an older commit,
-`DonutBreakdownChart.tsx`'s) center-total overlay div. Predict, in writing, before testing: what
-specific interaction will silently stop working, and would a plain screenshot of the resting-state
-page reveal the regression? Then actually try to hover/focus a ring segment in a real browser and
-confirm your prediction. Explain in one paragraph why a screenshot alone — even a very careful one
-— may not reveal this specific class of bug.
+**Challenge 3 — Break and fix** (30–45 min): The center-total overlay lives in
+`components/charts/DonutBreakdownChart.tsx` itself (line 99) — `DashboardLiveSections.tsx` only
+renders `<DonutBreakdownChart>` as a child, it doesn't contain this markup. Rather than editing the
+shared component directly (it's used on the live `/dashboard`, and reverting an edit correctly
+requires remembering to do so), make a reversible scratch copy: duplicate
+`DonutBreakdownChart.tsx` into a throwaway file, remove `pointer-events-none` from the copy's
+center-total overlay div, and view it in isolation (a scratch page, or a component-explorer setup if
+one exists) rather than swapping it into the live dashboard. Predict, in writing, before testing:
+what specific interaction will silently stop working, and would a plain screenshot of the
+resting-state page reveal the regression? Then actually try to hover/focus a ring segment against
+your scratch copy and confirm your prediction. Explain in one paragraph why a screenshot alone —
+even a very careful one — may not reveal this specific class of bug. Delete the scratch copy when
+done.
 
 <details>
 <summary>Hint</summary>
@@ -1003,11 +1165,12 @@ confirm your prediction. Explain in one paragraph why a screenshot alone — eve
 The resting-state page looks pixel-identical with or without `pointer-events-none` — the bug is
 purely about which element *intercepts an event*, something no static image can show at all. Your
 explanation should connect back to Part 6's account of how this bug was actually found: not by
-looking, but by scripting an interaction and watching it fail.
+looking, but by scripting an interaction (or, here, trying the interaction yourself) and watching it
+fail.
 </details>
 
 For deeper exploration,
-`docs/plan/phase-10.2-portfolio-ui-polish/ai-discussion-topics.md` has all 15 prompts this
+[`docs/plan/phase-10.2-portfolio-ui-polish/ai-discussion-topics.md`](../../plan/phase-10.2-portfolio-ui-polish/ai-discussion-topics.md) has all 15 prompts this
 tutorial's checkpoints were woven from, organized under their original five headings (token
 architecture, bugs found during implementation, dashboard content decisions, chart tooltip
 implementation, and verification process/scope discipline). Feed them to an LLM *after* forming

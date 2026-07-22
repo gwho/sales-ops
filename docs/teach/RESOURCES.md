@@ -173,6 +173,44 @@ Curated for a learner with **zero assumed prior knowledge** of any of these tech
   example is the direct precedent for this repo's `/dashboard` inheriting the root layout's title
   unchanged. Also the source for *why* metadata exports are Server-Component-only (must resolve
   before the initial HTML is sent). Confirmed live and on-topic 2026-07-22.
+- [Next.js — Testing overview](https://nextjs.org/docs/app/guides/testing)
+  Primary source for Lesson 42 (optional Track 5 reinforcement) — the Unit/Component/Integration/E2E/
+  Snapshot vocabulary, quoted directly rather than paraphrased. Confirmed live and on-topic
+  2026-07-22.
+- [Next.js — Playwright setup guide](https://nextjs.org/docs/app/guides/testing/playwright)
+  Source for Lesson 42's E2E section — Playwright's own description as a tool for automating real
+  browsers to write End-to-End tests, used to frame this repo's own ad-hoc Playwright usage from
+  Tutorial 11. Confirmed live and on-topic 2026-07-22.
+- [Next.js — TypeScript config reference](https://nextjs.org/docs/app/api-reference/config/next-config-js/typescript)
+  Source for Lesson 42's precise, version-specific claim that `next build` fails on TypeScript
+  errors by default in this repo (`ignoreBuildErrors` is unset in `next.config.ts`). Confirmed live
+  and on-topic 2026-07-22.
+- [Next.js — ESLint plugin reference](https://nextjs.org/docs/app/api-reference/config/eslint)
+  Source for Lesson 42's other half of that same claim — `next lint` (and the build-time ESLint
+  integration it powered) was removed starting in Next.js 16, this repo's installed major version,
+  so `next build` and `npm run lint` are fully independent checks here despite both existing in the
+  same `package.json`. Confirmed live and on-topic 2026-07-22.
+- [ESLint — Command Line Interface reference](https://eslint.org/docs/latest/use/command-line-interface)
+  Added during Lesson 42's post-draft review pass — its documented exit-code rule (`0` unless there's
+  an error, or warnings exceed a set `--max-warnings`) is the source for the corrected claim that
+  this repo's bare `eslint` script exits successfully even with warnings present. Confirmed live and
+  on-topic 2026-07-22.
+- [React — hydrateRoot reference](https://react.dev/reference/react-dom/client/hydrateRoot)
+  Added during the same review pass, replacing an inaccurate "byte-level comparison" framing of the
+  donut chart's hydration bug — the precise documented expectation is that "the rendered content
+  [be] identical with the server-rendered content." Confirmed live and on-topic 2026-07-22.
+- [Playwright — Locator.hover() reference](https://playwright.dev/docs/api/class-locator#locator-hover)
+  Added during the same review pass — the source for correcting Lesson 42's pointer-events story:
+  `hover()` performs an actionability check (which is what actually surfaced the overlay defect) and
+  separately targets an element's bounding-box center by default (a wholly separate, test-script-only
+  concern for an annulus shape). Confirmed live and on-topic 2026-07-22.
+- [Next.js — Server and Client Components: Interleaving](https://nextjs.org/docs/app/getting-started/server-and-client-components#interleaving-server-and-client-components)
+  Reused as Lesson 43's one primary source, added during its post-draft review pass — the exact
+  documented pattern behind `AppShell` (Client) rendering `DashboardPage` (Server) via `children`: a
+  Server Component passed as a prop or child "[is] not imported into the Client Component's module
+  graph. [It is] rendered on the server and passed to the Client Component as rendered output."
+  Corrected an original draft that had missed `AppShell`'s own real Client boundary entirely.
+  Confirmed live and on-topic 2026-07-23.
 
 ## Track 6 — Databases & Session Identity
 
