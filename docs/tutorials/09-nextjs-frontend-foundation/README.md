@@ -7,18 +7,23 @@ separate routes file; why Tailwind was pinned to 3.4 and installed the "v3 way" 
 accepting a v4 scaffold; how a color token travels from a CSS variable through
 `tailwind.config.ts` to a compiled utility class actually rendered in a browser; why shadcn/ui
 landed as plumbing only, with zero primitive components, because of one specific token-name
-collision; and why the frontend's mock data is generated once, at build time, from the real
-Python pipeline, and never imported at runtime.
+collision; and why the frontend's mock data is generated once, ahead of time by a manual command,
+from the real Python pipeline, committed, and never imported at runtime.
 
 > [!NOTE]
-> **Prerequisites:** Tutorial 08 (`08-ui-contract-wireframe-planning/README.md`) — the direct
+> **Prerequisites:** [Tutorial 08](../08-ui-contract-wireframe-planning/README.md) — the direct
 > predecessor. Every TypeScript type this tutorial cites was already fully explained there; this
 > tutorial only covers what changed when that plan became real files. Track 5's three lessons —
-> `docs/teach/lessons/0031-browser-output-and-components.html`,
-> `0032-react-minimum-mental-model.html`, and `0033-server-and-client-components.html` — this
+> [`0031-browser-output-and-components.html`](../../teach/lessons/0031-browser-output-and-components.html),
+> [`0032-react-minimum-mental-model.html`](../../teach/lessons/0032-react-minimum-mental-model.html), and
+> [`0033-server-and-client-components.html`](../../teach/lessons/0033-server-and-client-components.html) — this
 > tutorial is the first one that actually exercises L5.3's Server/Client Component rule against
 > real files, not an invented example. Open
-> [`app/layout.tsx`](../../../app/layout.tsx), [`app/globals.css`](../../../app/globals.css),
+> [`app/layout.tsx`](../../../app/layout.tsx),
+> [`app/(public)/layout.tsx`](../../../app/(public)/layout.tsx),
+> [`app/(public)/page.tsx`](../../../app/(public)/page.tsx),
+> [`app/(workspace)/layout.tsx`](../../../app/(workspace)/layout.tsx),
+> [`app/globals.css`](../../../app/globals.css),
 > [`tailwind.config.ts`](../../../tailwind.config.ts),
 > [`types/index.ts`](../../../types/index.ts),
 > [`scripts/generate_mock_data.py`](../../../scripts/generate_mock_data.py),
@@ -27,30 +32,39 @@ Python pipeline, and never imported at runtime.
 > [`components.json`](../../../components.json) alongside this tutorial.
 
 > [!NOTE]
-> **A caveat about the current codebase, worth stating once, up front:** this repository is now
-> post-Phase-12, and Phase 8's own route files no longer exist in their original form — they were
-> stub Server Components (a title, a "Phase 9 builds this" note, a link back to `/dashboard`), and
-> every one of them was replaced with real, live, data-wired pages in later phases. This tutorial
-> never reconstructs those deleted stubs; it describes their historical role from
-> `docs/plan/phase-8-nextjs-frontend-foundation/plan.md` in prose only, and cites verbatim code
-> only from files that are still genuinely stable: `app/layout.tsx`, `app/globals.css`,
-> `tailwind.config.ts`, `types/index.ts`, and the mock-data pipeline. One further wrinkle, also
-> worth naming directly: at the time of writing, this repository's working tree also holds
-> **uncommitted, in-progress work** restructuring `app/` into `(public)`/`(workspace)` route
-> groups with a new marketing landing page. That work is real but unfinished — this tutorial
-> deliberately cites the last **committed** state of every file (`git show HEAD:<path>`, not the
-> working tree), because an in-progress refactor is not yet the "current stable foundation" this
-> tutorial's brief asks for. If you open these files yourself and see a different `app/` layout
-> than what's shown here, that uncommitted work is why.
+> **A caveat about the current codebase, worth stating once, up front, in three layers:**
+>
+> **1. What Phase 8 originally built.** Phase 8's own route files no longer exist in their original
+> form — they were stub Server Components (a title, a "Phase 9 builds this" note, a link back to
+> `/dashboard`), living directly under `app/dashboard/page.tsx` through `app/reports/page.tsx`, with
+> no route groups at all. This tutorial never reconstructs those deleted stubs; it describes their
+> historical role from [`docs/plan/phase-8-nextjs-frontend-foundation/plan.md`](../../plan/phase-8-nextjs-frontend-foundation/plan.md) in prose only.
+>
+> **2. What later phases changed.** Every stub was replaced with a real, live, data-wired page in
+> Tutorials 10–11. Later still, a separate, since-completed refactor moved every workspace route
+> under a `(workspace)` route group and added a `(public)` route group with a new portfolio landing
+> page at `/` — this is not in-progress work anymore, it's the shipped, committed structure. Route
+> groups are a Next.js convention: a parenthesized folder segment (`(public)`, `(workspace)`)
+> organizes files and lets sibling trees each supply their own `layout.tsx`, without that segment
+> ever appearing in the URL. Lesson 41
+> (`docs/teach/lessons/0041-route-groups-layout-composition-and-metadata.html`) covers this
+> mechanism in full; this tutorial only covers what changed about *this project's* files.
+>
+> **3. What files a learner should open now.** `app/layout.tsx` (global providers only — no route
+> group's chrome lives here), `app/(public)/layout.tsx` and `app/(public)/page.tsx` (the public
+> landing page and its header/footer chrome), `app/(workspace)/layout.tsx` (the `AppShell` wrapping
+> all five workspace routes), plus the files that were already stable at Phase 8 and remain
+> untouched by the route-group work: `app/globals.css`, `tailwind.config.ts`, `types/index.ts`, and
+> the mock-data pipeline.
 
 ## CS & language concepts in this tutorial
 
 | Concept | Where it appears | Category |
 |---------|-----------------|----------|
 | Isolate-then-transplant (staging area) | Scaffolding into `<scratchpad>/next-scaffold`, then copying only vetted files into the real repo root | System design |
-| Convention-over-configuration routing | The App Router's directory structure — `app/dashboard/page.tsx` *is* the `/dashboard` route, with no separate route table to maintain | System design |
+| Convention-over-configuration routing | The App Router's directory structure — `app/(workspace)/dashboard/page.tsx` *is* the `/dashboard` route, with no separate route table to maintain | System design |
 | Indirection via named variables | `--accent` (CSS custom property) → `hsl(var(--accent))` (Tailwind config) → `bg-accent` (utility class) — one value, renamed once, used everywhere | Design patterns |
-| Build-time code generation vs. runtime coupling | `scripts/generate_mock_data.py` runs once, writes static JSON; nothing under `app/`/`components/`/`lib/*.ts` ever imports Python at runtime | System design |
+| Ahead-of-time (manual) code generation vs. runtime coupling | `scripts/generate_mock_data.py` runs once, by hand, and writes static JSON; nothing under `app/`/`components/`/`lib/*.ts` ever imports Python at runtime | System design |
 | Module search path (`sys.path`) for a standalone script | `sys.path.insert(0, str(ROOT))` in `generate_mock_data.py` — resolving `src.*` imports for a script run directly, outside pytest's own path setup | OS fundamentals |
 
 ## How to use an LLM before this tutorial
@@ -93,24 +107,32 @@ corresponding route still exist?
 
 ### Concept 3 — CSS custom properties as a single point of truth for a design value
 
-> "Explain why a CSS custom property (`--accent: #1a56db;` referenced everywhere as
-> `var(--accent)`) is preferable to hardcoding the same color value directly in every rule that
-> needs it. Walk through exactly what has to change, and where, to update the color under each
-> approach. Quiz me on what happens if two developers, unaware of each other, hardcode the 'same'
-> brand color slightly differently (say, one off-by-one RGB value) across a codebase with no
+> "Explain why a CSS custom property (`--accent: 221 83% 53%;` — HSL channel triples, referenced
+> everywhere as `hsl(var(--accent))`) is preferable to hardcoding the same color value directly in
+> every rule that needs it. Then explain the difference between changing *one* token's value versus
+> changing a *coordinated family* of related tokens (say, `--accent`, `--accent-hover`,
+> `--accent-subtle`, and `--text-on-accent` together) — walk through exactly what has to change, and
+> where, for each. Quiz me on what happens if two developers, unaware of each other, hardcode the
+> 'same' brand color slightly differently (say, one off-by-one HSL value) across a codebase with no
 > shared variable."
 
 *What to listen for:* a custom property collapses "every place this color is used" down to one
-place that actually defines the value — changing it once changes every consumer automatically.
-Hardcoding the same value repeatedly means every occurrence is an independent, unenforced promise
-that they all currently agree, a promise that silently breaks the moment any one of them is edited
-without the others.
+place that actually defines the value — changing that one token once changes every consumer
+automatically. Hardcoding the same value repeatedly means every occurrence is an independent,
+unenforced promise that they all currently agree, a promise that silently breaks the moment any one
+of them is edited without the others. The second half matters just as much: changing one exact
+token (`--accent` alone) is genuinely a one-line edit. Changing an entire *color family* — swapping
+the brand color from blue to green, hover/subtle/on-color included — is not, because those related
+values live in their own separate tokens by design (so each can be tuned independently for contrast
+and emphasis) rather than being mechanically derived from the base color. A family change means
+editing every token in the family, deliberately, and rechecking contrast on each pairing — not one
+edit propagating everywhere for free.
 
-*Practice question:* if a brand color needs to change from blue to green, how many files change
-under a custom-property system versus a system where the color was pasted as a literal hex value
-in fifteen different component files?
+*Practice question:* if this project's accent color needed to change from blue to green — hover,
+subtle background, and on-color included — what exactly has to change: one custom property, or the
+whole coordinated accent token family in `app/globals.css`?
 
-### Concept 4 — Generating data at build time instead of coupling two runtimes together
+### Concept 4 — Generating data ahead of time instead of coupling two runtimes together
 
 > "Two systems, written in different languages, need to share the same data. Compare two designs:
 > (A) the consuming system calls the producing system live, at runtime, every time it needs the
@@ -167,12 +189,13 @@ Tutorials 10–11), but every piece of *plumbing* the real pages will eventually
         types/index.ts                        │   real upload would run)
     (13 contract types + 3 envelopes,          ▼
      snake_case, no adapter)         scripts/generate_mock_data.py
-              │                      (manual, build-time only —
-              │ imported by type-only            │  `uv run python scripts/generate_mock_data.py`
-              ▼                      or `npm run mock-data`)
+              │                      (manual pre-generation, run by hand —
+              │ imported by type-only            │  NOT invoked by `npm run build`)
+              ▼                                   ▼
         lib/mock-data.ts                        │
-    (asserts raw JSON against                   ▼
-     types/index.ts, ONE place)      lib/mock-data/*.json  (committed output —
+    (trusted `as Type` cast,                     ▼
+     ONE boundary — no runtime  lib/mock-data/*.json  (committed output —
+     schema validation)
               │                       order-validation, inventory-allocation,
               │  imported by pages/components   payment-aging, reports)
               ▼                                 │
@@ -198,8 +221,9 @@ Tutorials 10–11), but every piece of *plumbing* the real pages will eventually
 
 Key invariants for this phase:
 
-1. **The Next.js app must never import from `tests/` at runtime.** The build-time generator is the
-   only sanctioned bridge between Python and the frontend, and only at build/dev time (Part 7).
+1. **The Next.js app must never import from `tests/` at runtime.** The manual, pre-generated JSON
+   generator is the only sanctioned bridge between Python and the frontend — a developer runs it
+   by hand, separately from `npm run build`/`npm run dev`, and commits its output (Part 7).
 2. **`context/ui-tokens.md` is the single authoritative token set.** Nothing in
    `tailwind.config.ts` or `app/globals.css` may add, rename, or invent a color token without a
    dedicated token-change decision (Part 4).
@@ -211,7 +235,7 @@ Key invariants for this phase:
 The repo root, before Phase 8, was not empty — it held the entire Python project (`src/`,
 `tests/`, `pyproject.toml`, `uv.lock`), the whole `context/` design system, and — critically — the
 real `AGENTS.md`, `CLAUDE.md`, `README.md`, and `.gitignore` files every workflow in this project
-depends on. `docs/plan/phase-8-nextjs-frontend-foundation/explanation.md` §1 names exactly what
+depends on. [`docs/plan/phase-8-nextjs-frontend-foundation/explanation.md`](../../plan/phase-8-nextjs-frontend-foundation/explanation.md) §1 names exactly what
 `create-next-app` would have done if run directly at that root: Next 16's scaffold ships its own
 agent-guidance files, and running the generator there would have produced its own `AGENTS.md` and
 `CLAUDE.md` — silently overwriting the project's authoritative guidance with generic Next.js
@@ -222,7 +246,7 @@ copy only the genuinely Next.js-specific files to the real root — `app/`, `pub
 `next.config.ts`, `next-env.d.ts`, `tsconfig.json`, `eslint.config.mjs`, `package.json` —
 deliberately leaving behind the generated `AGENTS.md`, `CLAUDE.md`, `README.md`, `.git`,
 `node_modules`, `.next`, and `package-lock.json`. `.gitignore` (open the current file,
-[`.gitignore`](../../../.gitignore) lines 1–25) was merged by hand rather than copied wholesale —
+[`.gitignore`](../../../.gitignore), lines 8–25) was merged by hand rather than copied wholesale —
 line 8's own comment marks exactly where the Next.js/Node section was appended:
 
 ```gitignore
@@ -234,7 +258,11 @@ line 8's own comment marks exactly where the Next.js/Node section was appended:
 /out/
 /build
 /coverage
-...
+*.pem
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 .env*
 !.env.example
 .vercel
@@ -290,22 +318,23 @@ no overlap and no conflict, but only if both are kept rather than one replacing 
 </details>
 
 **Checkpoint:** `next-env.d.ts` is gitignored (per Next's convention) yet required for types. How
-is it regenerated, and why is it safe to not commit it? What generates it if a fresh clone runs
-`tsc` before `next dev`?
+is it regenerated, and how should a fresh clone get it before running a standalone `tsc --noEmit`
+check?
 
 <details>
 <summary>Reveal answer</summary>
 
-Next.js itself regenerates `next-env.d.ts` automatically, the moment either `next dev` or
-`next build` runs — it's a small, fully-deterministic file (a couple of triple-slash type
+Next.js itself regenerates `next-env.d.ts` automatically, the moment `next dev`, `next build`, or
+`next typegen` runs — it's a small, fully-deterministic file (a couple of triple-slash type
 references) that Next writes fresh every time, never hand-edited by a developer. It's safe to not
 commit precisely because of that determinism: any machine with the same Next.js version installed
-will regenerate byte-for-byte the same file, so committing it would only add a file that changes
-on every install without ever representing a real, reviewable decision. If a fresh clone somehow
-ran `tsc` (a raw TypeScript check) *before* ever running `next dev`/`next build` at least once, the
-file would be genuinely missing and the type check would likely fail on the missing triple-slash
-reference — in practice this doesn't happen because `npm install`/`next dev` are always the first
-commands run against a freshly cloned Next.js project.
+will regenerate byte-for-byte the same file, so committing it would only add a file that changes on
+every install without ever representing a real, reviewable decision. The installed Next.js CLI docs
+(`node_modules/next/dist/docs/01-app/03-api-reference/06-cli/next.md`) name the deliberate command
+for exactly this situation: `next typegen` generates route types and `next-env.d.ts` without running
+a dev server or a full build — the documented pattern is `next typegen && tsc --noEmit`, useful
+specifically for a standalone CI type-check that shouldn't pay the cost of a full `next build` just
+to get the generated types in place first.
 </details>
 
 **Checkpoint:** What is the exact list of files that were deliberately *not* transplanted from the
@@ -334,17 +363,34 @@ the commit that first added the "Next.js / Node (Phase 8)" section. Read that co
 (`git show <hash> -- .gitignore`) and confirm the Python-specific ignore rules above that section
 are untouched lines, not re-added ones — direct proof the merge preserved rather than replaced them.
 
-## Part 2 — App Router structure and the root redirect
+## Part 2 — App Router structure, route groups, and the retired root redirect
 
-Open [`app/layout.tsx`](../../../app/layout.tsx) (the current, committed file — note this already
-includes a Phase 9 addition, `AppShell`, called out below):
+**Historical first: Phase 8's root route.** Phase 8 never had a `(public)`/`(workspace)` split —
+`app/page.tsx` sat directly at the app root and did exactly one thing. This is a labeled historical
+excerpt, from the commit that actually shipped it (`git show b3fc93a:app/page.tsx`), not a claim
+that this file exists today — it was deleted by a later commit (`3fc41c0`, "feat: add portfolio
+landing page"):
+
+```tsx
+import { redirect } from "next/navigation";
+
+export default function Home() {
+  redirect("/dashboard");
+}
+```
+
+`explanation.md` §5 states the reasoning plainly: `/dashboard` was the intended landing surface, so
+the bare root just redirected rather than duplicating dashboard content at two URLs. That reasoning
+held until the portfolio-landing-page work gave the root route a real, different job — a public
+case-study page distinct from the authenticated-feeling workspace — at which point a redirect-only
+root no longer made sense at all.
+
+Now open [`app/layout.tsx`](../../../app/layout.tsx), the current, committed root layout:
 
 ```tsx
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-
-import { AppShell } from "@/components/layout/AppShell";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -357,6 +403,8 @@ export const metadata: Metadata = {
     "Order validation, inventory allocation, payment aging, and report export dashboard.",
 };
 
+// Global providers only -- (public) and (workspace) route groups each supply
+// their own chrome (public header/footer vs. AppShell's sidebar/top header).
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -368,62 +416,87 @@ export default function RootLayout({
         className="min-h-screen bg-background font-sans text-text-primary"
         suppressHydrationWarning
       >
-        <AppShell>{children}</AppShell>
+        {children}
       </body>
     </html>
-  )
+  );
 }
 ```
 
-`AppShell` (the `import` on line 5) is a **Tutorial 10 (Phase 9) addition** — Phase 8's original
-root layout rendered `{children}` directly inside `<body>`, with no shell component at all, since
-nothing to shell around existed yet (every route was still a stub). It's left in place here,
-labeled, rather than reconstructed as it looked in Phase 8, per this tutorial's own caveat about
-not recreating deleted stub-era code. What Phase 8 *did* originate, and what's still true today: no
-`"use client"` directive anywhere in this file. Per L5.3
+No `"use client"` directive anywhere in this file. Per L5.3
 (`docs/teach/lessons/0033-server-and-client-components.html`), that makes `RootLayout` a Server
 Component by default — it runs on the server, needs no state, no event handlers, and no browser-only
-API, so there was never a reason to opt it into the client bundle.
+API, so there was never a reason to opt it into the client bundle. This has been true since Phase 8;
+what changed is *what* renders inside `{children}`. Tutorial 10 (Phase 9) once put `AppShell`
+directly in this root layout, wrapping every route including the (then-nonexistent) root redirect.
+The later route-group refactor moved `AppShell` back out of the root layout — it now belongs only to
+the workspace routes that actually want a sidebar, not to a public landing page that wants its own
+header and footer instead.
 
-Now open [`app/page.tsx`](../../../app/page.tsx) (again, the current committed root — a separate,
-uncommitted restructuring exists in the working tree, per this tutorial's opening caveat):
+Open [`app/(workspace)/layout.tsx`](../../../app/(workspace)/layout.tsx) in full — it's four lines:
 
 ```tsx
-import { redirect } from "next/navigation";
+import { type ReactNode } from "react";
 
-export default function Home() {
-  redirect("/dashboard");
+import { AppShell } from "@/components/layout/AppShell";
+
+export default function WorkspaceLayout({ children }: { children: ReactNode }) {
+  return <AppShell>{children}</AppShell>;
 }
 ```
 
-The root route (`/`) exists purely to forward to `/dashboard` — `explanation.md` §5 states the
-reasoning plainly: `/dashboard` is the intended landing surface, so the bare root just redirects
-rather than duplicating dashboard content at two URLs. Per the App Router's file convention (the
-Next.js docs installed at
-`node_modules/next/dist/docs/01-app/01-getting-started/03-layouts-and-pages.md`), a `page.tsx` file
-inside a folder makes that folder's path publicly routable — `app/dashboard/page.tsx` is
-`/dashboard`, `app/reports/page.tsx` is `/reports`, with no separate routes file anywhere declaring
-this mapping. It's the same file-based routing convention L5.1's browser-fundamentals lesson
-gestures at generally, now a concrete, working mechanism.
+And [`app/(public)/layout.tsx`](../../../app/(public)/layout.tsx), the sibling that wraps the
+landing page instead:
+
+```tsx
+import { type ReactNode } from "react";
+
+import { PublicHeader } from "@/components/landing/PublicHeader";
+import { PublicFooter } from "@/components/landing/PublicFooter";
+
+export default function PublicLayout({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-screen flex-col bg-background">
+      <PublicHeader />
+      <main className="flex-1">{children}</main>
+      <PublicFooter />
+    </div>
+  );
+}
+```
+
+This is route groups doing exactly what they're for: `(public)` and `(workspace)` are both real
+directories under `app/`, but the parentheses tell Next.js's router to treat the name as
+organizational only — neither segment appears in any URL. `app/(workspace)/dashboard/page.tsx` is
+still `/dashboard`, not `/(workspace)/dashboard`; `app/(public)/page.tsx` is still `/`, not
+`/(public)`. What the grouping *does* buy is exactly what's shown above: two sibling trees, each
+with its own `layout.tsx`, each supplying completely different chrome around the same root
+`RootLayout` — without a route group, every route sharing one `app/layout.tsx` would need its shell
+component chosen some other way (a conditional based on the current path, for instance), which is
+strictly worse than letting the file tree itself express "these routes get a sidebar, those get a
+header/footer." Lesson 41
+(`docs/teach/lessons/0041-route-groups-layout-composition-and-metadata.html`) covers this mechanism
+— multiple route groups, layout composition, and metadata — in full; this Part only covers what
+changed about *this project's* files because of it.
 
 > **System design — Convention over configuration:** A file's *location* in the `app/` tree is the
 > entire specification of its URL — there is no `routes.ts` or `urls.py`-style manifest anywhere in
-> this project mapping paths to handlers by hand. This buys the property Part 1's "how is
-> `next-env.d.ts` regenerated" checkpoint touched on from a different angle: nothing can drift out
-> of sync between "the routes that exist" and "the routes a separate config file claims exist,"
-> because there is only one source of truth, the folder structure itself. The cost, not exercised
-> in this project's fixed 5-route set: a URL scheme too dynamic or computed to express as folder
-> names has to be bent into the convention's own escape hatches (dynamic segments, route groups)
-> rather than written as arbitrary routing logic in one place.
+> this project mapping paths to handlers by hand, and a route group's parentheses are themselves
+> part of that same convention (a documented escape hatch, not an exception to it). This buys the
+> property Part 1's "how is `next-env.d.ts` regenerated" checkpoint touched on from a different
+> angle: nothing can drift out of sync between "the routes that exist" and "the routes a separate
+> config file claims exist," because there is only one source of truth, the folder structure itself.
 
-Phase 8's five workflow routes (`app/dashboard/page.tsx` through `app/reports/page.tsx`, per
-`plan.md`'s "What was built" list) were, at the time, genuinely minimal: `plan.md` describes each
-as "stub Server Components: title + 'Phase 9 builds this' note + back-to-dashboard link," each
-carrying "a header comment naming the contract/components Phase 9 will build there." None of that
-stub content survives today — every one of those five routes is now a live, data-wired page
-(Tutorial 10 and later cover what replaced them) — but the *convention* those stubs first
-established (a Server Component, real semantic-token classes instead of placeholder markup, one
-file per route) is exactly what Part 4 and later tutorials build on.
+Phase 8's five workflow routes (`app/dashboard/page.tsx` through `app/reports/page.tsx` at the time
+— now `app/(workspace)/dashboard/page.tsx` through `app/(workspace)/reports/page.tsx`, per the
+route-group move above) were, at the time, genuinely minimal: `plan.md` describes each as "stub
+Server Components: title + 'Phase 9 builds this' note + back-to-dashboard link," each carrying "a
+header comment naming the contract/components Phase 9 will build there." None of that stub content
+survives today — every one of those five routes is now a live, data-wired page (Tutorial 10 and
+later cover what replaced them) — but the *convention* those stubs first established (a Server
+Component, real semantic-token classes instead of placeholder markup, one file per route) is exactly
+what Part 4 and later tutorials build on. The physical file moved under a route group; the URL and
+the convention behind it did not.
 
 **Checkpoint:** The stub pages used real semantic token classes instead of placeholder markup. Why
 was that a deliberate verification choice rather than over-engineering a stub?
@@ -441,30 +514,37 @@ and turns every stub page into a genuine, if minimal, test of the exact pipeline
 compiled CSS were grepped for these specific classes as part of verification, not decoration.
 </details>
 
-**Checkpoint:** Root `app/page.tsx` uses `redirect("/dashboard")`. What are the trade-offs versus
-making `/` itself the dashboard, and does the redirect opt the route out of static prerendering?
+**Checkpoint:** Phase 8's root `app/page.tsx` used `redirect("/dashboard")` instead of making `/`
+itself the dashboard. What did that avoid, and what did it cost once the project later needed the
+root for something else entirely?
 
 <details>
 <summary>Reveal answer</summary>
 
-Making `/` itself the dashboard would mean the dashboard's content lives at two conceptual
+Making `/` itself the dashboard would have meant the dashboard's content lived at two conceptual
 identities (the literal root, and a named `/dashboard` path) with no canonical URL — anything
-linking to "the dashboard" specifically would have to choose one path or the other, and any future
-route that isn't the dashboard but also wants "the root" (a marketing page, for instance — exactly
-what the uncommitted working-tree restructuring mentioned in this tutorial's caveat is building)
-would have nowhere to go without moving the dashboard's real content off the root first. A
-server-side `redirect()` call does make the route dynamic rather than a static, prerenderable
-page — Next.js can't prerender a page whose entire body is "immediately redirect elsewhere" the
-same way it prerenders genuinely static content, since the redirect itself is a runtime response
-action, not static markup to cache.
+linking to "the dashboard" specifically would have had to choose one path or the other. Routing the
+bare root through a redirect instead kept `/dashboard` as the one canonical dashboard URL from the
+start. The cost showed up later, not at Phase 8: when the project eventually needed the root for
+something the dashboard isn't — the portfolio landing page — a redirect-only root had to be deleted
+outright and replaced with real content, rather than simply adding a new route alongside an
+already-meaningful `/`. Neither choice was free; Phase 8 just paid the cost early (an extra hop for
+every visitor) instead of late (a root route that has to be repurposed later).
 </details>
 
-**Try it yourself:** Run
-`uv run python -c "print('n/a — this is a Next.js check, run the command below instead')"` — then
-actually run `npm run build` from the repo root (or `npx next build` if that script isn't defined)
-and read the route table Next.js prints at the end. Confirm `/` is marked with a redirect-related
-indicator (Next's build output distinguishes static, dynamic, and redirect-driving routes) rather
-than appearing as a fully static prerendered route.
+**Try it yourself:** Run `npm run build` from the repo root and read the route table Next.js prints
+at the end. Confirm `/` and all five workspace routes appear, then map each URL back to its physical
+file:
+
+1. `/` → `app/(public)/page.tsx`, wrapped by `app/(public)/layout.tsx` then `app/layout.tsx`.
+2. `/dashboard` → `app/(workspace)/dashboard/page.tsx`, wrapped by `app/(workspace)/layout.tsx` then
+   `app/layout.tsx` — and likewise for `/order-validation`, `/inventory-allocation`,
+   `/payment-aging`, and `/reports`.
+
+At the time of writing, every one of these six routes is marked `○ (Static)` in the build output —
+including `/`, now that it's real content rather than a redirect. Route groups don't appear in the
+route table at all, confirming the "organizational only, never in the URL" claim above directly
+against the build's own output.
 
 ## Part 3 — Tailwind 3.4 as a deliberate compatibility boundary
 
@@ -537,13 +617,13 @@ directly.
 > tested against," not just something inside a declared version range.
 
 **Try it yourself:** Run `npm ls tailwindcss` from the repo root and confirm the resolved version
-starts with `3.4`. Then run `grep -r "tailwindcss/postcss" package-lock.json` and confirm zero
+starts with `3.4`. Then run `rg "tailwindcss/postcss" package-lock.json` and confirm zero
 matches — direct, current proof that no v4 marker package has crept into the dependency tree since
 Phase 8.
 
 ## Part 4 — The semantic-token pipeline
 
-Open [`app/globals.css`](../../../app/globals.css) lines 1–20 and
+Open [`app/globals.css`](../../../app/globals.css) lines 1–26 and
 [`tailwind.config.ts`](../../../tailwind.config.ts) lines 19–40:
 
 ```css
@@ -559,34 +639,45 @@ Open [`app/globals.css`](../../../app/globals.css) lines 1–20 and
 :root {
   --background: 210 40% 98%;
   --surface: 0 0% 100%;
-  ...
+  --surface-muted: 210 40% 96%;
+  --surface-subtle: 214 32% 94%;
+
+  --border: 214 32% 91%;
+  --border-strong: 215 20% 82%;
+
+  --text-primary: 222 47% 11%;
+  --text-secondary: 215 16% 47%;
+  --text-muted: 215 20% 65%;
+  --text-on-accent: 0 0% 100%;
+
   --accent: 221 83% 53%;
   --accent-hover: 224 76% 48%;
   --accent-subtle: 214 100% 97%;
-  ...
-}
 ```
 
 ```ts
-theme: {
-  extend: {
-    colors: {
-      background: "hsl(var(--background))",
-      surface: {
-        DEFAULT: "hsl(var(--surface))",
-        muted: "hsl(var(--surface-muted))",
-        subtle: "hsl(var(--surface-subtle))",
-      },
-      ...
-      accent: {
-        DEFAULT: "hsl(var(--accent))",
-        hover: "hsl(var(--accent-hover))",
-        subtle: "hsl(var(--accent-subtle))",
-      },
-      ...
-    },
-  },
-},
+  theme: {
+    extend: {
+      colors: {
+        background: "hsl(var(--background))",
+        surface: {
+          DEFAULT: "hsl(var(--surface))",
+          muted: "hsl(var(--surface-muted))",
+          subtle: "hsl(var(--surface-subtle))",
+        },
+        border: {
+          DEFAULT: "hsl(var(--border))",
+          strong: "hsl(var(--border-strong))",
+        },
+        "text-primary": "hsl(var(--text-primary))",
+        "text-secondary": "hsl(var(--text-secondary))",
+        "text-muted": "hsl(var(--text-muted))",
+        "text-on-accent": "hsl(var(--text-on-accent))",
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          hover: "hsl(var(--accent-hover))",
+          subtle: "hsl(var(--accent-subtle))",
+        },
 ```
 
 Three files, one value, chained: `--accent: 221 83% 53%;` is declared exactly once, in
@@ -639,8 +730,8 @@ or config setting silently blocks it, since none currently does.
 > reference to the old value.
 
 **Try it yourself:** Run `npm run build`, then find the compiled CSS output under `.next/static/`
-(the exact path depends on the build hash — `find .next/static -name "*.css"` will locate it).
-Grep it for `--accent:221` (minified output has no space after the colon) and separately for
+(the exact path depends on the build hash — `rg --files .next/static -g "*.css"` will locate it).
+Search it for `--accent:221` (minified output has no space after the colon) and separately for
 `.bg-accent` — confirm both the raw variable definition and the compiled utility class are present
 in the same file, closing the loop this Part describes.
 
@@ -778,7 +869,7 @@ context, and disregarding it in favor of the skills that do apply
 critically rather than applying it just because it exists and has "tailwind" in its name.
 </details>
 
-**Try it yourself:** Run `grep -rn "shadcn" package.json` and confirm no shadcn *component*
+**Try it yourself:** Run `rg -n "shadcn" package.json` and confirm no shadcn *component*
 package is a runtime dependency — only `clsx`, `tailwind-merge`, `class-variance-authority`, and
 `lucide-react` (the plumbing) should appear, no actual `shadcn/ui` component package, since shadcn
 components are copied into the repo as source, not installed from npm.
@@ -845,10 +936,10 @@ one contract (e.g. `SupplierFollowUpRow`) and confirm every field, including opt
 (`?`), matches exactly between the two files — direct, current proof the "copied verbatim" claim in
 `types/index.ts`'s own docstring holds.
 
-## Part 7 — Build-time fixture bridge, never a runtime test import
+## Part 7 — A manual, pre-generated fixture bridge, never a runtime test import
 
-Open [`scripts/generate_mock_data.py`](../../../scripts/generate_mock_data.py) lines 1–19 and
-44–56:
+Open [`scripts/generate_mock_data.py`](../../../scripts/generate_mock_data.py) lines 1–35 and
+46–56:
 
 ```python
 """Generate the Next.js UI's mock JSON from the committed sample Excel data.
@@ -861,9 +952,40 @@ This script loads `sample_data/*.xlsx` through each business module's own `load_
 helper and runs the real `validate_orders` -> `allocate_inventory` ->
 `calculate_payment_aging` -> `report_export` pipeline, the same code path a real
 upload would exercise. Because of that, a failure here is a genuine compatibility
-signal, not just a data-generation bug...
+signal, not just a data-generation bug: it means the committed sample Excel files
+no longer match what the Python loaders/business modules expect (e.g. a required
+column was renamed, or `src/sample_data.py` was regenerated with a shape those
+modules can no longer parse). Treat a failure here as you would a failing
+`tests/test_sample_data.py` compatibility assertion, not as noise to route around.
+
+`tests/contract_fixtures.py` is unrelated to this script — it stays a small,
+single-row, contract-shape source used only by `tests/test_contracts.py` and
+`tests/test_report_export.py`.
+
+`sample_data/sample_customers.xlsx` is intentionally never read here — it is
+optional/reference-only and no Python business module consumes it (see
+`sample_data/README_sample_data.md`).
+
+Run from the repo root:
+
+    uv run python scripts/generate_mock_data.py
+
+or:
+
+    npm run mock-data
+
+Re-run whenever `sample_data/*.xlsx` changes so the mock JSON stays in sync. Never
+hand-edit `lib/mock-data/*.json` directly.
 """
 ```
+
+"BUILD-TIME ONLY, MANUAL" is the script's own docstring vocabulary, worth reading precisely rather
+than skimming past: nothing in `package.json` invokes this script automatically. `npm run build` is
+plain `next build` — it does not call `mock-data`. The two run commands the docstring itself
+prints, `uv run python scripts/generate_mock_data.py` and `npm run mock-data`, are both manual,
+developer-initiated commands, run deliberately and separately from `next build`/`next dev`. "Build
+time" here means *ahead of the build*, a step whose output gets committed and later consumed by the
+build — not a hook the build triggers itself.
 
 ```python
 ROOT = Path(__file__).resolve().parent.parent
@@ -872,6 +994,11 @@ sys.path.insert(0, str(ROOT))
 from src.inventory_allocation import allocate_inventory, load_inventory  # noqa: E402
 from src.order_validation import load_orders, load_product_master, validate_orders  # noqa: E402
 from src.payment_aging import calculate_payment_aging, load_invoices  # noqa: E402
+from src.report_export import (  # noqa: E402
+    export_inventory_allocation_report,
+    export_order_validation_report,
+    export_payment_aging_report,
+)
 ```
 
 **A necessary correction before going further:** `explanation.md` §4 (written during Phase 8
@@ -966,7 +1093,7 @@ format — the mock data is correct by construction, inheriting whatever the rea
 automatically, forever, rather than needing to be kept in sync by a human remembering to match it.
 </details>
 
-Open [`lib/mock-data.ts`](../../../lib/mock-data.ts) lines 1–20 as the final stop this data
+Open [`lib/mock-data.ts`](../../../lib/mock-data.ts) lines 1–29 as the final stop this data
 actually reaches:
 
 ```ts
@@ -974,11 +1101,19 @@ actually reaches:
  * Typed access point for the build-time mock JSON.
  *
  * Pages import from here, never from `lib/mock-data/*.json` directly, so the
- * JSON shape is asserted against `types/index.ts` in exactly one place...
+ * JSON shape is asserted against `types/index.ts` in exactly one place. The
+ * JSON itself is regenerated from the committed `sample_data/*.xlsx` files by
+ * running the real business-rule pipeline in `scripts/generate_mock_data.py`
+ * (manual, `npm run mock-data` — see that script's header). It is not derived
+ * from `tests/contract_fixtures.py`, which stays a separate, small,
+ * contract-shape-only fixture set used solely by Python tests.
  */
 
 import orderValidationData from "@/lib/mock-data/order-validation.json";
-...
+import inventoryAllocationData from "@/lib/mock-data/inventory-allocation.json";
+import paymentAgingData from "@/lib/mock-data/payment-aging.json";
+import reportsData from "@/lib/mock-data/reports.json";
+
 import type {
   OrderValidationResult,
   InventoryAllocationResult,
@@ -988,7 +1123,14 @@ import type {
 } from "@/types";
 
 export const orderValidationResult = orderValidationData as OrderValidationResult;
+export const inventoryAllocationResult = inventoryAllocationData as InventoryAllocationResult;
+export const paymentAgingResult = paymentAgingData as PaymentAgingResult;
+export const reportManifests = reportsData as ReportManifest[];
 ```
+
+The docstring's own second sentence already disambiguates the file-level comment's "build-time"
+label the same way Part 7 does: regeneration is a manual `npm run mock-data` command, not something
+`next build` triggers on its own.
 
 This file is itself a **Tutorial 10 (Phase 9) addition** — Phase 8 wrote the JSON generator and
 the committed JSON files, but nothing yet consumed them; there were no non-stub pages to import
@@ -1197,7 +1339,7 @@ exactly those paths, not attempt to guard every file the scaffolder might ever w
 </details>
 
 For deeper exploration,
-`docs/plan/phase-8-nextjs-frontend-foundation/ai-discussion-topics.md` has all 24 prompts this
+[`docs/plan/phase-8-nextjs-frontend-foundation/ai-discussion-topics.md`](../../plan/phase-8-nextjs-frontend-foundation/ai-discussion-topics.md) has all 24 prompts this
 tutorial's checkpoints were woven from, organized under their original five headings (scaffold
 safety, the Tailwind v3 pin, the shadcn token collision, mock data and the test-import boundary,
 and routing/verification/Figma). Feed them to an LLM *after* forming your own answer first — the

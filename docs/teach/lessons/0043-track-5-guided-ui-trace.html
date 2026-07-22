@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 43 — Track 5 Guided UI Trace</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="nav">
+    <span>Track 5 · Reinforcement 9 of 9</span>
+    <span>Track complete</span>
+  </div>
+
+  <p class="kicker">Track 5 — Optional Reinforcement · 9 of 9 (Capstone)</p>
+  <h1>Guided Trace: Three Real Paths Through This App</h1>
+  <p class="lede">
+    No new concepts — this is rehearsal, exactly like Track 4's own capstone (Lesson 30) before it.
+    Three real paths through this exact application, each traced from its actual starting point to
+    the last thing that changes on screen. Predict every numbered step yourself before revealing it;
+    skipping straight to the reveal defeats the point.
+  </p>
+
+  <div class="cite">
+    <p class="box-label">What you're rehearsing</p>
+    <p>One reused primary source, load-bearing for Trace 2's correction below: the installed Next.js
+    docs' own <a href="https://nextjs.org/docs/app/getting-started/server-and-client-components#interleaving-server-and-client-components">"Interleaving
+    Server and Client Components"</a> section. Otherwise, no new external resource — this lesson
+    exercises Lessons 35 through 42 together against real, currently-running files:
+    <a class="filelink" href="../../../types/index.ts">types/index.ts</a>,
+    <a class="filelink" href="../../../app/(workspace)/order-validation/page.tsx">app/(workspace)/order-validation/page.tsx</a>,
+    <a class="filelink" href="../../../components/tables/DataTable.tsx">components/tables/DataTable.tsx</a>,
+    <a class="filelink" href="../../../components/layout/AppShell.tsx">components/layout/AppShell.tsx</a>,
+    <a class="filelink" href="../../../components/dashboard/DashboardLiveSections.tsx">components/dashboard/DashboardLiveSections.tsx</a>,
+    <a class="filelink" href="../../../lib/api-client.ts">lib/api-client.ts</a>,
+    <a class="filelink" href="../../../lib/session-id.ts">lib/session-id.ts</a>, and the five files
+    Lesson 41 traced. Also revisits
+    <a class="filelink" href="../../tutorials/10-reusable-ui-components-static-pages/README.md">Tutorial
+    10</a>'s Server/Client serialization failure and
+    <a class="filelink" href="../../tutorials/11-portfolio-ui-polish/README.md">Tutorial 11</a>'s
+    hydration/pointer-event history. If any single step feels impossible to predict, that's a signal
+    to revisit the specific lesson it depends on (linked by number in the closing paragraph below),
+    not to push through.</p>
+  </div>
+
+  <h2>Trace 1 — A Validation Error Row, From Contract to Table Cell</h2>
+  <p>Predict each numbered step yourself first — what holds the data, what derives from what, what
+  actually reaches the DOM — then reveal.</p>
+
+  <ol>
+    <li><span class="filelink">types/index.ts</span> defines <code>ValidationErrorRow</code>.</li>
+    <li><code>runValidation()</code> resolves and calls <code>setCurrentResult(result)</code>.</li>
+    <li><code>const errors = useMemo(() =&gt; currentResult?.errors ?? [], [currentResult])</code>.</li>
+    <li><code>filteredErrors</code> — a second <code>useMemo</code>, applying the severity dropdown and search box.</li>
+    <li><code>&lt;DataTable columns={ERROR_COLUMNS} data={filteredErrors} getRowKey={...} /&gt;</code>.</li>
+    <li>Inside <code>DataTable&lt;T&gt;</code>, <code>sortedData</code> — a third <code>useMemo</code>.</li>
+    <li>Each row: <code>&lt;TableRow key={getRowKey(row)}&gt;</code>.</li>
+    <li><code>column.render(row)</code> fills each <code>&lt;TableCell&gt;</code>.</li>
+    <li>The sortable header itself — what element is it, and how is sort direction actually conveyed?</li>
+  </ol>
+
+  <details>
+  <summary>Reveal: the full chain, with the file/function behind every step</summary>
+  <p><strong>1.</strong> <code>ValidationErrorRow</code> (<span class="filelink">types/index.ts</span>,
+  lines 22–29) is copied verbatim from <code>context/ui-contract-plan.md</code> — snake_case,
+  no camelCase adapter, a decision Lesson 41's Server/Client material never had reason to revisit.
+  This is a <em>declared static contract</em>, not a runtime guarantee — worth stating precisely
+  after Lesson 42's own correction: TypeScript checks that this frontend's own code uses
+  <code>ValidationErrorRow</code> values consistently with the declaration, but
+  <span class="filelink">lib/api-client.ts</span>'s <code>postJSON&lt;T&gt;</code> parses the real
+  response with <code>(await response.json()) as T</code> — a type assertion, not runtime schema
+  validation. A malformed backend response could violate this contract without producing a compile
+  error anywhere. <strong>2.</strong> The <em>entire</em> <code>OrderValidationResult</code> becomes
+  page state (<span class="filelink">app/(workspace)/order-validation/page.tsx</span>, line 154
+  declares <code>currentResult</code>; line 184's <code>setCurrentResult(result)</code> is what
+  actually sets it) — not just its <code>errors</code> field pulled out early. That's a
+  source-of-truth/derived-state decision, not evidence of Lesson 36's snapshot rule by itself: the
+  snapshot rule is that any one render sees one fixed <code>currentResult</code> until an update
+  schedules the next; storing the whole object rather than splitting it into separate fields is a
+  separate state-shape choice, made so <code>errors</code>, valid orders, and every summary figure
+  can all be derived from one source instead of drifting independently. <strong>3.</strong>
+  <code>errors</code> (line 236) is <em>derived</em>, not independently stored — React recomputes
+  the memoized expression when <code>currentResult</code> changes and otherwise reuses the same
+  cached array reference; "recomputed on every render" would be wrong, since that's precisely what
+  <code>useMemo</code> exists to avoid. <strong>4.</strong> <code>filteredErrors</code> (lines
+  239–249) recomputes specifically when <code>errors</code>, <code>errorSeverity</code>, or
+  <code>errorSearch</code> is not <code>Object.is</code>-equal to its value from the previous render
+  — Lesson 38's precise dependency-array rule, not a vaguer "when something changes."
+  <strong>5.</strong> At the call site (line 425), TypeScript combines the typed
+  <code>columns={ERROR_COLUMNS}</code>, <code>data={filteredErrors}</code>, and the contextual type
+  of the <code>getRowKey</code> callback to infer <code>T</code> as <code>ValidationErrorRow</code> —
+  <code>columns</code> alone is a contributor, not the sole source of the inference, and no explicit
+  <code>&lt;ValidationErrorRow&gt;</code> argument is written at the call site either way.
+  <strong>6.</strong> <code>sortedData</code> (<span class="filelink">components/tables/DataTable.tsx</span>,
+  lines 65–78) builds <code>[...data].sort(...)</code> — an immutable copy, never
+  <code>data.sort()</code> in place (Lesson 38). <strong>7.</strong>
+  <code>getRowKey={(r) =&gt; `${r.row_number}-${r.error_code}`}</code> (line 428) is stable across
+  re-renders but — Lesson 38's own real, still-unfixed finding — not always <em>unique</em>: a real
+  test (<code>test_ov001_emits_one_error_per_missing_field_in_fixed_order</code>) proves one row can
+  emit two same-code errors, which this composite key can't tell apart. <strong>8.</strong> Every
+  cell renders inside real semantic markup (<span class="filelink">components/ui/Table.tsx</span>) —
+  an actual <code>&lt;table&gt;</code>, <code>&lt;thead&gt;</code>, <code>&lt;tbody&gt;</code>,
+  <code>&lt;tr&gt;</code>, <code>&lt;th&gt;</code>, <code>&lt;td&gt;</code>, not styled
+  <code>&lt;div&gt;</code>s (Lesson 40's "semantic HTML before ARIA" rule, satisfied by construction
+  here). <strong>9.</strong> It's a real <code>&lt;button&gt;</code>
+  (<span class="filelink">DataTable.tsx</span>, lines 99–109) — keyboard-operable for free — but the
+  current sort direction is conveyed only by a visible <code>▲</code>/<code>▼</code> character in the
+  button's own text, never an <code>aria-sort</code> attribute on the header cell, exactly the real,
+  still-open gap Lesson 40 named and didn't fix.</p>
+  </details>
+
+  <h2>Trace 2 — The Dashboard's Live Sections, From Server Shell to Accessible Chart</h2>
+  <p>Same exercise. This one crosses the Server/Client boundary <em>twice</em>, not once — predict
+  both crossings, and predict what actually happens to a Server Component sandwiched in between
+  them.</p>
+
+  <ol>
+    <li><code>GET /dashboard</code> renders <span class="filelink">app/(workspace)/layout.tsx</span> first, then the page.</li>
+    <li>That layout returns <code>&lt;AppShell&gt;{children}&lt;/AppShell&gt;</code> — is <code>AppShell</code> a Server or Client Component?</li>
+    <li><span class="filelink">app/(workspace)/dashboard/page.tsx</span> (a Server Component) is passed to <code>AppShell</code> as <code>children</code> — does that pull it into <code>AppShell</code>'s client module graph?</li>
+    <li><code>DashboardPage</code> renders its own static shell, then <code>&lt;DashboardLiveSections /&gt;</code>.</li>
+    <li><span class="filelink">DashboardLiveSections.tsx</span> opens with its <em>own</em>, separate <code>"use client"</code>.</li>
+    <li>First client render of that component: <code>status</code> starts as <code>"loading"</code>.</li>
+    <li>After mount, the Effect fires: <code>getDashboardResults()</code> runs.</li>
+    <li>Inside it, <code>getOrCreateSessionId()</code> reads/writes <code>localStorage</code>.</li>
+    <li><code>GET /api/dashboard</code> is sent, with or without an <code>X-Session-Id</code> header.</li>
+    <li>On success: three separate <code>setLive*(...)</code> calls, then <code>setStatus("loaded")</code>.</li>
+    <li>Live-or-sample resolution: <code>liveOrderValidation ?? orderValidationResult</code>, independently per workflow.</li>
+    <li>The Effect's own cleanup: what does <code>cancelled</code> actually protect against, and when does it matter?</li>
+  </ol>
+
+  <details>
+  <summary>Reveal: the full chain, with the file/function behind every step</summary>
+  <p><strong>1.</strong> <span class="filelink">app/(workspace)/layout.tsx</span> is a plain Server
+  Component, per Lesson 41's route-group trace. <strong>2.</strong>
+  <span class="filelink">components/layout/AppShell.tsx</span> opens with
+  <code>"use client"</code> (line 1) — it is a real Client Component, not a passthrough wrapper. It
+  owns real client state and browser-only behavior: mobile-drawer <code>isDrawerOpen</code> state,
+  <code>usePathname()</code> route tracking to auto-close the drawer on navigation, an
+  <code>Escape</code>-key listener, and moving focus into the drawer's first link on open — none of
+  which could run during a server render. <strong>3.</strong> This is the exact "Interleaving Server
+  and Client Components" pattern the installed Next.js docs describe: "You can pass Server Components
+  as a prop to a Client Component... A common pattern is to use <code>children</code> to create a
+  slot in a <code>&lt;ClientComponent&gt;</code>." <code>DashboardPage</code> is rendered on the
+  server <em>first</em>, and only its already-rendered output is handed to <code>AppShell</code> as
+  <code>children</code> — the docs are explicit that this "does not apply" the client-bundling rule:
+  "Server Components passed as children or other props... are not imported into the Client
+  Component's module graph. They are rendered on the server and passed to the Client Component as
+  rendered output." <code>DashboardPage</code> stays a genuine Server Component the whole time, even
+  though it visually renders <em>inside</em> a Client Component. <strong>4.</strong> Its own heading,
+  intro paragraph, and the Reports/Workflows sections render as static server output; only
+  <code>&lt;DashboardLiveSections /&gt;</code> needs anything more. <strong>5.</strong> That's a
+  <em>second</em>, independent <code>"use client"</code> boundary (line 1 of a completely different
+  file) — nested inside <code>AppShell</code>'s already-client tree, but drawing its own separate
+  line for its own separate reason: Lesson 33's rule, applied at two different, deliberately narrow
+  points, not one single boundary for the whole page. The component's own comment names that reason:
+  the Anonymous Session ID lives only in <code>localStorage</code>, a capability that doesn't exist
+  during a server render. <strong>6.</strong> Before the Effect below has ever run,
+  <code>status === "loading"</code> renders only a <code>&lt;LoadingState /&gt;</code> — Lesson 37's
+  point that an Effect's result is never available on the render that schedules it. This is the
+  literal code behind a deliberate product decision the component's own comment names directly: never
+  flash sample values first and swap them for live ones after the fetch resolves, since that would
+  blur "is this real or sample?" for a real visitor (ADR 0007).
+  <strong>7.</strong> The empty dependency array (<span class="filelink">DashboardLiveSections.tsx</span>,
+  lines 53–73) is Lesson 37's "runs once per mount" case, synchronizing with something genuinely
+  outside React — a network request — not a value read from props or state. <strong>8.</strong>
+  <code>getOrCreateSessionId()</code> (<span class="filelink">lib/session-id.ts</span>) is the actual
+  browser-only capability driving step 5's Client boundary — reading <code>window.localStorage</code>,
+  creating a UUID with <code>crypto.randomUUID()</code> on first use, and returning <code>null</code>
+  (never throwing) if storage is unavailable. (A small, real, current gap worth naming: this
+  function's own docstring claims it "always returns a non-empty string," which the actual signature
+  — <code>string | null</code> — and these two real <code>null</code>-returning paths both
+  contradict. The code and callers are correct either way; the comment is simply stale.)
+  <strong>9.</strong> <code>getDashboardResults()</code> (<span class="filelink">lib/api-client.ts</span>,
+  lines 179–192) sends the session ID as <code>X-Session-Id</code> only if one exists — an empty
+  header is never sent, since the backend treats an empty string as malformed, not absent.
+  <strong>10.</strong> Three independent <code>setLive*</code> calls (never one combined state
+  object) is a state-<em>modeling</em> decision, not the state-snapshot rule itself: it lets each
+  persisted workflow result be absent or present independently. The snapshot rule is the narrower,
+  separate fact that any one render sees one fixed value for each of those three variables until an
+  update schedules the next. <strong>11.</strong> <code>resolvedInventoryAllocation =
+  liveInventoryAllocation ?? inventoryAllocationResult</code> (and the matching lines for the other two
+  workflows) resolve independently — a visitor who's only run Order Validation sees real data there and
+  sample data everywhere else, never all-or-nothing. <strong>12.</strong> <code>cancelled</code>
+  (Lesson 37) guards against a slower, now-stale request finishing <em>after</em> a newer Effect
+  instance has already started — an unmount, or a development Strict Mode remount — overwriting state
+  that a fresher instance already owns. This connects back to Lesson 42, precisely stated: the three
+  existing automated checks (typecheck, lint, build) cannot prove this trace's complete runtime
+  behavior, but that doesn't mean only a real browser could ever catch a regression here — a wrong
+  state type is still a typecheck catch, a missing Effect dependency is still an ESLint catch, and the
+  <code>cancelled</code> race itself is exactly the kind of thing a unit or integration test with
+  controlled, delayable promises could exercise without a browser at all. The real lesson is choosing
+  the smallest layer that can actually observe a given regression, not reaching for the heaviest one
+  by default.</p>
+  </details>
+
+  <h2>Trace 3 — <code>/</code> and <code>/dashboard</code>, From Folder to Rendered Chrome</h2>
+  <p>Two paths through the same root layout, diverging at exactly one point each. Predict both
+  columns before revealing either.</p>
+
+  <p><strong>Path A — <code>/</code>:</strong></p>
+  <ol>
+    <li><span class="filelink">app/(public)/page.tsx</span> — does <code>(public)</code> appear in the URL?</li>
+    <li>Nearest layout: <span class="filelink">app/(public)/layout.tsx</span> — what does it render?</li>
+    <li>Root layout: <span class="filelink">app/layout.tsx</span> — what does it supply?</li>
+    <li>Metadata: does this route's own <code>&lt;title&gt;</code> match the root's, or override it?</li>
+  </ol>
+
+  <p><strong>Path B — <code>/dashboard</code>:</strong></p>
+  <ol>
+    <li><span class="filelink">app/(workspace)/dashboard/page.tsx</span> — does <code>(workspace)</code> appear in the URL?</li>
+    <li>Nearest layout: <span class="filelink">app/(workspace)/layout.tsx</span> — what does it render?</li>
+    <li>Root layout: is this the same file as Path A's, or a different one?</li>
+    <li>Metadata: this page exports none at all — what ends up in its <code>&lt;title&gt;</code>?</li>
+  </ol>
+
+  <details>
+  <summary>Reveal: both paths, with the file behind every step</summary>
+  <p><strong>Path A.</strong> <span class="filelink">(public)/page.tsx</span>'s parenthesized folder
+  is stripped by the router — the URL is <code>/</code>, never <code>/public</code> (Lesson 41's
+  route-groups rule). Its nearest layout, <span class="filelink">(public)/layout.tsx</span>, does more
+  than render <code>PublicHeader</code>/<code>PublicFooter</code>: it also supplies the page's own
+  <code>flex min-h-screen flex-col</code> wrapper and a real semantic <code>&lt;main
+  className="flex-1"&gt;</code> region around whatever page content it wraps — public chrome plus its
+  main-content wrapper, not header/footer alone. The root layout,
+  <span class="filelink">app/layout.tsx</span>, owns the document shell (<code>&lt;html&gt;</code>/
+  <code>&lt;body&gt;</code>), global styling and font setup (the <code>Inter</code> variable, the
+  <code>globals.css</code> import), base body treatment (<code>min-h-screen bg-background font-sans
+  text-text-primary</code>, <code>suppressHydrationWarning</code>), and fallback metadata — a fuller
+  job than "html/body/font and nothing else," but it deliberately owns no route-group-specific visible
+  chrome; that's still exactly Lesson 41's division of labor. This page's own <code>metadata</code>
+  export (title ending "Portfolio Case Study") overrides the root's plain title, per the
+  <code>generateMetadata</code> reference's real merging rule.<br><br>
+  <strong>Path B.</strong> <span class="filelink">(workspace)/dashboard/page.tsx</span>'s parenthesized
+  folder is stripped the same way — <code>/dashboard</code>, never <code>/workspace/dashboard</code>.
+  Its nearest layout, <span class="filelink">(workspace)/layout.tsx</span>, renders
+  <code>AppShell</code> instead — a completely different chrome for a completely different audience,
+  the entire reason this route-group split exists at all
+  (<span class="filelink">docs/architect/portfolio-landing-page/decisions.md</span>) — and, per
+  Trace 2 above, a real Client Component in its own right, not a thin Server wrapper: its sidebar,
+  mobile drawer, and <code>TopHeader</code> toggle are all genuinely interactive chrome, independent
+  of anything <code>DashboardLiveSections</code> does further in. The root layout is the exact same
+  file as Path A's — sharing one root layout is what keeps <code>&lt;Link&gt;</code>/router
+  navigation between the two routes a single client-side transition; typing either URL directly, or a
+  full page refresh, still requests a full document either way. This page exports no
+  <code>metadata</code> object at all, so nothing overrides the root's — its real, built
+  <code>&lt;title&gt;</code> is <code>Sales Admin Automation Toolkit</code>, byte-for-byte the root's
+  string, confirmed against this repo's own prerendered build output in Lesson 41. Two separate
+  Client boundaries sit inside this one route, at two different depths and for two different reasons
+  — <code>AppShell</code>'s shell interaction (Trace 2, step 2) and
+  <code>DashboardLiveSections</code>'s session-aware data (Trace 2, step 5) — and the folder path
+  traced here decides only the layout and metadata around both of them, nothing about either boundary
+  itself.</p>
+  </details>
+
+  <div class="box checkpoint">
+    <p class="box-label">Retrieval check</p>
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">Lesson 38 found that getRowKey's composite key isn't always unique. What does that actually mean for this table right now?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="true">Two errors from one row could share one key</button>
+        <button class="quiz-option" data-correct="false">This visibly breaks the table's displayed row order today</button>
+        <button class="quiz-option" data-correct="false">React refuses to compile whenever two keys are identical</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">What code actually prevents sample data from rendering before the dashboard request finishes?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="true">The early loading-status check that renders only LoadingState first</button>
+        <button class="quiz-option" data-correct="false">A hard-coded delay before any chart or table renders</button>
+        <button class="quiz-option" data-correct="false">The ADR that documents this as required product behavior</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+
+    <div class="quiz" data-quiz>
+      <p class="quiz-question">/dashboard exports no metadata object at all. Why does its rendered title still say "Sales Admin Automation Toolkit," with no suffix?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="true">It just inherits the root layout's own title, unmodified</button>
+        <button class="quiz-option" data-correct="false">AppShell quietly defines its own separate default page title</button>
+        <button class="quiz-option" data-correct="false">Next.js falls back to using the folder name itself</button>
+      </div>
+      <p class="quiz-feedback" hidden></p>
+    </div>
+  </div>
+
+  <div class="box exercise">
+    <p class="box-label">Interview drill (90 seconds, out loud or timed in writing)</p>
+    <p>Answer now, in under 90 seconds, before reading any further:
+    <strong>"How do you decide whether state, an Effect, a Client Component boundary, and an E2E test
+    are actually necessary for a new UI behavior?"</strong> Say it out loud or write it down in full —
+    then open the reveal below to score yourself. Opening it first defeats the drill the same way
+    skipping straight to a trace's reveal would.</p>
+  </div>
+
+  <details>
+  <summary>Reveal: the five-point rubric, a model answer, and how to score yourself</summary>
+  <p>Score one point for each of these your answer genuinely touched, not just gestured at:</p>
+  <ol>
+    <li><strong>Source of truth and derived values</strong> — is this behavior's data genuinely
+    re-derivable each render from something else, or does it need its own state slot? (Lesson 36)</li>
+    <li><strong>External synchronization and Effects</strong> — does anything here need to
+    synchronize with a system outside React itself — a fetch, a subscription, a timer — the actual
+    trigger for an Effect, not just "this runs after render"? (Lesson 37, Trace 2)</li>
+    <li><strong>Browser-only capabilities and Client boundaries</strong> — does the behavior depend
+    on something that simply doesn't exist during a server render — <code>localStorage</code>,
+    <code>window</code>, a real user event — the actual trigger for a Client boundary, not "it has
+    some interactivity"? (Lesson 33, Lesson 41, Trace 2 and 3)</li>
+    <li><strong>Serializable Server-to-Client values</strong> — if a Server Component needs to hand
+    this value to a Client Component as a prop, can it actually make that trip, or is it a function
+    or class instance that can't? (Lesson 35, Tutorial 10 Part 3)</li>
+    <li><strong>Observable risk and the smallest sufficient layer</strong> — what's genuinely at risk
+    if this breaks, and what's the <em>cheapest</em> check positioned to actually observe that
+    specific failure — not automatically the heaviest one available? (Lesson 42)</li>
+  </ol>
+  <p><strong>Model answer, compressed:</strong> "First I ask whether the value is genuinely new
+  information or just derivable from something I already have — derived stays out of state
+  entirely. If it needs to live in state, I ask whether anything must synchronize with the world
+  outside React; if not, it's an event handler, not an Effect. Separately, I ask whether the
+  behavior touches a browser-only capability — that's what actually forces a Client Component
+  boundary, not merely 'this is interactive.' If a Server Component needs to hand this value to a
+  Client Component, I check it's actually serializable first. And last, I ask what would actually
+  break and what the cheapest check is that could catch that specific break — a type, a lint rule,
+  and a build already cover a lot; I only reach for a real browser, scripted or by hand, for the
+  part those three genuinely can't see."</p>
+  <p><strong>Scoring:</strong> 5/5 — you're not overcorrecting toward "just add a Playwright test"
+  the way Lesson 42 warned against; jumping straight there without touching the other four is the
+  single most common miss on this drill. Lesson 42's own two real bugs did need an actual browser
+  (or scripted browser automation) to surface — that part is real, not a strawman — but the accurate
+  lesson from that pair was narrower than "always test in a real browser": this project didn't need
+  to <em>add a permanent new test dependency</em> just to diagnose them, since a temporary,
+  uninstalled-afterward Playwright script was enough. 3–4/5 — solid, but check which point got
+  skipped and reread that lesson specifically. 0–2/5 — worth rereading Lessons 33, 35, 36, 37, and 42
+  in sequence before moving on, since this drill is built to need all five at once, not any one of
+  them alone.</p>
+  </details>
+
+  <p>That's every concept this optional Track 5 sequence set out to teach: TSX as JSX-plus-typechecking
+  and a component's prop type as an API contract
+  (<a href="0035-tsx-and-typed-component-props.html">35</a>), state as a fixed render-time snapshot
+  alongside real derived values
+  (<a href="0036-render-snapshots-events-and-derived-state.html">36</a>), Effects as synchronization
+  with something outside React, complete with a real cleanup guard
+  (<a href="0037-effects-cleanup-and-async-ui.html">37</a>), generics/keys/memoization all meeting in
+  one <code>DataTable&lt;T&gt;</code>
+  (<a href="0038-list-keys-identity-generics-and-memoized-derivations.html">38</a>), the CSS layout
+  mechanics behind every shell and card this trace touched
+  (<a href="0039-css-layout-flow-flex-grid-and-overflow.html">39</a>), accessibility as part of a
+  component's public contract rather than a final pass
+  (<a href="0040-accessible-components-as-contracts.html">40</a>), route groups/layouts/metadata as one
+  coherent App Router structure
+  (<a href="0041-route-groups-layout-composition-and-metadata.html">41</a>), and what this repo's real
+  verification layers each actually prove and don't
+  (<a href="0042-frontend-verification-layers.html">42</a>) — all reassembled here into three real,
+  currently-running paths through this exact application, start to finish.</p>
+
+  <div class="ask-teacher">
+    If any of the three traces still required checking the reveal more than once, that's useful
+    signal, not failure — ask now which specific lesson (35–42) the shaky step depends on, and revisit
+    that one lesson specifically rather than rereading this whole capstone again. This closes the
+    optional Track 5 reinforcement sequence; Track 5 itself has been "ready for Tutorial 08" since
+    Lesson 34, unchanged.
+  </div>
+
+  <div class="nav nav-bottom">
+    <a href="0042-frontend-verification-layers.html">← Back: Frontend Verification Layers</a>
+    <span>Track complete</span>
+  </div>
+
+</div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

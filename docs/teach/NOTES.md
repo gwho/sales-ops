@@ -814,3 +814,425 @@
   - `ROADMAP.md` (status line, lesson-count table row, navigation paragraph) and `RESOURCES.md`
     (four new citations) were both updated to match, per the same standing practice every prior
     lesson in this sequence has followed.
+- 2026-07-22 (later, same day): shipped `0042-frontend-verification-layers.html`, the eighth lesson
+  in the Track 5 optional reinforcement sequence, same one-at-a-time pacing. Deliberately reuses
+  real material from three earlier points in this project (Lesson 38's lint output, Tutorial 10's
+  build error, Tutorial 11's hydration/pointer-events bugs) rather than manufacturing new examples —
+  the task brief's own instruction was to use Tutorial 11's two failures specifically, and treating
+  this lesson as a synthesis point ahead of the Lesson 43 capstone made reuse the right call, not a
+  shortcut.
+  - Verified, rather than assumed, one precise and genuinely non-obvious version-specific fact:
+    checked this repo's installed Next.js version (16.2.10) against the installed TypeScript-config
+    and ESLint-plugin reference docs and confirmed `next build` fails on TypeScript errors by
+    default (so it overlaps with `npm run typecheck` here) but no longer runs ESLint at all as of
+    Next.js 16 (`next lint` itself was removed) — meaning `next build` and `npm run lint` are fully
+    independent checks in this exact repo, not the "build subsumes lint" assumption a less-precise
+    first draft might have made.
+  - Reproduced the lesson's central TypeScript example empirically rather than asserting it from
+    memory: wrote a disposable scratch file (outside the repo, in the session scratchpad) mimicking
+    `Badge.tsx`'s `DOT_TONE_CLASSES[tone]` shape with the `resolvedTone` fallback removed, ran
+    `npx tsc --noEmit --strict` against it, and got a real `TS2538` error at a specific line/column —
+    then re-ran the *exact* script as written in the lesson's own exercise (a slightly different,
+    more compact layout) and caught that the column number differed from the first repro (`(8,28)`
+    vs. the real `(8,33)`) before shipping — fixed to match the verified output exactly, not the
+    first draft's guess.
+  - Confirmed via `grep` that this repo has zero committed frontend tests of any kind (no
+    `*.test.*`/`*.spec.*` file anywhere under `app/`, `components/`, or `lib/`, no `test` script in
+    `package.json`) before asserting that gap in the lesson, rather than assuming it from general
+    project familiarity.
+  - Cited `docs/tutorials/10-reusable-ui-components-static-pages/README.md` (Part 3, the real
+    `"Functions cannot be passed directly to Client Components"` build error) and
+    `docs/tutorials/11-portfolio-ui-polish/README.md` (Part 6, the hydration mismatch and
+    pointer-events trap; Part 8, the documented ad-hoc install-then-uninstall Playwright pattern)
+    directly, rather than re-deriving any of the three from this project's own uncommitted
+    `memory.md` — those bugs are historical and already fixed in the current files, so the lesson
+    presents them as "here's the real failure, and here's the fix still in the file today," the
+    same pattern Lesson 41 used for its own historical-bug-plus-current-fix citations.
+  - Exercise reproduces the `Badge.tsx` bug in an untouched scratch file rather than editing any
+    application file — consistent with every prior lesson's "no application-code edits while
+    authoring" rule, and with Lesson 41's own build-and-grep exercise precedent.
+  - Navigation: `0041`'s forward nav (top and bottom) was rewired from its placeholder to a real
+    link to `0042`. `0042`'s own forward nav is now the placeholder, per the established convention.
+  - No reference doc shipped this round — `frontend-verification-ladder.html` is `0042`'s named
+    companion per the task file, not requested this session; flagged as pending in `ROADMAP.md`
+    alongside the other two still-pending reference docs (`app-router-layout-map.html` for `0041`,
+    `accessible-component-contract.html` for `0040`).
+  - No learning records written — correctly so, per this file's standing rule.
+  - `ROADMAP.md` (status line, new table row, reference-doc paragraph, navigation paragraph) and
+    `RESOURCES.md` (four new citations) were both updated to match, per the same standing practice
+    every prior lesson in this sequence has followed.
+  - **Post-draft review pass (same day, `docs/teach/lessons-ideas/review/0042/recommended-changes.md`)
+    caught two conceptual overclaims and six smaller precision issues** — implemented exactly as
+    written, each independently re-verified before applying rather than taken on faith:
+    - **The pointer-events story had conflated two genuinely separate findings into one narrative.**
+      The original draft explained the overlay defect's *discovery* by appeal to "a human's mouse
+      trajectory naturally avoids the exact center, but Playwright's `.hover()` targets it
+      precisely" — but the overlay's `inset-0` covers the *entire* bounding box (ring included, not
+      just the hole), so a real user's mouse would hit the same dead zone anywhere in that box, not
+      just at the center. Verified against Playwright's own `Locator.hover()` reference that
+      `hover()` "wait[s] for actionability checks on the element" before acting, one of which
+      detects an intercepting element — that's the actual, mechanical reason the scripted call
+      timed out and named the overlay. Rewrote the section into two explicitly separated
+      paragraphs: the real defect and how Playwright's actionability check found it, then a wholly
+      separate, test-script-only problem (`hover()`'s default center-of-bounding-box target landing
+      in an annulus's empty hole, unrelated to why the *first* bug was found, fixed by switching to
+      `.focus()`). Rewrote Retrieval Check 3 to ask about the actionability-check mechanism
+      directly, with the old (incorrect) framing demoted to a distractor option.
+    - **The typecheck/lint/build claims were each broader than what the checks actually guarantee.**
+      Typecheck reworded from "proves every value's shape is internally consistent" to the more
+      precise "checks the source against its declared static types and compiler configuration —
+      does not prove unvalidated runtime data matches those declarations." Lint gained the ESLint
+      exit-code nuance, verified against ESLint's own CLI docs: exit code `0` occurs whenever there
+      are no errors (and, if `--max-warnings` is set, warnings stay under that count) — this repo's
+      bare `eslint` script sets neither, so Lesson 38's own `exhaustive-deps` example, a *warning*,
+      would never fail the command on its own. Build reworded from an unqualified "every route can
+      render" to a claim scoped by a freshly re-run `npm run build`, confirming all six routes plus
+      `/_not-found` print `○ (Static) prerendered as static content` — so build-time rendering really
+      is exercised here, but nothing about a runtime request or dynamic route path is. The
+      Server/Client serialization failure was reworded from "compile-time" to "build-time," since
+      it's a Next.js/React build-step rule, not a `tsc` error. All matching claims (main build
+      explanation, "Correct framing" box, Retrieval Check 2, `ROADMAP.md`'s row) updated to match.
+    - The decision ladder's old single "process boundary" entry (`curl /health`) was replaced with
+      the reviewer's seven-line ladder, splitting "is the backend even reachable" from "is its
+      behavior/contract correct" — since `curl /health` proves only the former, nothing about a
+      real workflow endpoint, the frontend actually calling the backend, or a complete user path.
+    - The five-category testing-vocabulary block was labeled "quoted directly" while actually
+      paraphrased/condensed — replaced with the Next.js docs' exact wording, re-fetched and
+      confirmed live to match verbatim before pasting in.
+    - The scratch exercise's `npx tsc` invocation could silently resolve or download a different
+      TypeScript version than this repo's own, contradicting the lesson's "nothing new installed"
+      promise — changed to `./node_modules/.bin/tsc` (with `npx --no-install tsc` offered as an
+      equivalent), re-verified from the repo root against the exact scratch file: identical
+      `TS2538` error at `(8,33)`, confirming the fix doesn't change the taught result.
+    - "React's byte-level comparison" (hydration) replaced with `hydrateRoot`'s own documented
+      framing — "expects the rendered content to be identical with the server-rendered content" —
+      verified by fetching the live React docs page directly rather than assumed from memory.
+    - "This repo genuinely has none of the five [test categories]" reworded to "no committed,
+      repeatable frontend test suite in any of these five categories," with an explicit added
+      sentence that ad-hoc Playwright testing has genuinely happened here twice — the gap is
+      *retained regression coverage*, not "testing has never occurred."
+    - The opening claim that "this app already runs four real checks" conflated three real
+      repository scripts with a fourth item (`curl /health`) that's actually a manual, developer-run
+      diagnostic, never guaranteed by any workflow or gate — reworded throughout (lede, section
+      heading, the two-bugs section, Lesson 40 cross-reference, the exercise prompt) to consistently
+      distinguish "three automated checks" from "four verification mechanisms total," rather than
+      using "four" and "checks" interchangeably.
+    - `ROADMAP.md`'s `0042` row was rewritten end-to-end to match every correction above, per the
+      same standing practice every prior review in this sequence has followed.
+- 2026-07-23: shipped `0043-track-5-guided-ui-trace.html`, the ninth and final lesson in the
+  optional Track 5 reinforcement sequence — the capstone, closing the sequence out entirely.
+  Deliberately mirrored Track 4's own capstone (`0030`) structural precedent exactly rather than
+  inventing a new capstone shape: predict-then-`<details>`-reveal numbered traces, zero code boxes
+  (everything cited by file/line/function name in prose, since all the underlying code was already
+  shown verbatim in Lessons 35–42), a closing interview drill instead of a hands-on exercise, and a
+  closing paragraph naming every lesson in the track by number.
+  - Three traces, per the task brief's own three bullet points: (1) a `ValidationErrorRow` from
+    `types/index.ts` through `order-validation/page.tsx`'s state/memo layers into
+    `DataTable<T>`'s own generic resolution, sort memo, row key, and semantic markup; (2) the
+    dashboard's live sections from `app/(workspace)/dashboard/page.tsx`'s Server Component shell
+    through `DashboardLiveSections.tsx`'s single Client boundary, its Effect, and its independent
+    per-workflow live-or-sample resolution; (3) `/` and `/dashboard` side by side, from route-group
+    folder through nested layout to the one shared root layout and metadata resolution — with
+    Path B's reveal explicitly pointing back into Trace 2 rather than re-explaining the Client
+    boundary a second time, the literal "interleave concepts" instruction from the task brief.
+  - Read every file this session actually cites before writing a single trace step: `types/index.ts`,
+    `order-validation/page.tsx` (state, both `useMemo` calls, the `DataTable` call site),
+    `DataTable.tsx` and `Table.tsx` in full, `DashboardLiveSections.tsx` in full,
+    `lib/api-client.ts`'s `getDashboardResults`/`sessionHeaders`, and `lib/session-id.ts` in full —
+    no step is inferred from memory of what these files "probably" contain.
+  - Re-verified two claims empirically rather than citing from memory of an earlier lesson's own
+    prose: ran `grep` to confirm `test_ov001_emits_one_error_per_missing_field_in_fixed_order` (the
+    real test Lesson 38 cites for the row-key non-uniqueness finding) still exists in
+    `tests/test_order_validation.py`; and re-read `lib/session-id.ts`'s own docstring directly to
+    confirm the "empty string is malformed, not absent" `X-Session-Id` behavior, rather than
+    reproducing it from `RESOURCES.md`/`NOTES.md`'s own earlier paraphrase of it.
+  - Caught and fixed one real authoring mistake before treating the draft as done: a literal
+    backslash-escaped backtick sequence (`` \` ``) had leaked into Trace 1's `getRowKey` code span —
+    the exact class of mistake `0038`'s own review had caught and fixed in a different lesson.
+    Verified clean afterward via a direct `grep` for the same pattern.
+  - Quiz answer choices (one retrieval check per trace, three total — matching `0030`'s "3 quizzes
+    across 2 traces" density rather than inflating to one set per trace) came out at exactly 9 words
+    per option on the first draft, verified by script rather than eyeballed.
+  - The interview drill's question and five required discussion points (source of truth, external
+    synchronization, browser-only capability, serialization, observable risk) are copied directly
+    from the task file's own rubric, not reworded or reinterpreted.
+  - Navigation: `0042`'s forward nav (top and bottom) was rewired from its placeholder to a real
+    link to `0043`. `0043` is the final lesson — both its own nav slots read "Track complete,"
+    matching `0030`'s precedent exactly, since there is no `0044` to point to.
+  - No reference doc shipped or pending for `0043` — the task file's seven-reference-doc list never
+    assigned the capstone one at all, unlike every numbered lesson before it.
+  - No learning records written — correctly so, per this file's standing rule.
+  - `ROADMAP.md` (status line now reading "complete," new table row, reference-doc paragraph,
+    navigation paragraph) was updated to match. `RESOURCES.md` was not touched this round — this
+    lesson's own cite box originally stated it introduces no new external source, only re-exercising
+    the eight already cited across `0035`–`0042` (this claim did not survive the same-day review
+    pass below unchanged — see that entry for the one reused source it turned out to need).
+  - **Post-draft review pass (same day, `docs/teach/lessons-ideas/review/0043/recommended-changes.md`)
+    found one critical factual error and eleven smaller corrections** — the deepest review of any
+    lesson in this sequence, since the critical finding required re-reading real application source
+    the original draft had never actually opened.
+    - **Critical: Trace 2 had the real Server/Client component tree wrong.** The original draft
+      claimed `DashboardLiveSections` was "the entire Server/Client boundary this page needs" and
+      that everything above it stayed a Server Component. Reading
+      `components/layout/AppShell.tsx` directly (not done before the original draft shipped) showed
+      it opens with its own `"use client"` and owns real state — mobile-drawer `isDrawerOpen`,
+      `usePathname()` route tracking, an `Escape`-key listener, and moving focus into the drawer on
+      open. The real tree has two independent Client boundaries, not one: `WorkspaceLayout` (Server)
+      → `AppShell` (Client) → `DashboardPage` passed through as `AppShell`'s `children` (still a
+      genuine Server Component, per the installed Next.js docs' own "Interleaving Server and Client
+      Components" section, fetched and quoted directly: Server Components passed as children "are
+      not imported into the Client Component's module graph. They are rendered on the server and
+      passed to the Client Component as rendered output.") → `DashboardLiveSections` (a second,
+      more deeply nested Client boundary). Rewrote Trace 2's intro, predict list, and reveal around
+      both real boundaries; rewrote Trace 3's closing claim, since `AppShell`'s sidebar/drawer/
+      `TopHeader` are genuinely interactive chrome in their own right, not something
+      `DashboardLiveSections` alone provided.
+    - Narrowed the TypeScript claim in Trace 1's first reveal step: `ValidationErrorRow` is a
+      *declared static contract*, not a runtime guarantee — verified that
+      `lib/api-client.ts`'s `postJSON<T>` parses the real response with a bare
+      `(await response.json()) as T`, a type assertion with no schema validation, so a malformed
+      backend response could violate the contract without a compile error. Reinforces Lesson 42's
+      own corrected declared-vs-runtime distinction rather than contradicting it.
+    - Corrected "`errors` is computed fresh every render" to the accurate `useMemo` behavior:
+      recomputed only when `currentResult` isn't `Object.is`-equal to its prior value, otherwise the
+      cached array reference is reused — "fresh every render" is precisely the thing `useMemo` exists
+      to prevent. Applied the same `Object.is`-precision fix to `filteredErrors`.
+    - Stopped crediting Lesson 36's state-as-snapshot rule for two state-*shape* decisions it doesn't
+      actually prescribe: storing the whole `OrderValidationResult` instead of split fields, and
+      keeping three dashboard workflow results as three separate state variables. Both reworded as
+      source-of-truth/state-modeling decisions, with the snapshot rule restated correctly and more
+      narrowly alongside each.
+    - Corrected the `DataTable<T>` generic-inference claim: `columns={ERROR_COLUMNS}` is a
+      contributor, not the sole source — TypeScript combines the typed `columns`, `data`, and the
+      `getRowKey` callback's contextual type to infer `T`.
+    - Softened two absolute browser-verification claims into Lesson 42's own "smallest observable
+      layer" framing: replaced "none of typecheck, lint, or build would catch a regression to any of
+      these steps" with a precise account of which specific sub-parts each check genuinely could
+      catch, and corrected the interview drill's "neither needed a new tool" line — Lesson 42's two
+      real bugs did need an actual browser/temporary Playwright automation to surface; the accurate,
+      narrower lesson is that this project didn't need a *permanent new test dependency* to diagnose
+      them, not that browser verification was unnecessary.
+    - Fixed the `setCurrentResult(result)` source-line citation: line 154 only declares
+      `currentResult`'s state slot; line 184 is the actual call, confirmed by re-reading the file
+      directly rather than trusting the original draft's citation.
+    - Qualified "sharing one root layout keeps navigation client-side" to specifically
+      `<Link>`/router transitions, matching the same qualification Lesson 41 already carries —
+      typing a URL directly or a hard refresh is still a full document request either way.
+    - Corrected what the root and `(public)` layouts actually provide: the root layout owns the
+      global stylesheet import, base body classes, `suppressHydrationWarning`, and fallback metadata
+      (not just html/body/font), and `(public)/layout.tsx` also supplies a real flex wrapper and
+      semantic `<main>` region, not header/footer alone — both verified by re-reading the real files.
+    - Rewrote retrieval question 2 from a product-rationale question ("why not flash sample data
+      first") to the actual code mechanism (the `status === "loading"` early return), per the
+      review's point that a guided *code* trace should test code, not product intent — the ADR
+      rationale itself was kept, folded into Trace 2's own reveal instead of the quiz.
+    - Restructured the interview drill: the five-point rubric, a model answer, and a self-scoring
+      guide now sit behind their own `<details>` reveal, opened only after answering — previously all
+      five points were shown alongside the question itself, cueing the response instead of requiring
+      unaided retrieval. Placed as a sibling to the exercise box rather than nested inside it, since
+      no prior lesson in this sequence had ever nested a `<details>` reveal inside a `.box` div, and
+      a quick check confirmed the two elements' CSS (nested borders/backgrounds) wasn't designed to
+      combine that way.
+    - Added one reused primary source (the Next.js interleaving page) and converted every principal
+      source-file reference, Tutorial 10/11 reference, and Lesson 35–42 closing-paragraph reference
+      from a plain `<span class="filelink">` label into a real link — repo-source links use the same
+      `../../../` relative-path convention the `docs/tutorials/` series already established,
+      verified to actually resolve to real files before shipping.
+    - Named one small, real, current repository documentation gap per the review's suggestion rather
+      than silently relying on it or editing application code to fix it: `lib/session-id.ts`'s own
+      docstring claims `getOrCreateSessionId()` "always returns a non-empty string," which its actual
+      `string | null` signature and two real `null`-returning code paths both contradict.
+    - `ROADMAP.md`'s `0043` row was rewritten end-to-end to match every correction above.
+      `RESOURCES.md` gained one new citation for the Next.js interleaving page.
+  - **This closes the entire optional Track 5 reinforcement sequence** (`0035`–`0043`, all nine
+    lessons shipped one at a time across six calendar days, 2026-07-18 through 2026-07-23).
+    Track 5's own required prerequisite arc (`0031`–`0034` plus Tutorials 08–11) was already
+    complete and unaffected throughout; this sequence existed purely for retention after that arc,
+    per its own task file's opening paragraph, and that task file's scope is now fully delivered.
+- 2026-07-23 (later, same day): a post-draft review pass reached back into Track 5's own
+  required-prerequisite arc for the first time, correcting `0031-browser-output-and-components.html`
+  (shipped 2026-07-17, per `docs/teach/lessons-ideas/review/0031/recommended-changes.md`) — one
+  critical fix and seven smaller precision issues, none touched since that original shipping date.
+  - **Critical: the "component without React" example wasn't actually reusable.** The original
+    snippet was one `<button id="statusBadge">` wired up with a single
+    `document.getElementById("statusBadge").addEventListener(...)` call — a hardcoded instance, not
+    a component, since repeating it would collide on the duplicate ID and neither the label nor the
+    tone could be supplied as an input. Replaced with a real factory function,
+    `createStatusBadge(label, tone)`, that builds and returns a fresh `<span>` element per call —
+    genuinely callable more than once with different inputs, the actual bar for "reusable."
+  - **The example was also compared dishonestly to the real `StatusBadge.tsx`.** The original draft
+    made the plain-JS example a clickable button that logged to the console, then claimed the real
+    `StatusBadge` "does the same job" — but `StatusBadge` (verified by rereading the file) is a
+    non-interactive wrapper around `Badge`, no event handler anywhere. Made the new factory function
+    display-only (a `<span>`, no click handler) specifically so the comparison holds honestly: both
+    are named, reusable, take a label/tone as input, render structure plus presentation, and have
+    zero user-triggered behavior — not a coincidence to paper over, but the actual point that a
+    status label isn't a button and shouldn't need to act like one.
+  - Loosened the component definition itself, which had required "structure, presentation, and
+    behavior bundled together" — `StatusBadge` itself is the counter-example, since it has no
+    behavior at all. Reworded to "a named, reusable UI unit with a defined responsibility and
+    inputs" that *may* combine all three but doesn't have to.
+  - Qualified the HTML/CSS/JavaScript "one job each" table from an absolute law to each language's
+    *primary* responsibility: named real HTML built-in behavior (buttons, links, form controls,
+    `<details>`), CSS's own state-responsive selectors (`:hover`, `:focus-visible`, media queries)
+    and animation capability, JavaScript's ability to create/remove structure and change
+    classes/styles directly, and that a browser can render a useful page with no JavaScript at all.
+  - Removed the two hardcoded hex colors (`#fff3cd`, `#7a5b00`) from the CSS half of the example —
+    this repo's own standing rule against hardcoded hex applies even to an illustrative,
+    framework-free snippet, since it's exactly the pattern the token lesson (L5.4) later asks the
+    learner not to write. Replaced with this project's real, verified custom properties
+    (`hsl(var(--warning))`, `hsl(var(--warning-subtle))`, plus `--success`/`--success-subtle` for
+    the second example instance), confirmed directly against `app/globals.css`.
+  - Rebalanced both quiz questions: Question 1's single-word options (`HTML`/`CSS`/`JavaScript`)
+    became two-word options of equal length (`HTML markup`/`CSS rules`/`JavaScript code`); Question
+    2's wildly uneven options (7/13/6 words) became three 8-word options.
+  - Rewrote the exercise from an unchecked "point at the parts that look like X" prompt into a real
+    predict-then-reveal-then-verify loop: predict a `globals.css` rule's job, inspect
+    `StatusBadge.tsx` and decide its structure/presentation/behavior mix, reveal the real answer,
+    then mechanically confirm it by searching the file for `onClick`/`onChange`/`onKeyDown` and
+    finding none — a checkable fact, not a claim taken on faith.
+  - Converted every `<span class="filelink">` reference to `app/globals.css`,
+    `components/workflow/StatusBadge.tsx`, and "Tutorial 10" into real relative links, using the
+    same `../../../` convention `0043`'s own review had just established for this lesson series —
+    verified to actually resolve to real files before shipping.
+  - Checked `ROADMAP.md` and `NOTES.md` for any repeated claims needing mirroring — neither document
+    quotes this lesson's specific technical content (the button example, the definition wording, the
+    hex colors); both only describe it at the shipping-summary level, so neither needed a correction
+    pass, only this new diary entry.
+- 2026-07-23 (later, same day): a second reach-back review corrected
+  `0032-react-minimum-mental-model.html` (shipped 2026-07-17, per
+  `docs/teach/lessons-ideas/review/0032/recommended-changes.md`) — one critical exercise fix and
+  seven smaller precision issues.
+  - **The lesson overstated state setters as the only render trigger.** Verified against React's
+    own `useState` reference (the `Object.is` bailout caveat) and general framework knowledge before
+    rewriting: a component also re-renders because its parent renders it again, because its props
+    change, because a consumed context value changes, or because a subscribed external store
+    reports a change — and even a state-setter call doesn't guarantee a re-render if the new value
+    is `Object.is`-equal to the current one. Rewrote the "core loop" checkpoint box to state this as
+    "one trigger, not the only one," scoped precisely to the `Counter` example rather than
+    generalized into a universal law.
+  - **Critical: the exercise put `onClick` on a `<span>`.** A span isn't keyboard-focusable, doesn't
+    activate on Enter/Space, and exposes no button semantics to assistive tech — an inaccessible
+    interaction the lesson would otherwise have to unteach once Lesson 40 covers this exact pattern.
+    Replaced with a real `<button type="button">`, naming the reason inline rather than asserting it.
+  - **The exercise also had no observable feedback loop.** The original text explicitly told the
+    learner not to render anything different based on `expanded` — removing the one thing a
+    render-after-state-change lesson could actually let the learner check. Rewrote the component to
+    render visibly different button text and an extra paragraph depending on `expanded`, using the
+    functional-updater form (`setExpanded((value) => !value)`) specifically because Lesson 36 later
+    needs to explain that exact pattern.
+  - Added a real feedback mechanism to the exercise — a `<details>` reveal with a model
+    implementation, plus an explicit four-item checklist to self-check against — replacing "on paper
+    or in a scratch file" with no way to verify correctness at all.
+  - Rewrote retrieval question 2 from the overly broad "What actually causes React to update the
+    screen?" to "What requests the next count update in this Counter example?", scoping it to what
+    the lesson had actually taught rather than a general claim the lesson doesn't fully support.
+  - Rebalanced both quiz groups to matched word counts (9/9/9 and 7/7/7, verified by script) — the
+    original question 1 had one option roughly twice the length of its distractors.
+  - Replaced "directly reassigning a state variable" (impossible for a `const`-declared `count`,
+    which can't be reassigned at all) with the accurate beginner-safe framing: changing an unrelated
+    local variable requests no render, and mutating a state object/array directly is not a
+    replacement for calling its setter. Applied consistently across the quiz option, the say/avoid
+    box, and the closing ask-teacher prompt.
+  - Reworded "a component is a function that returns UI" to "returns React elements... or returns
+    `null` when it should render nothing," naming the distinction that later makes Server and Client
+    Components (Lesson 33) legible, rather than letting "returns UI" imply "returns HTML directly."
+  - Checked `ROADMAP.md` and `NOTES.md` for repeated claims needing mirroring — neither quotes this
+    lesson's specific technical content, only the shipping-summary level, so no correction pass was
+    needed there beyond this diary entry.
+- 2026-07-23 (later, same day): a third reach-back review corrected
+  `0033-server-and-client-components.html` (shipped 2026-07-17, per
+  `docs/teach/lessons-ideas/review/0033/recommended-changes.md`) — this track's own load-bearing
+  lesson, per `ROADMAP.md`'s and this file's own prior notes — one critical factual error and eight
+  smaller precision issues, the deepest correction pass of the three reach-back reviews so far.
+  - **Critical: `localStorage` was described as tab-scoped.** Verified directly against MDN's Web
+    Storage API reference before rewriting: `localStorage` is partitioned by *origin*, shared across
+    every same-origin tab, and persists across browser sessions — `sessionStorage` is the actual
+    tab-scoped, session-only API. Fixed in the main explanation, the Phase 12 forward-reference box
+    (now correctly framed as "browser-profile/origin-local state," not "one tab's identity," and
+    naming/linking `lib/session-id.ts` directly), and retrieval question 3, which had encoded the
+    same wrong claim as its own correct answer.
+  - Replaced "every component runs in exactly one of two environments" — which contradicted the
+    lesson's own later admission that a Client Component has an initial server-rendered pass — with
+    a two-module-graph model plus an explicit first-load lifecycle (RSC payload → initial HTML
+    preview → hydration; Server Components never hydrate). Verified against the installed Next.js
+    docs' own description of the RSC payload and the three-step client-side first-load sequence.
+  - Corrected how `"use client"` actually draws the boundary: not "this file must have it," but a
+    declared boundary whose imports join the client module graph without repeating the directive —
+    verified against the installed docs' own explicit statement that this doesn't apply to Server
+    Components passed as children or other props. Added the Server-Component-as-children
+    composition pattern this repo's own `AppShell.tsx` uses, setting up both this lesson's rewritten
+    exercise and Lesson 43's guided trace of the same real file.
+  - Replaced "a server process... produces markup once and sends it" with the RSC-payload/initial-
+    HTML/later-request framing — the original line missed streaming and repeated requests entirely.
+  - Replaced "effectively JSON" with "serializable by React" — verified against React's own
+    Server Functions and `use server` serialization references that the real supported set includes
+    `Date`, `Map`, `Set`, and promises beyond plain JSON, while ordinary functions and arbitrary
+    class instances are the two categories that never qualify.
+  - Rewrote the "why a function prop can't cross the boundary" explanation: the original "Next.js
+    would have to send server source code to the browser" framing wasn't the real mechanism.
+    Reworded around executable identity/closures/execution-environment, and added the one genuine
+    exception (Server Functions, serialized as a reference and called back on the server, verified
+    against React's own docs) so the rule isn't stated as more absolute than it is.
+  - Replaced the open-ended "open any file you'd guess needs interactivity" exercise — no stable
+    correct answer, and it risked reinforcing the false belief that every client-graph file needs
+    its own directive — with a named, four-step predict/inspect/trace sequence against
+    `app/layout.tsx` and the real `AppShell.tsx`, ending in a `<details>` reveal.
+  - Rebalanced all three quiz groups to equal word counts per group (5/5/5, 8/8/8, 8/8/8, verified
+    by script) — question 1's correct answer had been visibly longer than its distractors, and
+    question 3 needed a full rewrite anyway since its old correct answer encoded the tab-scoping
+    error being fixed.
+  - Converted the installed Next.js doc path, `app/layout.tsx`, `AppShell.tsx`, and
+    `lib/session-id.ts` from `<span class="filelink">` labels into real relative links, verified to
+    resolve; added MDN's Web Storage API and React's Server Functions reference to the cite box as
+    the two new sources this pass's corrections actually depended on.
+  - Checked `ROADMAP.md` and `NOTES.md` for repeated claims needing mirroring — both mention this
+    lesson only at the shipping-summary level (that it's the track's load-bearing lesson, required
+    before Tutorial 09), never repeating the specific technical claims corrected here, so no
+    correction pass was needed there beyond this diary entry.
+- 2026-07-23 (later, same day): a fourth reach-back review corrected
+  `0034-design-tokens-and-semantic-styling.html` (shipped 2026-07-17, per
+  `docs/teach/lessons-ideas/review/0034/recommended-changes.md`) — the last of Track 5's four
+  required prerequisite lessons, and the lightest of the four reach-back reviews (no critical
+  factual error, nine smaller precision issues).
+  - Fixed the lede's actual course-order error: it called this "the last prerequisite before
+    Tutorial 10," while both nav areas (confirmed correct already, per this file's own 2026-07-17
+    entry) point to Tutorial 08. Reworded to name Tutorial 08 as the next step and Tutorial 10 as
+    where these tokens get used most directly, rather than contradicting the lesson's own links.
+  - **Corrected the "change one token, everything updates" overclaim.** Verified directly against
+    `tailwind.config.ts`/`app/globals.css` that the accent role is actually a four-token family
+    (`--accent`, `--accent-hover`, `--accent-subtle`, `--text-on-accent`), not one value — changing
+    only `--accent` updates every exact-token usage, but not its hover/subtle/on-color pairings.
+    Rewrote the "Correct framing" say/avoid box and retrieval question 2 (previously "one CSS custom
+    property value," now testing the full coordinated-family case) to reflect this distinction.
+  - Removed "CSS has always supported custom properties" (an unnecessary and inaccurate historical
+    claim) in favor of describing what custom properties do, not when they arrived.
+  - Reframed why raw Tailwind palette classes are banned: the original text implied
+    `bg-blue-600` "has to be found... one at a time," but a text search finds it instantly — the
+    real problem is that a literal doesn't preserve intent (one class serving several unrelated
+    roles, one role needing several literal appearances across states), which centralization alone
+    doesn't fix. Reframed as "centralized and semantically safe," not "otherwise unsearchable."
+  - Added an explicit bridge sentence distinguishing the CSS custom-property mechanism from this
+    project's semantic token system — a property literally named `--blue-600` would still compile
+    as valid CSS, it just wouldn't be semantic, closing a gap the lesson's later sections mostly but
+    not explicitly covered.
+  - Added a short accessibility qualification bridging to Lesson 40: a semantic name doesn't
+    guarantee readable contrast, so an accent-family change still needs its default/hover/subtle/
+    on-color pairings rechecked for contrast, not just recolored.
+  - Gave the exercise a real, concrete trace and answer check instead of an unchecked "say out loud"
+    prompt: traced `--danger` specifically through `app/globals.css` → `tailwind.config.ts` →
+    `rg "bg-danger-subtle" components/` (verified this actually returns real matches, including
+    `BusinessErrorMessage.tsx`, before citing it) → a `<details>` reveal confirming the role fits.
+  - Rebalanced both quiz groups to equal word counts (9/9/9, 8/8/8, verified by script) — the
+    original question 1 had a notably longer and more detailed correct answer than either distractor.
+  - Converted `context/library-docs.md`, `context/ui-tokens.md`, `app/globals.css`,
+    `tailwind.config.ts`, and `BusinessErrorMessage.tsx` from `<span class="filelink">` labels into
+    real relative links, verified to resolve.
+  - Checked `ROADMAP.md` and `NOTES.md` for repeated claims needing mirroring — both describe this
+    lesson only at the shipping-summary level; one existing `NOTES.md` entry documents `0034`'s
+    nav-link mechanics (already correct, unaffected by this pass), not the lede's content error, so
+    no correction pass was needed beyond this diary entry.
+  - **This completes reach-back review corrections across all four of Track 5's required
+    prerequisite lessons** (`0031`–`0034`), alongside the nine already-corrected optional
+    reinforcement lessons (`0035`–`0043`) — every lesson in Track 5 has now been through a
+    post-draft review pass.

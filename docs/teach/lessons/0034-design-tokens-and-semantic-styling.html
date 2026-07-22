@@ -17,10 +17,11 @@
   <p class="kicker">Track 5 — UI Components &amp; Next.js</p>
   <h1>Design Tokens and Semantic Styling</h1>
   <p class="lede">
-    The last prerequisite before Tutorial 10 — what a design token is, how a CSS custom property
-    becomes a Tailwind utility class, and why this repo's rule against hardcoded hex values and raw
-    Tailwind palette classes is a real engineering constraint, not a style preference someone
-    could reasonably ignore under a deadline.</p>
+    The last Track 5 prerequisite before Tutorial 08 — and the token foundation used most directly
+    in Tutorial 10 — covering what a design token is, how a CSS custom property becomes a Tailwind
+    utility class, and why this repo's rule against hardcoded hex values and raw Tailwind palette
+    classes is a real engineering constraint, not a style preference someone could reasonably
+    ignore under a deadline.</p>
 
   <div class="cite">
     <p class="box-label">Primary source</p>
@@ -28,13 +29,13 @@
     <a href="https://v3.tailwindcss.com/docs/theme">"Theme Configuration"</a> and
     <a href="https://v3.tailwindcss.com/docs/customizing-colors">"Customizing Colors"</a>. This
     repo pins Tailwind 3.4 deliberately (see
-    <span class="filelink">context/library-docs.md</span>) — read the v3 docs, not v4's, since the
-    two configuration systems differ.</p>
+    <a class="filelink" href="../../../context/library-docs.md">context/library-docs.md</a>) — read
+    the v3 docs, not v4's, since the two configuration systems differ.</p>
   </div>
 
   <h2>A CSS custom property: one value, one name</h2>
-  <p>CSS has always supported <strong>custom properties</strong> (informally, "CSS variables") —
-  a named value declared once and reused anywhere:</p>
+  <p>CSS supports <strong>custom properties</strong> — informally, "CSS variables" — which give a
+  reusable value a name, declared once and referenced anywhere:</p>
   <div class="box primer">
     <p class="box-label">A raw CSS custom property</p>
     <pre><code>:root {
@@ -45,7 +46,12 @@
   background: hsl(var(--accent));
 }</code></pre>
     <p>Change <code>--accent</code>'s value once, and every rule referencing <code>var(--accent)</code>
-    updates together. This is plain CSS — nothing here is Tailwind-specific yet.</p>
+    updates together. This is plain CSS — nothing here is Tailwind-specific yet. A custom property
+    on its own is just this storage mechanism, though — it becomes part of this project's actual
+    <em>token system</em> only once the project assigns it a stable design role and maps components
+    to that role, which is the rest of this lesson. A property named <code>--blue-600</code> would
+    still be a perfectly valid CSS custom property; it just wouldn't be a semantic one, for reasons
+    the next two sections make concrete.</p>
   </div>
 
   <h2>Tailwind's job: turn a variable into a utility class</h2>
@@ -73,9 +79,10 @@ colors: {
 &lt;button className="bg-accent"&gt;Save&lt;/button&gt;</code></pre>
     <p>Three files, one value: the CSS variable holds the actual color, the Tailwind config maps a
     class name to that variable, and the component only ever writes the class name. See
-    <span class="filelink">context/ui-tokens.md</span> for this repo's full token list and
-    <span class="filelink">tailwind.config.ts</span> for the real mapping — both files this exact
-    excerpt is drawn from.</p>
+    <a class="filelink" href="../../../context/ui-tokens.md">context/ui-tokens.md</a> for this
+    repo's full token list and
+    <a class="filelink" href="../../../tailwind.config.ts">tailwind.config.ts</a> for the real
+    mapping — both files this exact excerpt is drawn from.</p>
   </div>
 
   <h2>What makes a token <em>semantic</em></h2>
@@ -101,8 +108,13 @@ colors: {
       <td>A raw Tailwind palette class (<code>bg-blue-600</code>)</td>
       <td>Names an <em>appearance</em>, not a <em>role</em> — it says nothing about
       <em>why</em> this element is blue, so a reviewer can't tell whether it's meant to be "the
-      accent color" or just happened to look right once. If the accent color ever changes,
-      every literal <code>bg-blue-600</code> has to be found and edited by hand, one at a time.</td>
+      accent color" or just happened to look right once. The problem isn't that
+      <code>bg-blue-600</code> is hard to find — a text search finds it instantly. It's that the
+      literal doesn't preserve <em>intent</em>: the same class may be doing several unrelated jobs
+      across the codebase, one role may need several different literal appearances across its own
+      states, and neither a global search-and-replace nor a reviewer scanning class names can tell
+      which occurrences share a role and which just share a color. Tokens make a change centralized
+      <em>and</em> semantically safe — not merely searchable, which raw text already is.</td>
     </tr>
   </table>
 
@@ -110,8 +122,10 @@ colors: {
     <div class="say-avoid-col say">
       <p class="box-label">Correct framing</p>
       <p>"<code>bg-accent</code> says <em>why</em> this element is that color — because it's this
-      project's accent role. Change <code>--accent</code> once, and every accent-colored element
-      updates together."</p>
+      project's accent role. Change <code>--accent</code> once, and every usage mapped to that
+      exact token updates together — its hover, subtle-background, and on-color pairings each live
+      in their own token, and changing the whole accent family means updating all of them, together
+      and deliberately, not as a side effect of touching one value."</p>
     </div>
     <div class="say-avoid-col avoid">
       <p class="box-label">A framing to avoid</p>
@@ -122,24 +136,31 @@ colors: {
     </div>
   </div>
 
+  <p>One more real limit worth naming: tokens centralize a decision, but they don't automatically
+  make it accessible. A semantic name like <code>accent</code> says nothing about whether
+  <code>--accent</code> and <code>--text-on-accent</code> actually meet real contrast requirements
+  against each other — if the accent family ever changes, its default, hover, subtle, and on-color
+  pairings all need their contrast rechecked, the same way any color change would (Lesson 40 covers
+  this in full).</p>
+
   <h2>Retrieval check</h2>
   <div class="box checkpoint">
     <div class="quiz" data-quiz>
       <p class="quiz-question">What makes a token name "semantic" rather than "appearance-based"?</p>
       <div class="quiz-options">
-        <button class="quiz-option" data-correct="false">Semantic tokens use hex values instead of HSL</button>
-        <button class="quiz-option" data-correct="true">It names the value's role (accent, danger) instead of its literal look (blue-600, red-200)</button>
-        <button class="quiz-option" data-correct="false">Semantic tokens are only used for text, not backgrounds</button>
+        <button class="quiz-option" data-correct="false">It always uses raw hex values instead of HSL</button>
+        <button class="quiz-option" data-correct="true">It names the value's role, not its literal look</button>
+        <button class="quiz-option" data-correct="false">It only ever applies to text colors, never backgrounds</button>
       </div>
       <p class="quiz-feedback" hidden></p>
     </div>
 
     <div class="quiz" data-quiz>
-      <p class="quiz-question">If this project's accent color needed to change from blue to green, what would have to change under the token system described here?</p>
+      <p class="quiz-question">If this project's accent color needed to change from blue to green — hover, subtle background, and on-color included — what has to change?</p>
       <div class="quiz-options">
-        <button class="quiz-option" data-correct="false">Every component file using bg-accent, one at a time</button>
-        <button class="quiz-option" data-correct="true">One CSS custom property value in app/globals.css</button>
-        <button class="quiz-option" data-correct="false">The Tailwind package itself would need to be reinstalled</button>
+        <button class="quiz-option" data-correct="false">Every component file using bg-accent, one by one</button>
+        <button class="quiz-option" data-correct="true">The entire coordinated accent token family in globals.css</button>
+        <button class="quiz-option" data-correct="false">The whole Tailwind package would need reinstalling entirely</button>
       </div>
       <p class="quiz-feedback" hidden></p>
     </div>
@@ -147,14 +168,27 @@ colors: {
 
   <h2>Tiny exercise (5 minutes)</h2>
   <div class="box exercise">
-    <p class="box-label">Exercise</p>
-    <p>Open <span class="filelink">context/ui-tokens.md</span> and pick any one token, say
-    <code>--danger</code>. Trace it by hand through the three-file pattern above: find its
-    declaration in <span class="filelink">app/globals.css</span>, its color-name mapping in
-    <span class="filelink">tailwind.config.ts</span>, and then search the codebase (any method —
-    <code>grep</code>, your editor's search) for one real component that uses the resulting
-    utility class. Say out loud what role that color is playing at the spot you found, before
-    checking whether "danger" actually fits.</p>
+    <p class="box-label">Exercise — trace one real token, then check against a reveal</p>
+    <p>Open <a class="filelink" href="../../../context/ui-tokens.md">context/ui-tokens.md</a> and
+    find <code>--danger</code>. Trace it by hand through the three-file pattern above: its
+    declaration in <a class="filelink" href="../../../app/globals.css">app/globals.css</a>, its
+    color-name mapping in
+    <a class="filelink" href="../../../tailwind.config.ts">tailwind.config.ts</a>, and then search
+    the codebase with this repo's standard search tool for one real component using the resulting
+    utility classes:</p>
+    <pre><code>rg "bg-danger-subtle" components/</code></pre>
+    <p>Say out loud what role that color is playing at the component you found, and predict
+    whether "danger" actually fits that role, before revealing.</p>
+    <details>
+    <summary>Reveal</summary>
+    <p><code>app/globals.css</code> declares <code>--danger: 0 84% 60%;</code> and
+    <code>--danger-subtle: 0 86% 97%;</code>. <code>tailwind.config.ts</code> maps
+    <code>danger.DEFAULT</code> and <code>danger.subtle</code> to those two variables.
+    <a class="filelink" href="../../../components/feedback/BusinessErrorMessage.tsx">components/feedback/BusinessErrorMessage.tsx</a>
+    uses <code>bg-danger-subtle text-danger</code> on a <code>role="alert"</code> element that
+    renders business-readable error copy — a real error state, exactly the role "danger" claims to
+    play, not a coincidental red.</p>
+    </details>
   </div>
 
   <div class="ask-teacher">

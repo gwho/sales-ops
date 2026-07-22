@@ -10,12 +10,16 @@ immediately, an upload panel that never gates anything) was the deliberate produ
 this whole phase, not a shortcut.
 
 > [!NOTE]
-> **Prerequisites:** Tutorial 08 (`08-ui-contract-wireframe-planning/README.md`) and Tutorial 09
-> (`09-nextjs-frontend-foundation/README.md`) — this tutorial assumes you already trust every
-> TypeScript type in `types/index.ts` and the token pipeline from CSS variable to compiled class.
-> Track 5's L5.1–L5.4 lessons (`docs/teach/lessons/0031`–`0034`), especially L5.3 (Server/Client
-> Components) and L5.4 (design tokens) — this tutorial is where both stop being abstract rules and
-> become the reason real, specific files look the way they do.
+> **Prerequisites:** [Tutorial 08](../08-ui-contract-wireframe-planning/README.md) and
+> [Tutorial 09](../09-nextjs-frontend-foundation/README.md) — this tutorial assumes you already
+> trust every TypeScript type in `types/index.ts` and the token pipeline from CSS variable to
+> compiled class. Track 5's L5.1–L5.4 lessons —
+> [`0031-browser-output-and-components.html`](../../teach/lessons/0031-browser-output-and-components.html),
+> [`0032-react-minimum-mental-model.html`](../../teach/lessons/0032-react-minimum-mental-model.html),
+> [`0033-server-and-client-components.html`](../../teach/lessons/0033-server-and-client-components.html),
+> and [`0034-design-tokens-and-semantic-styling.html`](../../teach/lessons/0034-design-tokens-and-semantic-styling.html),
+> especially L5.3 (Server/Client Components) and L5.4 (design tokens) — this tutorial is where both
+> stop being abstract rules and become the reason real, specific files look the way they do.
 
 > [!NOTE]
 > **A caveat about the current codebase, worth stating once, up front:** most of the components
@@ -51,22 +55,28 @@ this whole phase, not a shortcut.
 > "Explain the difference between writing a component's CSS classes as a chain of manual
 > `if`/ternary logic (`isPrimary ? 'bg-blue-600' : 'bg-gray-200'`) versus using a dedicated
 > 'variants' library that maps a small set of named variant values to fixed class strings declared
-> once, up front. What's the concrete maintenance cost the variants approach avoids as a component
-> grows more variant dimensions (not just primary/secondary, but also size, and disabled state, all
-> at once)? Quiz me on how many manual conditional branches a 3-variant, 2-size, 2-state button
-> would need versus a single declarative variants config."
+> once, up front. Independent variant dimensions (say, `variant` and, separately, `size`) each add
+> their own named branch rather than requiring a class string per *combination* — explain that
+> distinction precisely, including what still grows if two dimensions genuinely need to interact
+> (a `dark` variant that needs a different disabled treatment than `primary`, for instance). Quiz me
+> on when a config like this stays simple listing, and when it needs an explicit compound-variant
+> entry instead."
 
-*What to listen for:* manual conditional class logic grows combinatorially as more independent
-variant dimensions are added — three independent booleans/enums each with a few options quickly
-becomes an unmanageable nested ternary or a long `if`/`else if` chain. A declarative variants
-config (list every dimension, list every value, list its resulting classes) stays linear in size no
-matter how many dimensions exist, and moves the "what classes does *this specific combination* get"
-question from scattered conditional logic into one readable table.
+*What to listen for:* manual conditional class logic tends to hardcode combinations directly
+(`isPrimaryAndLarge ? '...' : isPrimaryAndSmall ? '...' : ...`), so adding a dimension multiplies the
+number of branches already written. A declarative variants config avoids that specific failure mode
+for *independent* dimensions — each one is listed once, and the library composes the right classes
+for whatever combination is actually requested, without a hand-written branch per combination. This
+is centralizing and typing the decision, not eliminating combinatorics outright: dimensions that
+genuinely interact (two variants needing meaningfully different behavior when combined, not just
+stacked) still need an explicit compound-variant entry naming that specific interaction — the
+library gives you a place to declare it precisely, it doesn't make the interaction disappear.
 
-*Practice question:* if a `Button` component needs to support 3 visual variants and, independently,
-a `disabled` state, how many total class-string branches does a naive `if`/`else` chain need to
-cover every combination, versus a variants config that handles `variant` and `disabled` as
-separate, independently-declared dimensions?
+*Practice question:* if a `Button` component supports 3 visual variants and, independently, 2 sizes,
+and every size behaves identically across every variant with no special-case interaction, how many
+variant-config entries does that need — one per variant, one per size, or one per combination? What
+would change if the `dark` variant specifically needed different padding at the `sm` size than every
+other variant does?
 
 ### Concept 2 — Discriminated unions for "this prop only makes sense in this state"
 
@@ -210,7 +220,7 @@ Tutorial 09 Part 5 covered the *prediction*: shadcn/ui's own token vocabulary (`
 directly with this project's real tokens (`--accent` meaning the brand blue), and Phase 8 deferred
 resolving that collision by shipping zero primitives. Phase 9 is where that prediction was actually
 tested — `Button`, `Card`, `Badge`, and `Table` were needed for the first time, and
-`docs/plan/phase-9-reusable-ui-components-static-pages/explanation.md` §3 records the resolution:
+[`docs/plan/phase-9-reusable-ui-components-static-pages/explanation.md`](../../plan/phase-9-reusable-ui-components-static-pages/explanation.md) §3 records the resolution:
 hand-write all four, reading shadcn's public reference implementations only for API *shape* (the
 `cva`-for-variants convention, `forwardRef` on `Button`), then rewrite every class list against
 `ui-tokens.md`'s actual names.
@@ -334,6 +344,13 @@ Open [`components/feedback/EmptyState.tsx`](../../../components/feedback/EmptySt
 in full — both are short enough to read completely:
 
 ```tsx
+// Types
+type EmptyStateProps = {
+  title: string;
+  description?: string;
+};
+
+// Component
 export function EmptyState({ title, description }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-subtle p-10 text-center">
@@ -345,6 +362,12 @@ export function EmptyState({ title, description }: EmptyStateProps) {
 ```
 
 ```tsx
+// Types
+type BusinessErrorMessageProps = {
+  message: string;
+};
+
+// Component
 /** Always render business-readable copy here, never a raw exception (see ui-rules.md Error Messages). */
 export function BusinessErrorMessage({ message }: BusinessErrorMessageProps) {
   return (
@@ -355,13 +378,25 @@ export function BusinessErrorMessage({ message }: BusinessErrorMessageProps) {
 }
 ```
 
-Both are plain Server Components — no `"use client"`, no state, no event handler — because both
-just render whatever string props they're given. `BusinessErrorMessage`'s own docstring ties it
-directly back to `ui-rules.md`'s "Error Messages" section (the bad/good `KeyError` example every
-earlier Python tutorial in this series has referenced) — this component is the frontend half of
-that same discipline: a caller must already have translated a technical failure into a
-business-readable sentence before this component ever sees it; the component itself performs no
-translation.
+Neither file carries a `"use client"` directive, no state, no event handler — both just render
+whatever string props they're given. That makes each one **directive-free and server-compatible**:
+nothing in either component *requires* the client bundle. It does not, on its own, make either
+component "a Server Component" as a fixed, permanent label — per L5.3
+(`docs/teach/lessons/0033-server-and-client-components.html`), whether a directive-free module
+actually ends up in the server tree or the client module graph depends entirely on where it's
+imported *from*. Checking that for real: `EmptyState` is imported by `components/tables/DataTable.tsx`
+(which carries its own `"use client"`, Part 3) and directly by all three Client workflow pages; today,
+every one of its real call sites is already inside the client graph. `BusinessErrorMessage` is
+imported by `components/dashboard/DashboardLiveSections.tsx` (also `"use client"`) and by the same
+three workflow pages — same story. Neither component is wrong to write this way — a directive-free,
+server-compatible component genuinely *could* be rendered from a Server parent elsewhere, and
+staying directive-free keeps that option open — but "Server Component" isn't a property of the file
+in isolation; it's a property of where the module graph actually places it, and today that's
+entirely client-side for both. `BusinessErrorMessage`'s own docstring ties it directly back to
+`ui-rules.md`'s "Error Messages" section (the bad/good `KeyError` example every earlier Python
+tutorial in this series has referenced) — this component is the frontend half of that same
+discipline: a caller must already have translated a technical failure into a business-readable
+sentence before this component ever sees it; the component itself performs no translation.
 
 **Try it yourself:** Open `context/ui-registry.md` and count how many distinct component entries
 exist under each of the five folder headings. Confirm the count under `workflow/` (5) is the
@@ -371,7 +406,7 @@ project-specific display logic, versus the more generic, reusable-anywhere primi
 
 ## Part 3 — The Server-to-Client serialization failure
 
-`docs/plan/phase-9-reusable-ui-components-static-pages/explanation.md` §1 opens with something
+[`docs/plan/phase-9-reusable-ui-components-static-pages/explanation.md`](../../plan/phase-9-reusable-ui-components-static-pages/explanation.md) §1 opens with something
 worth reading as it actually happened, not as a tidy design decision made in advance: the
 `/architect` plan for this phase expected `DataTable` to be the *only* Client Component among the
 new interactive pieces — every page using it was expected to stay a Server Component by default,
@@ -409,8 +444,9 @@ a plain Server Component function calling `<DataTable columns={ERROR_COLUMNS} ..
 forbidden crossing, since `ERROR_COLUMNS` itself carries `render` functions.
 
 The fix actually applied: mark the three workflow pages themselves `"use client"` — not just
-`DataTable`. Open [`app/order-validation/page.tsx`](../../../app/order-validation/page.tsx) line 1
-and lines 46–53:
+`DataTable`. Open
+[`app/(workspace)/order-validation/page.tsx`](../../../app/(workspace)/order-validation/page.tsx)
+line 1 and lines 46–77:
 
 ```tsx
 "use client";
@@ -426,7 +462,28 @@ const ERROR_COLUMNS: DataTableColumn<ValidationErrorRow>[] = [
     sortable: true,
     sortValue: (r) => r.order_id ?? "",
   },
-  ...
+  {
+    key: "sku",
+    header: "SKU",
+    render: (r) => <span className="font-medium text-text-primary">{r.sku ?? "—"}</span>,
+    sortable: true,
+    sortValue: (r) => r.sku ?? "",
+  },
+  { key: "error_code", header: "Error Code", render: (r) => <span className="text-text-secondary">{r.error_code}</span> },
+  {
+    key: "error_message",
+    header: "Error Message",
+    render: (r) => (
+      <span className="block max-w-[280px] truncate" title={r.error_message}>
+        {r.error_message}
+      </span>
+    ),
+  },
+  {
+    key: "severity",
+    header: "Severity",
+    render: (r) => <StatusBadge status={r.severity} tone={severityTone(r.severity)} />,
+  },
 ];
 ```
 
@@ -434,47 +491,57 @@ Once `order-validation/page.tsx` is itself a Client Component, passing a functio
 to another Client Component (`DataTable`) is unremarkable — L5.3's restriction only applies at the
 Server→Client boundary, never Client→Client, since both sides of a Client-to-Client prop pass
 already run in the same browser environment with no serialization step involved at all.
-`app/dashboard/page.tsx` and `app/reports/page.tsx` never construct a `DataTableColumn` array (they
-only pass primitive values and `ReportManifest` objects into `MetricCard`/`ReportCard`), so both
-correctly remained Server Components — the boundary decision tracks *what a page actually needs*,
-not a blanket policy either way.
+`app/(workspace)/dashboard/page.tsx` and `app/(workspace)/reports/page.tsx` never construct a
+`DataTableColumn` array (they only pass primitive values and `ReportManifest` objects into
+`MetricCard`/`ReportCard`), so both correctly remained Server Components — the boundary decision
+tracks *what a page actually needs*, not a blanket policy either way.
 
 **Checkpoint:** Walk through exactly what happens, step by step, when Next.js tries to serialize
-`ERROR_COLUMNS` (with its `render` functions) to send from a Server Component to `DataTable`. Why
-does the error happen at build/prerender time rather than at runtime in the browser?
+`ERROR_COLUMNS` (with its `render` functions) to send from a Server Component to `DataTable`. When,
+exactly, does that error actually surface — and is it always at `next build` time?
 
 <details>
 <summary>Reveal answer</summary>
 
-React's server-rendering machinery, while producing the RSC payload for a route, walks every prop
-being passed from a Server Component into a Client Component and checks whether each value is a
-serializable type — strings, numbers, booleans, plain objects/arrays of those, and a small set of
-other supported types. The moment it reaches a function value inside `ERROR_COLUMNS` (a `render`
-closure), it has no valid serialization for that value and raises immediately, rather than silently
-dropping it or passing `undefined`. This happens at *build/prerender* time specifically because
-Next.js prerenders routes ahead of time as part of `next build` — the serialization attempt for a
-statically-prerenderable route happens during that build step, not during a live browser request,
-so the failure surfaces as a build error a developer sees immediately, rather than as a runtime
-crash a real visitor would hit.
+React's server-rendering machinery, while rendering the Server Component tree and encoding the
+resulting RSC payload, walks every prop being passed from a Server Component into a Client
+Component and checks whether each value is a serializable type — strings, numbers, booleans, plain
+objects/arrays of those, and a small set of other supported types (a render callback or a closure
+captured for later use is *not* one of them; this is a different case from a Server Function, which
+React ships as a special opaque reference rather than trying to serialize the function's own source
+code). The moment it reaches a function value inside `ERROR_COLUMNS` (a `render` closure), it has no
+valid serialization for that value and raises immediately, rather than silently dropping it or
+passing `undefined`. *When* that render-and-encode step actually runs depends on the route: for a
+statically-prerenderable route, Next.js renders it ahead of time as part of `next build`, so the
+failure surfaces as a build error. For a route that isn't statically prerendered (a dynamic route,
+or any page in `next dev`), the same render-and-encode step happens per-request instead — so the
+identical error would surface the first time the route is actually requested, not during `next
+build` at all. The three original workflow pages this bug hit were building a statically-prerendered
+page at the time, which is why the error surfaced at build time in this project's specific case —
+that's a fact about *this route's* rendering mode, not a universal rule that the error can only ever
+happen during a build.
 </details>
 
 **Checkpoint:** `dashboard` and `reports` stayed Server Components because they never build a
-`DataTable` columns array. What is the first new feature you could imagine adding to `dashboard`
-that would force it to become a Client Component too — and is there a way to add that feature
-without paying that cost?
+`DataTable` columns array. A later phase actually needed exactly the kind of feature this checkpoint
+asks you to imagine — session-scoped, `localStorage`-backed live results (Phase 12, ADR 0007). Open
+`components/dashboard/DashboardLiveSections.tsx`'s own top-of-file comment: how did the real
+implementation avoid forcing all of `app/(workspace)/dashboard/page.tsx` client-side?
 
 <details>
 <summary>Reveal answer</summary>
 
-A plausible candidate: an interactive filter or search box on the dashboard's KPI strip, or a
-client-side "refresh" button that needs `onClick` — either would need genuine client-side state or
-an event handler, which per L5.3 requires `"use client"` on whatever component owns that
-interactivity. The way to add it *without* forcing all of `dashboard/page.tsx` client-side: build
-the interactive piece as its own small, dedicated Client child component (say, a
-`DashboardFilterBar`), imported and rendered by the still-Server `dashboard/page.tsx` — exactly the
-"Server Component parent renders a small Client child" composition pattern L5.3's Next.js
-documentation names directly, the same pattern Challenge 2 below asks you to design for `DataTable`
-itself.
+`DashboardLiveSections.tsx` is a dedicated `"use client"` child, and its own comment states the
+reasoning directly: the Anonymous Session ID this feature needs lives only in `localStorage`, so
+reading it "must happen in the browser after hydration, not during `app/(workspace)/dashboard/page.tsx`'s
+server render." `dashboard/page.tsx` itself stays a Server Component for the static shell — nav
+cards, the infographic, guide copy, the Reports section — and renders `<DashboardLiveSections />` as
+a child for everything that actually depends on the visitor's own saved results: the Overview KPIs,
+both chart cards, and both tables. This is exactly the "Server Component parent renders a small
+Client child" composition pattern L5.3's Next.js documentation names directly, the same pattern
+Challenge 2 below asks you to design for `DataTable` itself — except this isn't a hypothetical
+`DashboardFilterBar` anymore, it's the real boundary a real, later phase actually shipped, for a real
+reason (browser-only storage) rather than a generic "needs interactivity" placeholder.
 </details>
 
 **Checkpoint:** The plan.md invariant suggests an alternative fix that wasn't used: move each
@@ -518,8 +585,9 @@ pattern is identical either way: Server Component does server-only work and pass
 Client Component owns anything that needs functions, state, or events.
 </details>
 
-**Try it yourself:** Run `grep -l "\"use client\"" app/*/page.tsx` (adjust the glob if your shell
-needs `app/**/page.tsx`) from the repo root. Confirm exactly three of the five workflow page files
+**Try it yourself:** Run `grep -l "\"use client\"" "app/(workspace)"/*/page.tsx` (the workflow pages
+now live under the `(workspace)` route group, so the glob needs to match that literal directory
+name, parentheses included) from the repo root. Confirm exactly three of the five workflow page files
 match, and that `dashboard` and `reports` are the two that don't — direct, current proof this
 Part's boundary decision still holds exactly as `explanation.md` describes it.
 
@@ -529,6 +597,10 @@ Open [`components/workflow/StatusBadge.tsx`](../../../components/workflow/Status
 full:
 
 ```tsx
+// Internal imports
+import { Badge } from "@/components/ui/Badge";
+
+// Types
 export type Tone = "success" | "warning" | "danger" | "info" | "neutral";
 
 type StatusBadgeProps = {
@@ -536,15 +608,55 @@ type StatusBadgeProps = {
   tone: Tone;
 };
 
+/**
+ * Thin display wrapper around Badge. Callers pick the tone using one of the
+ * domain helpers below rather than StatusBadge inferring it from the raw
+ * string — the same label text ("High") maps to a different tone depending
+ * on which contract field it came from (see the StatusBadge mapping table in
+ * docs/plan/phase-9-reusable-ui-components-static-pages/plan.md).
+ */
 export function StatusBadge({ status, tone }: StatusBadgeProps) {
   return <Badge tone={tone}>{status}</Badge>;
 }
 
 // --- Domain tone mappings ---
 
+export function severityTone(severity: "Error" | "Warning"): Tone {
+  return severity === "Error" ? "danger" : "warning";
+}
+
+export function allocationStatusTone(
+  status: "Fully Allocated" | "Partially Allocated" | "Backordered",
+): Tone {
+  switch (status) {
+    case "Fully Allocated":
+      return "success";
+    case "Partially Allocated":
+      return "warning";
+    case "Backordered":
+      return "danger";
+  }
+}
+
 /** Order/allocation `priority` is an importance ranking, not a problem — High just draws attention. */
 export function importancePriorityTone(priority: "High" | "Normal" | "Low"): Tone {
   return priority === "High" ? "warning" : "neutral";
+}
+
+export function agingBucketTone(
+  bucket: "Current" | "1-30 Days" | "31-60 Days" | "61-90 Days" | "90+ Days",
+): Tone {
+  switch (bucket) {
+    case "Current":
+      return "success";
+    case "1-30 Days":
+      return "info";
+    case "31-60 Days":
+    case "61-90 Days":
+      return "warning";
+    case "90+ Days":
+      return "danger";
+  }
 }
 
 /** Payment `follow_up_priority` is an urgency-of-problem ranking — High is the worst case. */
@@ -561,7 +673,27 @@ export function followUpPriorityTone(priority: "High" | "Medium" | "Low" | "Watc
       return "neutral";
   }
 }
+
+export type ReportLifecycleState = "Needs Input" | "Not Generated" | "Processing" | "Ready";
+
+export function reportLifecycleTone(state: ReportLifecycleState): Tone {
+  switch (state) {
+    case "Ready":
+      return "success";
+    case "Processing":
+      return "info";
+    case "Not Generated":
+    case "Needs Input":
+      return "neutral";
+  }
+}
 ```
+
+The real file has two more domain helpers this Part's own prose doesn't discuss in detail
+(`severityTone`, `allocationStatusTone`) plus `agingBucketTone` and `reportLifecycleTone` — genuinely
+part of "in full," just not each one narrated individually below, since `importancePriorityTone` and
+`followUpPriorityTone` are this Part's chosen running example for the two-meanings-of-`"High"`
+point.
 
 `StatusBadge` itself is a deliberately dumb wrapper — two props, `status` (the label to render) and
 `tone` (already resolved), nothing else. `explanation.md` §2 names the design that was rejected:
@@ -586,8 +718,8 @@ Because each helper's parameter type is the exact literal union of one specific 
 `importancePriorityTone(priority: "High" | "Normal" | "Low")`,
 `followUpPriorityTone(priority: "High" | "Medium" | "Low" | "Watch" | "None")` — TypeScript itself
 prevents calling the wrong helper for the wrong field at a call site. Open
-[`app/order-validation/page.tsx`](../../../app/order-validation/page.tsx) line 140 (inside
-`VALID_ORDER_COLUMNS`):
+[`app/(workspace)/order-validation/page.tsx`](../../../app/(workspace)/order-validation/page.tsx)
+line 140 (inside `VALID_ORDER_COLUMNS`):
 
 ```tsx
 render: (r) => <StatusBadge status={r.priority} tone={importancePriorityTone(r.priority)} />,
@@ -604,17 +736,31 @@ visual review?
 <details>
 <summary>Reveal answer</summary>
 
-Because the two helpers' parameter types are structurally different unions (three members vs. five
-members — Tutorial 01's structural-typing discussion is directly relevant here), passing a
-three-member-union value where the five-member union is expected, or vice versa, is exactly the
-kind of mismatch TypeScript's structural type checking *does* catch at compile time — the code
-simply wouldn't build. The genuinely dangerous version of this bug is subtler: a field whose type
-happens to be compatible with both helpers (impossible here, since the two unions don't overlap
-identically) — since that can't happen with the current field shapes, the real risk this project
-actually has is a human calling the *conceptually* wrong helper for a field that happens to share
-enough literal values to compile, which the type system can't distinguish by *meaning*, only by
-*shape*. Today, with these exact five fields, the shapes are different enough that TypeScript does
-catch every currently-possible mix-up.
+It depends on exactly what gets passed, and this is worth being precise about rather than
+overclaiming. `importancePriorityTone`'s parameter type is `"High" | "Normal" | "Low"`;
+`followUpPriorityTone`'s is `"High" | "Medium" | "Low" | "Watch" | "None"` — these two unions
+actually *do* overlap, sharing the literal members `"High"` and `"Low"`. Passing a whole,
+already-typed field value from the wrong contract — `r.priority` (typed as the three-member union)
+into `followUpPriorityTone`, or `r.follow_up_priority` (the five-member union) into
+`importancePriorityTone` — genuinely is a compile error, since neither whole union is assignable to
+the other (`"Normal"` isn't a member of the five-member union, and `"Medium"`/`"Watch"`/`"None"`
+aren't members of the three-member union). But a bare, narrowed literal is a different case entirely:
+a standalone `"High"` value (a literal type with just that one member, which is what TypeScript
+infers for something like a hardcoded string, a destructured single-case branch, or any expression
+narrowed down to that one string) is a valid subtype of *both* unions, since `"High"` is a member of
+each — TypeScript would happily compile `followUpPriorityTone("High")` even though that value, in
+context, might genuinely be an order's `priority`, not a payment's `follow_up_priority`.
+
+The current union shapes catch many accidental *whole-field* swaps — passing `r.priority` where
+`r.follow_up_priority` is expected fails loudly, today, with these five real fields. What they
+cannot catch is a narrowed literal crossing between the two meanings, because TypeScript's
+structural type checking verifies shape compatibility, not semantic provenance — it has no concept
+of "this `"High"` came from an importance ranking" versus "this `"High"` came from an urgency
+ranking." That distinction is preserved today only by explicit helper names and call-site review,
+not by the type system. If this project ever needed stronger protection than that, a *branded* type
+(a nominal wrapper distinguishing "importance priority" from "follow-up priority" at the type level,
+even though both are structurally just strings) could provide it — this project hasn't needed that
+extra machinery so far.
 </details>
 
 **Checkpoint:** Why does `StatusBadge` not just accept the raw contract field name (e.g.
@@ -692,7 +838,7 @@ anything. Three components had to translate that decision into specific, sometim
 counterintuitive choices.
 
 Open [`components/workflow/ReportCard.tsx`](../../../components/workflow/ReportCard.tsx) lines
-16–24 and 56–60:
+16–24 and 48–60:
 
 ```tsx
 type ReportCardProps =
@@ -707,9 +853,19 @@ const NOT_READY_COPY: Record<Exclude<ReportLifecycleState, "Ready">, string> = {
 ```
 
 ```tsx
-<Button variant="secondary" disabled title="Sample manifest only — no live download from this card">
-  Download .xlsx
-</Button>
+          {props.workflowHref ? (
+            <Link
+              href={props.workflowHref}
+              className={buttonVariants({ variant: "secondary" })}
+              title="Sample data shown here — upload files on the workflow page for a real download"
+            >
+              Go to workflow
+            </Link>
+          ) : (
+            <Button variant="secondary" disabled title="Sample manifest only — no live download from this card">
+              Download .xlsx
+            </Button>
+          )}
 ```
 
 > **Type theory — Discriminated union:** `ReportCardProps` is one type that's genuinely two
@@ -723,14 +879,26 @@ const NOT_READY_COPY: Record<Exclude<ReportLifecycleState, "Ready">, string> = {
 
 `ReportCard` supports all four Report Card lifecycle states Tutorial 08 Part 6 planned
 (`Needs Input`, `Not Generated`, `Processing`, `Ready`) — but every real call site in
-`app/dashboard/page.tsx` and `app/reports/page.tsx` passes `state="Ready"` with a genuine manifest
-from `lib/mock-data.ts`, because in a static showcase every report "has already run." The other
-three states exist purely so the component's full prop API is exercised in principle and captured
-by the `/imprint` workflow, not because any current page renders them. The `Ready` state's download
-button is permanently `disabled`, with an explanatory `title` rather than a working link — there is
-no generated `.xlsx` file anywhere in this repository for it to point to (report generation happens
-at Python runtime, per Tutorial 07), so a genuinely working download was never in scope for this
-phase; an honest disabled button was judged less misleading than a decorative-but-fake clickable one.
+`app/(workspace)/dashboard/page.tsx` and `app/(workspace)/reports/page.tsx` passes `state="Ready"`
+with a genuine manifest from `lib/mock-data.ts`, because in a static showcase every report "has
+already run." The other three states exist purely so the component's full prop API is exercised in
+principle and captured by the `/imprint` workflow, not because any current page renders them.
+
+The `Ready` state's action button has **two branches**, not one — `workflowHref?: string` is an
+optional field on the `Ready` variant, and its presence decides which branch renders. `dashboard/page.tsx`
+constructs its `ReportCard`s with no `workflowHref` at all, so it always hits the `disabled` `Button`
+branch shown above: an honest, permanently-disabled "Download .xlsx" with an explanatory `title`.
+`reports/page.tsx` passes a real `workflowHref` (a `WORKFLOW_HREF_BY_REPORT_TYPE` lookup keyed by
+`report_type`), so its cards render the *other* branch instead — a genuine `next/link` styled as a
+button, labeled "Go to workflow," that actually navigates to the corresponding workflow page. This
+`workflowHref` prop is a later addition to the component this tutorial's opening caveat didn't
+individually name — worth stating plainly here: the disabled-button behavior this Part focuses on is
+real and current for the dashboard's own cards, but it is not `ReportCard`'s entire `Ready`-state
+contract. There is no generated `.xlsx` file anywhere in this repository for either branch to
+actually download (report generation happens at Python runtime, per Tutorial 07), so a genuinely
+working *download from this card* was never in scope for either branch — the dashboard's disabled
+button says so honestly, and the reports page's "Go to workflow" link is real navigation to a page
+that *can* generate and download a report for real, not a disguised download button itself.
 
 **Checkpoint:** `ReportCard`'s `Needs Input`/`Not Generated`/`Processing` states have no current
 call site anywhere in the app. How would you verify they actually render correctly (not just
@@ -770,23 +938,32 @@ sentence of body text for its own non-`Ready` states, rather than relying on a h
 explanation.
 </details>
 
-**Checkpoint:** `WorkflowStepper` always renders `currentStep={steps.length - 1}` — the last step
-as current. If Phase 10 wires up a real (if fast) API call, does the stepper need to become a
-Client Component at that point, or can the parent page still compute the correct `currentStep`
-server-side per request and pass it down as a prop?
+**Checkpoint (historical, Phase 9):** At the time this Part describes, `WorkflowStepper` always
+received `currentStep={steps.length - 1}` — the last step as current, since a static showcase has
+no real in-progress state to distinguish. If a later phase wired up a real (if fast) API call, would
+the stepper need to become a Client Component at that point, or could the parent page still compute
+the correct `currentStep` and pass it down as a plain prop?
 
 <details>
-<summary>Reveal answer</summary>
+<summary>Reveal answer, then the current Phase 10 fact</summary>
 
-`WorkflowStepper` itself never needs to become a Client Component purely because the *value* it's
+`WorkflowStepper` itself never needed to become a Client Component purely because the *value* it's
 given changes — it already accepts `currentStep` as a plain number prop, computed entirely outside
-itself. If a future page's `currentStep` value depends on something only knowable in the browser
-(e.g. a live, in-progress upload's client-side state), then *that page* needs to be a Client
-Component to compute the value in the first place — but `WorkflowStepper` remaining a pure,
-prop-driven Server Component throughout is exactly right either way: it renders whatever
-`currentStep` it's handed, and has no opinion about whether that number was computed on the server
-or the client. This is the same "push interactivity to the smallest necessary boundary" principle
-Part 3's discriminated Server/Client split covered for `DataTable`'s column definitions.
+itself. The prediction has since been tested for real: Phase 10 wired up live API calls, and every
+one of the three workflow pages now computes `currentStep` itself —
+`const currentStep = status === "succeeded" ? 2 : canSubmit ? 1 : 0;`, identical in all three files
+(`app/(workspace)/order-validation/page.tsx`, `app/(workspace)/inventory-allocation/page.tsx`,
+`app/(workspace)/payment-aging/page.tsx`) — and passes the result to `<WorkflowStepper steps={STEPS}
+currentStep={currentStep} />`. `WorkflowStepper` itself is unchanged: still no `"use client"`, still
+just a directive-free, prop-driven presentational component that renders whatever number it's
+handed. But note precisely what "never needed to become a Client Component" actually means here:
+`WorkflowStepper` didn't need its *own* directive because the pages computing `currentStep` were
+already Client Components for an unrelated reason (Part 3's `DataTable` function-prop constraint) —
+so as currently imported, `WorkflowStepper` is part of the client module graph regardless, not
+because of anything about its own code. This is the same "push interactivity to the smallest
+necessary boundary" principle Part 3's discriminated Server/Client split covered for `DataTable`'s
+column definitions — it's just worth being precise that "doesn't need its own directive" and "ends
+up server-rendered" are two different claims.
 </details>
 
 **Try it yourself:** Open `components/workflow/UploadPanel.tsx` in full and find the paragraph
@@ -804,6 +981,17 @@ raw JSON paths directly — `plan.md`'s own invariant states this as a hard rule
 is the only place pages import mock JSON from." The one assertion boundary (`as
 OrderValidationResult`, etc.) lives in exactly that one file, so every page downstream gets already-
 typed data with no repeated, scattered type assertions to keep consistent.
+
+**Try it yourself:** Pick one import — say, `paymentAgingResult` from `@/lib/mock-data` — and trace
+it from raw JSON to typed constant to page. Open `lib/mock-data.ts` and find the line
+`export const paymentAgingResult = paymentAgingData as PaymentAgingResult;`. State precisely what
+this line does and does not do: it tells TypeScript to *trust* that `paymentAgingData` (the raw,
+untyped JSON import) has the shape `PaymentAgingResult` — it performs no runtime check that the JSON
+actually does. Then open `lib/mock-data/payment-aging.json` directly and manually delete one
+required field (e.g. `follow_up_priority`) from its first row, in a scratch copy — don't edit the
+real file. Would `npm run typecheck` catch that missing field? Would the page that renders it? This
+is the concrete version of Tutorial 09's `as Type` boundary: a trusted cast, backed by deterministic
+generation from a real Python pipeline, not runtime schema validation.
 
 ## Part 7 — Generic tables with deliberately small behavior
 
@@ -849,24 +1037,40 @@ would mean writing and "testing" behavior with no real way to verify it worked.
 
 **Checkpoint:** `DataTable`'s sort comparator does `va < vb ? -1 : va > vb ? 1 : 0` directly on
 whatever `sortValue` returns. `AllocationResultRow.priority` is sorted this way as a string
-(`"High" < "Low" < "Normal"` alphabetically) rather than by actual importance rank. Is that a real
-bug worth fixing now, or acceptable because the mock data only has one row per table so it's never
-visibly wrong yet?
+(`"High" < "Low" < "Normal"` alphabetically) rather than by actual importance rank. At the time this
+Part describes, mock fixtures were 1–2 rows per table, so this was a real but invisible latent bug.
+Is that still true of the current app?
 
 <details>
 <summary>Reveal answer</summary>
 
-It's a real, latent bug — alphabetical ordering of `"High"`/`"Normal"`/`"Low"` genuinely
-misrepresents the business meaning of that field (`"High"` sorting *before* `"Normal"` is
-coincidentally correct alphabetically, but `"Low"` sorting *between* them is not) — but it's
-correctly deprioritized rather than urgently wrong, for exactly the reason `explanation.md` §5 gives
-generally: the current mock data can't visibly demonstrate the bug at all with only one or two rows
-per table. The fix, when it matters, is straightforward and consistent with this Part's own
-column-def philosophy: `sortValue` for a priority column should return a numeric rank
-(`PRIORITY_RANK`-style, the same lookup Tutorial 04 covered for the Python side's own sort) rather
-than the raw string, so the three-way comparator sorts by meaning instead of alphabet — a
-column-definition-level fix, not a `DataTable` internals change, which is exactly the kind of
-localized fix this Part's "column defs stay page-level" design was built to make cheap.
+No — this is now a **current, observable defect**, not a latent one. The sample-data-enrichment
+session (a later, separate session in this project's history) regenerated the mock JSON with far
+more rows: `lib/mock-data/order-validation.json` and `lib/mock-data/inventory-allocation.json` each
+carry 28 rows, `lib/mock-data/payment-aging.json` carries 25 — plenty of distinct priority/status/
+aging-bucket values to make alphabetical ordering visibly wrong to any real user sorting those
+columns today, not just a theoretical concern. And the scope is broader than the one field this
+checkpoint names: the current source shows the same raw-string `sortValue` pattern on every
+domain-ordered vocabulary field in the app —
+`app/(workspace)/order-validation/page.tsx:142` (`sortValue: (r) => r.priority`),
+`app/(workspace)/inventory-allocation/page.tsx:137` (`sortValue: (r) => r.status`) and `:144`
+(`sortValue: (r) => r.priority`), and
+`app/(workspace)/payment-aging/page.tsx:120` (`sortValue: (r) => r.aging_bucket`) and `:127`
+(`sortValue: (r) => r.follow_up_priority`). None of `"High"/"Normal"/"Low"`, `"Fully
+Allocated"/"Partially Allocated"/"Backordered"`, the five aging buckets, or `"High"/"Medium"/"Low"/
+"Watch"/"None"` sort correctly by spelling — alphabetical order is not chronological aging order,
+urgency order, or completion order.
+
+The fix, when applied, is straightforward and consistent with this Part's own column-def philosophy:
+each affected column's `sortValue` should return a numeric rank from an explicit rank map (the same
+`PRIORITY_RANK`-style lookup Tutorial 04 covered for the Python side's own sort) rather than the raw
+string, so the three-way comparator sorts by meaning instead of alphabet — a column-definition-level
+fix, not a `DataTable` internals change, which is exactly the kind of localized fix this Part's
+"column defs stay page-level" design was built to make cheap. `AllocationResultRow.status`'s
+intended sort order is worth deciding explicitly too (`Fully Allocated` → `Partially Allocated` →
+`Backordered` reads as a reasonable urgency-descending order, but that's a product decision to make
+deliberately, not inherit accidentally from alphabetical spelling). This tutorial names the defect;
+fixing it in the running application is a real, separate piece of work this tutorial doesn't do.
 </details>
 
 **Checkpoint:** The content-verification route checks grepped for specific strings like
@@ -889,6 +1093,15 @@ place, which would require a real DOM-aware check (or, in this project's actual 
 currently exists for the frontend at all — the Python `pytest` suite is this project's only
 automated test coverage today).
 </details>
+
+**Try it yourself:** Take three sample priority values — `["Low", "High", "Normal"]` — and sort them
+two ways. First, alphabetically (JavaScript's default `Array.prototype.sort()` behavior, the same
+comparator shape `DataTable` currently applies to `sortValue`'s raw string return): confirm the
+result is `["High", "Low", "Normal"]`. Then sort them by actual importance rank (High → Normal →
+Low, the order a real user would expect a "priority" column to mean): confirm the result should be
+`["High", "Normal", "Low"]`. The two orderings only happen to agree on where `"High"` sits — compare
+where `"Low"` and `"Normal"` land in each, and you've reproduced, by hand, the exact defect the
+checkpoint above describes as now current and observable in the real app.
 
 ## Part 8 — Display formatting without changing business meaning
 
@@ -963,13 +1176,31 @@ targeted one is a legitimate next step once the noise itself has been characteri
 have skipped the noisy check in the first place.
 </details>
 
+**Try it yourself:** Change nothing — this is a mechanical comparison, not an edit. Pick one entry
+in `context/ui-registry.md` you haven't already cross-checked in this tutorial (`MetricCard` or
+`Card`, for instance). Open its real component file and compare every documented visual property
+(background, border, spacing, hover/focus state) against what the code actually does.
+
+<details>
+<summary>Reveal a worked example</summary>
+
+Pick `Card`. `context/ui-registry.md`'s entry should describe a white surface, a border, rounded
+corners, and consistent padding. Open `components/ui/Card.tsx` and confirm each claim resolves to a
+real class: `bg-surface` for the white background, `border border-border` for the border, a
+`rounded-*` class for the corner radius, and a `p-*` class for padding — every one of them a real
+`ui-tokens.md`-sourced semantic class, not a raw Tailwind palette value. Confirming this by hand,
+entry by entry, is exactly the "someone happened to compare them side by side" mechanism the
+checkpoint above named as the *only* current way this kind of drift gets caught — there is no
+automated check enforcing agreement between the registry's prose and the component's real code.
+</details>
+
 ## Full data flow: one validation error row, from typed mock data to a rendered badge
 
 1. **Typed mock data is imported.** `lib/mock-data.ts`'s `orderValidationResult` (Tutorial 09 Part
    7) — already asserted as `OrderValidationResult`, its `errors` array already typed as
    `ValidationErrorRow[]`.
 2. **A page-level column definition names the field.**
-   `app/order-validation/page.tsx`'s `ERROR_COLUMNS` (Part 3): the `severity` column's `render`
+   `app/(workspace)/order-validation/page.tsx`'s `ERROR_COLUMNS` (Part 3): the `severity` column's `render`
    function reads `r.severity` and builds `<StatusBadge status={r.severity}
    tone={severityTone(r.severity)} />`.
 3. **The page, already a Client Component, passes both the column array and the data into
@@ -996,20 +1227,22 @@ would fail at build time with the exact error Part 3 quotes.
 ## Extend it (challenges)
 
 **Challenge 1 — Trace** (15–20 min): Follow the two meanings of `"High"` to their separate tone
-helpers and call sites. Open `app/order-validation/page.tsx` and find every call site that uses
-`importancePriorityTone`. Open `app/payment-aging/page.tsx` and find every call site that uses
-`followUpPriorityTone`. For each, confirm the field being passed (`priority` vs.
+helpers and call sites. Open `app/(workspace)/order-validation/page.tsx` and
+`app/(workspace)/inventory-allocation/page.tsx` and find every call site that uses
+`importancePriorityTone`. Open `app/(workspace)/payment-aging/page.tsx` and find every call site
+that uses `followUpPriorityTone`. For each, confirm the field being passed (`priority` vs.
 `follow_up_priority`) and the resulting tone for a `"High"` value. Write out, in one sentence each,
 why the two results genuinely should differ rather than being an inconsistency to fix.
 
 <details>
 <summary>Hint</summary>
 
-You should find `importancePriorityTone` called at least twice in `order-validation/page.tsx`
-(once for `ValidOrderRow.priority`, and — if you look closely — nowhere else, since
-`ValidationErrorRow` has no priority field of its own) and once more in
-`inventory-allocation/page.tsx` for `AllocationResultRow.priority`. `followUpPriorityTone` should
-appear only in `payment-aging/page.tsx`.
+You should find `importancePriorityTone` called exactly once in `order-validation/page.tsx` (for
+`ValidOrderRow.priority`, inside `VALID_ORDER_COLUMNS` — nowhere else in that file, since
+`ValidationErrorRow` has no priority field of its own) and exactly once in
+`inventory-allocation/page.tsx` (for `AllocationResultRow.priority`) — two call sites total across
+the whole codebase, not two within the same file. `followUpPriorityTone` should appear exactly once,
+only in `payment-aging/page.tsx`.
 </details>
 
 **Challenge 2 — Extend** (20–30 min): Design a small Client child component that owns one table's
@@ -1031,14 +1264,26 @@ need client interactivity themselves (`WorkflowStepper` genuinely doesn't; `Uplo
 does, per its own `"use client"` and `useState`).
 </details>
 
-**Challenge 3 — Break and fix** (30–45 min): In a scratch branch or a throwaway local edit (don't
-commit it), remove the `"use client"` directive from the top of `app/order-validation/page.tsx`,
-leaving everything else unchanged. Predict, in writing, before running anything: will `npm run
-build` fail, and if so, with what error? Then actually run the build and compare. Finally, describe
-the two valid repairs (per Part 3's checkpoints) — re-adding `"use client"` to the page itself, and
-the alternative "move column defs into a small Client child" approach from Challenge 2 — and state
-one concrete situation where you'd genuinely prefer the second repair over the trivially easier
-first one.
+**Challenge 3 — Break and fix** (30–45 min): The real `order-validation/page.tsx` no longer isolates
+Part 3's serialization error cleanly — it's grown well past a bare `DataTableColumn` array since
+Phase 10: ten-plus `useState` hooks, several `useMemo` calls, live `File` uploads, event handlers.
+Removing its `"use client"` directive today would very likely surface a *different*, earlier error
+first (Server Components cannot call `useState`/`useMemo` at all — a hooks-in-Server-Component
+violation), not the function-serialization error this Part is actually about. To isolate the
+concept cleanly, build a **minimal scratch pair** instead, in a throwaway location (don't commit
+it):
+
+1. A tiny Server page (no `"use client"`, no hooks) that constructs a `DataTableColumn`-shaped
+   array containing at least one `render` function, and passes it as a prop to —
+2. A tiny Client child component (`"use client"`) that just receives that array and renders
+   something trivial with it — it doesn't need real `DataTable` internals, just a function-typed
+   prop crossing the boundary.
+
+Predict, in writing, before running anything: will `npm run build` fail, and if so, with what error?
+Then actually run the build and compare. Finally, describe the two valid repairs (per Part 3's
+checkpoints) — marking the *page* `"use client"` too, versus constructing the column array *inside*
+the already-client child instead of passing it across the boundary — and state one concrete
+situation where you'd genuinely prefer the second repair over the trivially easier first one.
 
 <details>
 <summary>Hint</summary>
@@ -1046,11 +1291,12 @@ first one.
 Your prediction should name the exact error text this tutorial already quoted in Part 3 —
 `"Functions cannot be passed directly to Client Components unless you explicitly expose it by
 marking it with \"use server\"."` — since the root cause (an unserializable `render` function
-inside `ERROR_COLUMNS`) is unchanged by this experiment; only the page's own directive changed.
+crossing a Server→Client boundary) is exactly what this minimal pair is built to isolate, with
+nothing else (hooks, uploads, live state) around to produce a different, earlier failure instead.
 </details>
 
 For deeper exploration,
-`docs/plan/phase-9-reusable-ui-components-static-pages/ai-discussion-topics.md` has all 17
+[`docs/plan/phase-9-reusable-ui-components-static-pages/ai-discussion-topics.md`](../../plan/phase-9-reusable-ui-components-static-pages/ai-discussion-topics.md) has all 17
 prompts this tutorial's checkpoints were woven from, organized under their original five headings
 (Server/Client component boundary, StatusBadge and tone mapping, the shadcn hand-write decision,
 the static showcase decision, and DataTable design/verification methodology). Feed them to an LLM

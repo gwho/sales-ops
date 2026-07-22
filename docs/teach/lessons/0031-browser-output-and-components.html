@@ -32,8 +32,9 @@
   </div>
 
   <h2>Three jobs, three languages</h2>
-  <p>A browser turns a text file into a picture on screen using three separate technologies, each
-  with one job:</p>
+  <p>A browser turns a text file into a picture on screen using three separate technologies. Each
+  has a <strong>primary</strong> responsibility — not an exclusive one, as the qualifications right
+  after the table show:</p>
   <table>
     <tr><th>Language</th><th>Job</th><th>Answers the question</th></tr>
     <tr><td>HTML</td><td>Structure</td><td>What <em>is</em> this piece of content — a heading, a
@@ -43,35 +44,66 @@
     <tr><td>JavaScript</td><td>Behavior</td><td>What should happen when the user <em>does</em>
     something — click, type, scroll?</td></tr>
   </table>
-  <p>This split isn't specific to React or Next.js — it's the browser's own division of labor, and
-  it predates every JavaScript framework by decades. A React component still ultimately produces
+  <p>None of the three is actually confined to its own column, though. HTML elements bring some
+  real behavior of their own, for free — a real <code>&lt;button&gt;</code>, <code>&lt;a&gt;</code>,
+  form control, or <code>&lt;details&gt;</code> element already responds to clicks, focus, and
+  keyboard input before any JavaScript runs. CSS can respond to state through selectors like
+  <code>:hover</code> and <code>:focus-visible</code> and through media queries, and can drive its
+  own animations, with zero JavaScript involved. JavaScript, for its part, routinely reaches into
+  the other two columns — creating and removing HTML structure, changing classes and inline
+  styles. And a browser can render a genuinely useful page with no JavaScript running at all. This
+  split isn't specific to React or Next.js — it's the browser's own division of labor, and it
+  predates every JavaScript framework by decades — but it's a map of where each technology's
+  <em>strength</em> lies, not a wall between them. A React component still ultimately produces
   HTML, still gets its look from CSS, and still runs JavaScript for behavior; React just changes
   <em>how</em> those three things get written and combined, not what each one is responsible for.</p>
 
   <h2>A component, before any framework exists</h2>
-  <p>A <strong>component</strong> is a reusable, self-contained unit of UI — a chunk of structure,
-  presentation, and behavior bundled together and given a name, so it can be reused wherever that
-  same piece of UI is needed. A button that shows a label and responds to a click is a component
-  whether it's written as a hand-rolled HTML/CSS/JS snippet, a React function, or a Next.js file —
-  the concept exists independently of any of those.</p>
+  <p>A <strong>component</strong> is a named, reusable UI unit with a defined responsibility and
+  inputs. It <em>may</em> combine structure, presentation, and behavior — a button that shows a
+  label and responds to a click bundles all three, and is a component whether it's written as a
+  hand-rolled HTML/CSS/JS snippet, a React function, or a Next.js file — but it doesn't need all
+  three to count. A component that only renders structure and picks its own presentation, with no
+  user-triggered behavior at all, is still a real component; you'll meet a real one below.</p>
 
   <div class="box primer">
-    <p class="box-label">A component without React — plain HTML/CSS/JS</p>
-    <pre><code>&lt;!-- structure --&gt;
-&lt;button class="badge badge--warning" id="statusBadge"&gt;Backordered&lt;/button&gt;
+    <p class="box-label">A component without React — plain HTML/CSS/JS, genuinely reusable</p>
+    <pre><code>&lt;!-- structure, produced by a function, not hardcoded once --&gt;
+&lt;script&gt;
+function createStatusBadge(label, tone) {
+  const el = document.createElement("span");
+  el.className = `badge badge--${tone}`;
+  el.textContent = label;
+  return el;
+}
+&lt;/script&gt;
 
-/* presentation */
+/* presentation — real project tokens, no hardcoded hex */
 .badge { padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.85rem; }
-.badge--warning { background: #fff3cd; color: #7a5b00; }
+.badge--warning { background: hsl(var(--warning-subtle)); color: hsl(var(--warning)); }
+.badge--success { background: hsl(var(--success-subtle)); color: hsl(var(--success)); }
 
-// behavior
-document.getElementById("statusBadge").addEventListener("click", () =&gt; {
-  console.log("Status badge clicked");
-});</code></pre>
-    <p>Nothing here is React. It's still a component in every meaningful sense: one reusable unit,
-    one name, structure + presentation + behavior bundled together. This project's real
-    <span class="filelink">components/workflow/StatusBadge.tsx</span> (Track 5's Tutorial 10) does
-    the same job — it just expresses it as a typed React function instead of a raw DOM snippet.</p>
+&lt;!-- usage: label and tone are real inputs, called as many times as needed --&gt;
+&lt;script&gt;
+document.querySelector("#demo").append(
+  createStatusBadge("Backordered", "warning"),
+  createStatusBadge("Fully Allocated", "success"),
+);
+&lt;/script&gt;</code></pre>
+    <p>Nothing here is React, and this one is genuinely reusable — unlike a single hardcoded
+    <code>id</code>, <code>createStatusBadge</code> takes a label and a tone as real inputs and
+    returns a fresh element every time it's called, so calling it twice never collides the way one
+    fixed ID would. It's a component in every meaningful sense: one name, one defined
+    responsibility, callable with different inputs wherever that same piece of UI is needed. It's
+    also deliberately display-only — no click handler, no behavior at all — which sets up an
+    honest comparison with this project's real
+    <a class="filelink" href="../../../components/workflow/StatusBadge.tsx">components/workflow/StatusBadge.tsx</a>
+    (built in
+    <a class="filelink" href="../../tutorials/10-reusable-ui-components-static-pages/README.md">Tutorial
+    10</a>): both are named, reusable, take a label/tone as input, and render structure plus
+    presentation — and neither one has any user-triggered behavior at all. That's not a gap in
+    either one. A status label isn't a button, and shouldn't have to act like one to count as a
+    component.</p>
   </div>
 
   <div class="say-avoid">
@@ -92,9 +124,9 @@ document.getElementById("statusBadge").addEventListener("click", () =&gt; {
     <div class="quiz" data-quiz>
       <p class="quiz-question">Which language answers "what should happen when the user clicks this button?"</p>
       <div class="quiz-options">
-        <button class="quiz-option" data-correct="false">HTML</button>
-        <button class="quiz-option" data-correct="false">CSS</button>
-        <button class="quiz-option" data-correct="true">JavaScript</button>
+        <button class="quiz-option" data-correct="false">HTML markup</button>
+        <button class="quiz-option" data-correct="false">CSS rules</button>
+        <button class="quiz-option" data-correct="true">JavaScript code</button>
       </div>
       <p class="quiz-feedback" hidden></p>
     </div>
@@ -103,8 +135,8 @@ document.getElementById("statusBadge").addEventListener("click", () =&gt; {
       <p class="quiz-question">Is "component" a concept that belongs specifically to React?</p>
       <div class="quiz-options">
         <button class="quiz-option" data-correct="false">Yes — it was invented by the React team</button>
-        <button class="quiz-option" data-correct="true">No — it's a general UI concept; React is one way of expressing it</button>
-        <button class="quiz-option" data-correct="false">Only for Next.js App Router projects</button>
+        <button class="quiz-option" data-correct="true">No — it's just a general concept, not React-specific</button>
+        <button class="quiz-option" data-correct="false">Only inside more modern Next.js App Router projects</button>
       </div>
       <p class="quiz-feedback" hidden></p>
     </div>
@@ -112,14 +144,28 @@ document.getElementById("statusBadge").addEventListener("click", () =&gt; {
 
   <h2>Tiny exercise (5 minutes)</h2>
   <div class="box exercise">
-    <p class="box-label">Exercise</p>
-    <p>Open <span class="filelink">app/globals.css</span> and find any one CSS rule. Say out loud
-    which of the three jobs (structure, presentation, behavior) it belongs to, and why it couldn't
-    belong to either of the other two. Then open
-    <span class="filelink">components/workflow/StatusBadge.tsx</span> (you don't need to
-    understand the React syntax yet) and just point at — don't read closely — the parts that look
-    like they're doing structure versus behavior. You're building a landmark for L5.2, not
-    analyzing the file yet.</p>
+    <p class="box-label">Exercise — predict, inspect, then check mechanically</p>
+    <p><strong>Predict first.</strong> Open
+    <a class="filelink" href="../../../app/globals.css">app/globals.css</a> and find any one CSS
+    rule. Say out loud which of the three jobs (structure, presentation, behavior) it belongs to,
+    and why it couldn't belong to either of the other two.</p>
+    <p><strong>Then inspect.</strong> Open
+    <a class="filelink" href="../../../components/workflow/StatusBadge.tsx">components/workflow/StatusBadge.tsx</a>
+    (you don't need to understand the React syntax yet) and decide, for the whole file: does it
+    contain structure, a presentation mapping, real user behavior, or some combination? Write down
+    your answer before revealing.</p>
+    <details>
+    <summary>Reveal</summary>
+    <p><code>StatusBadge</code> renders structure (it returns a <code>Badge</code> element wrapping
+    the status text) and selects presentation through its <code>tone</code> input — a caller picks
+    <code>"success"</code>/<code>"warning"</code>/<code>"danger"</code>/etc., and that's what
+    decides the color — but it defines no user event behavior at all: nothing responds to a click,
+    a key press, or any other thing a user does.</p>
+    </details>
+    <p><strong>Confirm mechanically.</strong> Search the file for <code>onClick</code>,
+    <code>onChange</code>, <code>onKeyDown</code>, or any other event prop. There are none — the
+    same real, checkable absence the reveal above just described in words, not something to take on
+    faith. You're building a landmark for L5.2, not analyzing the file in full yet.</p>
   </div>
 
   <div class="ask-teacher">
